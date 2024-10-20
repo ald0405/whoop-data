@@ -1,7 +1,5 @@
 from dotenv import load_dotenv
 
-import seaborn as sns
-import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import numpy as np
@@ -13,7 +11,7 @@ from whoop_functions import (
     replace_periods,
     transform_workouts,
     transform_cycles,
-    transform_recovery,
+    transform_recovery
 )
 
 # Load variables
@@ -154,7 +152,7 @@ workout["sport_name"] = workout["sport_id"].map(dim_workout_sports_id_look_up)
 
 recovery.info()
 
-recovery[["created_at", "score.recovery_score", "score.resting_heart_rate"]]
+recovery[['created_at','score.recovery_score','score.resting_heart_rate']]
 
 
 # ==============================================================================
@@ -164,7 +162,7 @@ stg_sleep = transform_sleep(sleep)
 stg_workouts = transform_workouts(workout)
 stg_cycles = transform_cycles(cycle)
 stg_recovery = transform_recovery(recovery)
-stg_recovery = stg_recovery[stg_recovery["user_calibrating"] == False]
+stg_recovery = stg_recovery[stg_recovery['user_calibrating'] == False]
 
 stg_cycles.info()
 stg_recovery.info()
@@ -172,25 +170,27 @@ stg_workouts.info()
 stg_sleep.info()
 
 
+# Model
+
 # Ensure necessary datetime conversions for stg_workouts and stg_sleep
-stg_workouts["workout_start_ts"] = pd.to_datetime(stg_workouts["workout_start_ts"])
-stg_workouts["workout_end_ts"] = pd.to_datetime(stg_workouts["workout_end_ts"])
-stg_sleep["sleep_start_ts"] = pd.to_datetime(stg_sleep["sleep_start_ts"])
-stg_sleep["sleep_end_ts"] = pd.to_datetime(stg_sleep["sleep_end_ts"])
+stg_workouts['workout_start_ts'] = pd.to_datetime(stg_workouts['workout_start_ts'])
+stg_workouts['workout_end_ts'] = pd.to_datetime(stg_workouts['workout_end_ts'])
+stg_sleep['sleep_start_ts'] = pd.to_datetime(stg_sleep['sleep_start_ts'])
+stg_sleep['sleep_end_ts'] = pd.to_datetime(stg_sleep['sleep_end_ts'])
 
 # Step 1: Check for missing values in 'score_strain'
-missing_strain = stg_workouts["score_strain"].isnull().sum()
+missing_strain = stg_workouts['score_strain'].isnull().sum()
 print(f"Missing values in 'score_strain': {missing_strain}")
 
 # Step 2: Handle missing values (if any) in 'score_strain'
 # Option 1: Fill missing values with 0
-stg_workouts["score_strain"].fillna(0, inplace=True)
+stg_workouts['score_strain'].fillna(0, inplace=True)
 
 # Option 2: Drop rows with missing 'score_strain' (optional)
 # stg_workouts = stg_workouts.dropna(subset=['score_strain'])
 
 # Step 3: Filter stg_workouts to include only records that fall within the cycle's start and end times
-df_workouts_filtered = pd.merge(stg_cycles, stg_workouts, how="left", on="user_id")
+df_workouts_filtered = pd.merge(stg_cycles, stg_workouts, how='left', on='user_id')
 
 
 # Debugging: Check the merge result before filtering
@@ -199,66 +199,49 @@ print(df_workouts_filtered.head())
 
 # Apply the filtering condition
 df_workouts_filtered = df_workouts_filtered.query(
-    "workout_start_ts >= cycle_start_ts and workout_end_ts <= cycle_end_ts"
+    'workout_start_ts >= cycle_start_ts and workout_end_ts <= cycle_end_ts'
 )
 
 # Debugging: Check the filtered DataFrame to ensure `score_strain` is still present
 print("Filtered DataFrame (after time-based filtering):")
-print(df_workouts_filtered[["cycle_id", "score_strain_y", "workout_id"]].head())
+print(df_workouts_filtered[['cycle_id', 'score_strain_y', 'workout_id']].head())
 # Step 4: Aggregate the workout data by cycle_id
-df_workouts_aggregated = (
-    df_workouts_filtered.groupby("cycle_id")
-    .agg(
-        {
-            "score_strain_y": "sum",  # Sum of strain scores for the cycle
-            "workout_id": "count",  # Count of workouts in the cycle
-        }
-    )
-    .reset_index()
-    .rename(columns={"score_strain_y": "total_strain", "workout_id": "num_workouts"})
-)
+df_workouts_aggregated = df_workouts_filtered.groupby('cycle_id').agg({
+    'score_strain_y': 'sum',        # Sum of strain scores for the cycle
+    'workout_id': 'count'         # Count of workouts in the cycle
+}).reset_index().rename(columns={
+    'score_strain_y': 'total_strain', 
+    'workout_id': 'num_workouts'
+})
 
 # Step 5: Merge the aggregated workout data back to the cycles + recovery DataFrame
-df_cycles_recovery = pd.merge(stg_cycles, stg_recovery, on="cycle_id", how="left")
-df_cycles_recovery_workouts = pd.merge(
-    df_cycles_recovery, df_workouts_aggregated, on="cycle_id", how="left"
-)
+df_cycles_recovery = pd.merge(stg_cycles, stg_recovery, on='cycle_id', how='left')
+df_cycles_recovery_workouts = pd.merge(df_cycles_recovery, df_workouts_aggregated, on='cycle_id', how='left')
 
 # Step 6: Filter stg_sleep to include only records that fall within the cycle's start and end times
-df_sleep_filtered = pd.merge(stg_cycles, stg_sleep, how="left", on="user_id").query(
-    "sleep_start_ts >= cycle_start_ts and sleep_end_ts <= cycle_end_ts"
+df_sleep_filtered = pd.merge(stg_cycles, stg_sleep, how='left', on='user_id').query(
+    'sleep_start_ts >= cycle_start_ts and sleep_end_ts <= cycle_end_ts'
 )
 
 # Step 7: Aggregate the sleep data by cycle_id
-df_sleep_aggregated = (
-    df_sleep_filtered.groupby("cycle_id")
-    .agg(
-        {
-            "score_stage_summary_total_in_bed_time_hrs": "sum",  # Total time in bed
-            "score_sleep_performance_percentage": "mean",  # Average sleep performance
-            "score_stage_summary_total_light_sleep_time_hrs": "sum",  # Total light sleep time
-            "score_stage_summary_total_rem_sleep_time_hrs": "sum",  # Total REM sleep time
-            "score_stage_summary_total_slow_wave_sleep_time_hrs": "sum",  # Total slow wave sleep time
-            "score_respiratory_rate": "mean",  # Average respiratory rate
-        }
-    )
-    .reset_index()
-    .rename(
-        columns={
-            "score_stage_summary_total_in_bed_time_hrs": "total_in_bed_time_hrs",
-            "score_sleep_performance_percentage": "avg_sleep_performance",
-            "score_stage_summary_total_light_sleep_time_hrs": "total_light_sleep_time_hrs",
-            "score_stage_summary_total_rem_sleep_time_hrs": "total_rem_sleep_time_hrs",
-            "score_stage_summary_total_slow_wave_sleep_time_hrs": "total_slow_wave_sleep_time_hrs",
-            "score_respiratory_rate": "avg_respiratory_rate",
-        }
-    )
-)
+df_sleep_aggregated = df_sleep_filtered.groupby('cycle_id').agg({
+    'score_stage_summary_total_in_bed_time_hrs': 'sum',           # Total time in bed
+    'score_sleep_performance_percentage': 'mean',                 # Average sleep performance
+    'score_stage_summary_total_light_sleep_time_hrs': 'sum',      # Total light sleep time
+    'score_stage_summary_total_rem_sleep_time_hrs': 'sum',        # Total REM sleep time
+    'score_stage_summary_total_slow_wave_sleep_time_hrs': 'sum',  # Total slow wave sleep time
+    'score_respiratory_rate': 'mean'                              # Average respiratory rate
+}).reset_index().rename(columns={
+    'score_stage_summary_total_in_bed_time_hrs': 'total_in_bed_time_hrs',
+    'score_sleep_performance_percentage': 'avg_sleep_performance',
+    'score_stage_summary_total_light_sleep_time_hrs': 'total_light_sleep_time_hrs',
+    'score_stage_summary_total_rem_sleep_time_hrs': 'total_rem_sleep_time_hrs',
+    'score_stage_summary_total_slow_wave_sleep_time_hrs': 'total_slow_wave_sleep_time_hrs',
+    'score_respiratory_rate': 'avg_respiratory_rate'
+})
 
 # Step 8: Merge the aggregated sleep data back to the cycles + recovery + workouts DataFrame
-df_final_fact_table = pd.merge(
-    df_cycles_recovery_workouts, df_sleep_aggregated, on="cycle_id", how="left"
-)
+df_final_fact_table = pd.merge(df_cycles_recovery_workouts, df_sleep_aggregated, on='cycle_id', how='left')
 
 # Step 9: Final check of the merged DataFrame
 print("Final fact table with cycles, recovery, workouts, and sleep data:")
@@ -268,3 +251,4 @@ df_final_fact_table.info()
 
 
 df_final_fact_table.to_csv("data/whoop.csv")
+
