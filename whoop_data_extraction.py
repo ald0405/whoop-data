@@ -255,7 +255,10 @@ df_final_fact_table.info()
 df_final_fact_table.to_csv("data/whoop.csv")
 
 
-
+# ============================================================================================================
+# TODO Still being worked on
+# ============================================================================================================
+#? Added data from google export
 # read in google fit export data 
 df_g = pd.read_csv("data/Daily activity metrics.csv")
 
