@@ -80,8 +80,8 @@ feature_cols = [
     'score_stage_summary_total_rem_sleep_time_hrs',
     'total_sleep_time_hrs',
     'score_stage_summary_total_awake_time_hrs',
-    'score_sleep_efficiency_percentage',
-    'score_sleep_consistency_percentage',
+    # 'score_sleep_efficiency_percentage',
+    # 'score_sleep_consistency_percentage',
 ]
 # Define X and y
 X = df[feature_cols]
@@ -97,12 +97,6 @@ print(f"Training set size: {X_train.shape}")
 print(f"Testing set size: {X_test.shape}")
 
 scaler = StandardScaler()
-
-# Fit on training data
-X_train_scaled = scaler.fit_transform(X_train)
-
-# Transform test data
-X_test_scaled = scaler.transform(X_test)
 
 
 scaler = StandardScaler()
@@ -167,3 +161,106 @@ plt.title('Distribution of Sleep Time in Hours')
 plt.xlabel('Sleep Time (Hours)')
 plt.ylabel('Frequency')
 plt.show()
+# ========================================================================
+# Linear Regression
+# ========================================================================
+# Machine Learning
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, r2_score,root_mean_squared_error
+# Initialize the Linear Regression model
+lin_reg = LinearRegression()
+
+# Train the model on the training data
+lin_reg.fit(X_train, y_train)
+
+# Display the coefficients
+coefficients = pd.Series(lin_reg.coef_, index=X_train.columns)
+print("Linear Regression Coefficients:")
+print(coefficients)
+# Make predictions on the test set
+y_pred = lin_reg.predict(X_test)
+
+# Calculate evaluation metrics
+mae = mean_absolute_error(y_test, y_pred)
+rmse = root_mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+# Print the evaluation metrics
+print("\nLinear Regression Model Evaluation:")
+print(f"Mean Absolute Error (MAE): {mae:.2f}")
+print(f"Root Mean Squared Error (RMSE): {rmse:.2f}")
+print(f"R-squared (R²): {r2:.2f}")
+
+# ===============================================================================================
+# XGBoost
+# ===============================================================================================
+import xgboost as xgb 
+# Initialize the XGBoost Regressor
+xgb_reg = xgb.XGBRegressor(
+    objective='reg:squarederror',  # For regression tasks
+    n_estimators=100,              # Number of trees
+    learning_rate=0.1,             # Step size shrinkage
+    max_depth=6,                   # Maximum tree depth for base learners
+    random_state=42,               # For reproducibility
+    n_jobs=-1                      # Use all available cores
+)
+
+# Train the model
+xgb_reg.fit(X_train, y_train)
+
+# Display the parameters
+print("XGBoost Regressor Parameters:")
+print(xgb_reg.get_params())
+# Make predictions on the test set
+y_pred_xgb = xgb_reg.predict(X_test)
+# Calculate evaluation metrics
+mae_xgb = mean_absolute_error(y_test, y_pred_xgb)
+rmse_xgb = root_mean_squared_error(y_test, y_pred_xgb)
+r2_xgb = r2_score(y_test, y_pred_xgb)
+
+# Print the evaluation metrics
+print("\nXGBoost Regression Model Evaluation:")
+print(f"Mean Absolute Error (MAE): {mae_xgb:.2f}")
+print(f"Root Mean Squared Error (RMSE): {rmse_xgb:.2f}")
+print(f"R-squared (R²): {r2_xgb:.2f}")
+
+
+# =====================================
+# Define the number of samples to display
+n_samples = 30
+
+# Create a DataFrame for easier plotting
+comparison_df = pd.DataFrame({
+    'Sample': range(1, n_samples + 1),
+    'Actual': y_test.iloc[:n_samples].values,
+    'Predicted': y_pred_xgb[:n_samples]
+})
+
+# Set the aesthetic style of the plots
+sns.set_theme(style="whitegrid")
+
+# Define the position of bars on the x-axis
+x = np.arange(n_samples)  # the label locations
+width = 0.35  # the width of the bars
+
+# Create the plot
+plt.figure(figsize=(14, 7))
+plt.bar(x - width/2, comparison_df['Actual'], width, label='Actual', color='#32D9D5')
+plt.bar(x + width/2, comparison_df['Predicted'], width, label='Predicted', color='black')
+
+# Add labels, title, and custom x-axis tick labels
+plt.xlabel('Sample Number', fontsize=14)
+plt.ylabel('Sleep Score (%)', fontsize=14)
+plt.title('Actual vs. Predicted Sleep Scores', fontsize=16)
+plt.xticks(x, comparison_df['Sample'])
+
+# Add a legend
+plt.legend(fontsize=12)
+
+# Add gridlines for better readability
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+# Display the plot
+plt.tight_layout()
+plt.show()
+# =============
