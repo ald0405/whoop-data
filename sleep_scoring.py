@@ -75,7 +75,6 @@ df['sleep_time_hr'].astype('timedelta64[s]')
 
 df['total_sleep_time_hrs'] = df['sleep_time_hr'].dt.total_seconds() / 3600
 
-
 feature_cols = [
     'score_stage_summary_total_rem_sleep_time_hrs',
     'total_sleep_time_hrs',
