@@ -1,7 +1,5 @@
 from dotenv import load_dotenv
 
-import seaborn as sns 
-import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import numpy as np
@@ -687,9 +685,10 @@ stg_sleep.info()
 sns.heatmap(key_metrics.corr(),cmap = 'viridis')
 plt.show()
 
+=======
+>>>>>>> f7b2a03cd854ae51e8e0ce135b5c24a012824cb0
 # A cycle end is the the same as when a sleep starts.
 cycle.iloc[1]["end"] == sleep.head(2)["start"][0]
-
 
 # Recovery doesn't have a time, but it it has cycle_id
 recovery.head(3)["created_at"]
@@ -698,13 +697,13 @@ recovery.head(3)["created_at"]
 sleep.head(2)["end"]
 recovery.info()
 
-stg_workouts.info()
+workout.info()
 sleep.info()
 cycle.info()
 
 # Slim down to the most needed columns
 # Format dates, times and needed deltas into useful columns
-# create a centralised fact table based on cycle, fct_cycles_extended, allocate stg_workouts based on cycle start dates
+# create a centralised fact table based on cycle, fct_cycles_extended, allocate workout based on cycle start dates
 sleep["end"] = pd.to_datetime(sleep["end"])
 sleep["start"] = pd.to_datetime(sleep["start"])
 
@@ -727,16 +726,16 @@ sleep[
 
 
 # Convert milli seconds to hours
-stg_sleep = transform_sleep(sleep)
+sleep_trans = transform_sleep(sleep)
 
-stg_sleep.info()
+sleep_trans.info()
 
-stg_workouts.info()
-stg_workouts = transform_workouts(workout)
+workout.info()
+workout = transform_workouts(workout)
 
 weights.info()
 
-weights = stg_workouts[stg_workouts["workout_sport_name"] == "Weightlifting"]
+weights = workout[workout["workout_sport_name"] == "Weightlifting"]
 
 
 weights["start_hr"] = pd.to_datetime(weights["workout_start_ts"]).dt.strftime("%H")
@@ -771,30 +770,30 @@ plt.show()
 cycle.info()
 
 
-stg_cycles = transform_cycles(cycle)
+cyles_transformed = transform_cycles(cycle)
 
-stg_cycles.info()
+cyles_transformed.info()
 
 
 # Convert to date
-stg_cycles["cycle_day"] = pd.to_datetime(
-    stg_cycles["cycle_end_ts"]
+cyles_transformed["cycle_day"] = pd.to_datetime(
+    cyles_transformed["cycle_end_ts"]
 ).dt.date
 
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 plt.rcParams["figure.figsize"] = (15, 5)
-sns.lineplot(x="cycle_day", y="score_strain", data=stg_cycles)
+sns.lineplot(x="cycle_day", y="score_strain", data=cyles_transformed)
 plt.show()
 
-sns.lineplot(x="cycle_day", y="score_kilojoule", data=stg_cycles)
+sns.lineplot(x="cycle_day", y="score_kilojoule", data=cyles_transformed)
 plt.show()
 
-sns.lineplot(x="cycle_day", y="cycle_length_hours", data=stg_cycles)
+sns.lineplot(x="cycle_day", y="cycle_length_hours", data=cyles_transformed)
 plt.show()
 
-corr_matrix = stg_cycles[
+corr_matrix = cyles_transformed[
     ["score_strain", "score_kilojoule", "cycle_length_hours","score_avg_heart_rate"]
 ].corr()
 mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
@@ -811,24 +810,24 @@ plt.show()
 
 # 7 Day Moving Average of Cycle Length
 # Compute the 7-day rolling mean of 'cycle_length_hours'
-stg_cycles["rolling_mean"] = (
-    stg_cycles["cycle_length_hours"].rolling(window=7).mean()
+cyles_transformed["rolling_mean"] = (
+    cyles_transformed["cycle_length_hours"].rolling(window=7).mean()
 )
 
 # Plot the original data and the rolling mean
 plt.figure(figsize=(10, 8))  # Set the figure size
 sns.lineplot(
-    x="cycle_day", y="cycle_length_hours", data=stg_cycles, label="Cycle Length"
+    x="cycle_day", y="cycle_length_hours", data=cyles_transformed, label="Cycle Length"
 )
 sns.lineplot(
-    x="cycle_day", y="rolling_mean", data=stg_cycles, label="7-Day Rolling Mean"
+    x="cycle_day", y="rolling_mean", data=cyles_transformed, label="7-Day Rolling Mean"
 )
 
 ax2 = plt.twinx()
 sns.lineplot(
     x="cycle_day",
     y="score_strain",
-    data=stg_cycles,
+    data=cyles_transformed,
     label="Strain",
     ax=ax2,
     color="r",
@@ -844,11 +843,11 @@ plt.show()  # Show the plot
 #  How to plot with smooth lines 
 
 from scipy.interpolate import make_interp_spline
-X_Y_Spline = make_interp_spline(x = stg_cycles['cycle_day'], y = stg_cycles['score_strain'] )
+X_Y_Spline = make_interp_spline(x = cyles_transformed['cycle_day'], y = cyles_transformed['score_strain'] )
  
 # Returns evenly spaced numbers
 # over a specified interval.
-X_ = np.linspace(stg_cycles['cycle_day'].min(), stg_cycles['cycle_day'].max(), 500)
+X_ = np.linspace(cyles_transformed['cycle_day'].min(), cyles_transformed['cycle_day'].max(), 500)
 Y_ = X_Y_Spline(X_)
  
 # Plotting the Graph
@@ -857,29 +856,29 @@ plt.title("Plot Smooth Curve Using the scipy.interpolate.make_interp_spline() Cl
 plt.xlabel("X")
 plt.ylabel("Y")
 plt.show()
-sns.lineplot(x="cycle_day", y="score_strain", data=stg_cycles)
+sns.lineplot(x="cycle_day", y="score_strain", data=cyles_transformed)
 plt.show()
 
 
 
-stg_sleep.info()
-stg_workouts.info()
-stg_cycles.info()
+sleep_trans.info()
+workout.info()
+cyles_transformed.info()
 
 recovery
 
 
 
 
-stg_recovery = transform_recovery(recovery)
+transformed_recovery = transform_recovery(recovery)
 
-stg_recovery.info()
+transformed_recovery.info()
 
-stg_recovery['created_dt'] = pd.to_datetime(stg_recovery['created_ts']).dt.date
+transformed_recovery['created_dt'] = pd.to_datetime(transformed_recovery['created_ts']).dt.date
 
 
 # Calculate rolling mean
-stg_recovery["rolling_mean"] = stg_recovery["recovery_score"].rolling(window=7).mean()
+transformed_recovery["rolling_mean"] = transformed_recovery["recovery_score"].rolling(window=7).mean()
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -889,7 +888,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Calculate rolling mean
-stg_recovery["rolling_mean"] = stg_recovery["recovery_score"].rolling(window=7).mean()
+transformed_recovery["rolling_mean"] = transformed_recovery["recovery_score"].rolling(window=7).mean()
 
 # Plot the original data and the rolling mean
 plt.figure(figsize=(10, 8))  # Set the figure size
@@ -900,18 +899,18 @@ ranges = [(0, 34), (34, 67), (67, 100)]
 
 # Plot shaded areas for each recovery score range
 for i, (start, end) in enumerate(ranges):
-    plt.fill_between(stg_recovery["created_dt"],
-                     stg_recovery["recovery_score"],
-                     where=((stg_recovery["recovery_score"] >= start) & 
-                            (stg_recovery["recovery_score"] < end)),
+    plt.fill_between(transformed_recovery["created_dt"],
+                     transformed_recovery["recovery_score"],
+                     where=((transformed_recovery["recovery_score"] >= start) & 
+                            (transformed_recovery["recovery_score"] < end)),
                      color=colors[i], alpha=0.3, label=f'{start}-{end}%')
 
 # Plot the original data and rolling mean lines
 sns.lineplot(
-    x="created_dt", y="recovery_score", data=stg_recovery, label="Recovery Score", color='blue', alpha=0.5
+    x="created_dt", y="recovery_score", data=transformed_recovery, label="Recovery Score", color='blue', alpha=0.5
 )
 sns.lineplot(
-    x="created_dt", y="rolling_mean", data=stg_recovery, label="7-Day Rolling Mean", color='orange', alpha=0.5
+    x="created_dt", y="rolling_mean", data=transformed_recovery, label="7-Day Rolling Mean", color='orange', alpha=0.5
 )
 
 # Create a twin y-axis for recovery score
@@ -919,7 +918,7 @@ ax2 = plt.twinx()
 sns.lineplot(
     x="created_dt",
     y="recovery_score",
-    data=stg_recovery,
+    data=transformed_recovery,
     label="Recovery Score",
     ax=ax2,
     color="r", alpha=0.8
@@ -931,5 +930,3 @@ ax2.set_ylabel("Cycle Strain Score")
 plt.title("Recovery Score with 7-Day Rolling Mean")  # Set the title
 plt.legend()  # Show the legend
 plt.show()  # Show the plot
-
-
