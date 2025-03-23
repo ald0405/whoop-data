@@ -15,7 +15,7 @@ class Whoop:
     logging.basicConfig(
         filename="whoops_log.log",
         filemode="w",
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
     )
     AUTH_URL = "https://api-7.whoop.com/oauth/token"  # Class attribute
