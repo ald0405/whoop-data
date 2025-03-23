@@ -2,7 +2,9 @@ import numpy as np
 import requests
 import logging
 import pandas as pd
-
+import os 
+from dotenv import load_dotenv
+load_dotenv()
 
 class Whoop:
     """
@@ -25,9 +27,9 @@ class Whoop:
         "strain": "https://api.prod.whoop.com/developer/v1/strain/",
     }
 
-    def __init__(self, username: str, password: str):
-        self.username = username
-        self.password = password
+    def __init__(self, username: str=None, password: str=None):
+        self.username = username or os.getenv("USERNAME")
+        self.password = password or os.getenv("PASSWORD")
         self.access_token = None
         self.logger = logging.getLogger(__name__)
 
