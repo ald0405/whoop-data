@@ -22,12 +22,15 @@ class Whoop:
 
     ENDPOINTS = {
         "recovery": "https://api.prod.whoop.com/developer/v1/recovery/",
-        "sleep": "https://api.prod.whoop.com/developer/v1/sleep/",
+        "sleep": "https://api.prod.whoop.com/developer/v1/activity/sleep/",
         "workout": "https://api.prod.whoop.com/developer/v1/workout/",
         "strain": "https://api.prod.whoop.com/developer/v1/strain/",
     }
 
-    def __init__(self, username: str=None, password: str=None):
+    def __init__(self, 
+                 username: str=None, 
+                 password: str=None
+                 ):
         self.username = username or os.getenv("USERNAME")
         self.password = password or os.getenv("PASSWORD")
         self.access_token = None
@@ -91,14 +94,13 @@ class Whoop:
         return df  # Return the DataFrame for immediate use
 
 
-whoops = Whoop(username="laldin.asif@gmail.com", password="Laldin10!")
 
-whoops.authenticate()
+# whoops.authenticate()
 
-whoops.make_paginated_request(
-    data_endpoint="https://api.prod.whoop.com/developer/v1/recovery/"
-)
+# whoops.make_paginated_request(
+#     data_endpoint="https://api.prod.whoop.com/developer/v1/recovery/"
+# )
 
 
-whoops.available_endpoints[0]
-whoops.get_endpoint_url(whoops.available_endpoints[0])
+# whoops.available_endpoints[0]
+# whoops.get_endpoint_url(whoops.available_endpoints[0])
