@@ -206,7 +206,6 @@ class IndependentGroupsAnalysis:
         - title: str - Plot title
         """
         sns.set_theme(style='whitegrid')
-        plt.rcParams.update(plot_config.plot_style)
 
         fig, ax = plt.subplots(figsize=(9, 6))
 
