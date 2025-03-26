@@ -8,6 +8,9 @@ from math import sqrt
 from scipy.stats import norm
 from typing import Tuple
 from scipy.stats import ttest_ind, mannwhitneyu
+from colorama import Fore, Style, init
+
+init(autoreset=True)
 
 class IndependentGroupsAnalysis:
     """
@@ -137,9 +140,9 @@ class IndependentGroupsAnalysis:
             print(f"Cliff's Delta (effect size): {self.cliff_delta_effect_size}")
 
         if self.p_value < self.alpha:
-            print("✅ Statistically significant difference between groups.")
+            print(Fore.GREEN +"✅ Statistically significant difference between groups.")
         else:
-            print("❌ No statistically significant difference between groups.")
+            print(Fore.RED + "❌ No statistically significant difference between groups.")
         print("=" * 60)
 
     def describe(self) -> str:
@@ -150,15 +153,15 @@ class IndependentGroupsAnalysis:
 
         print("Descriptive Statistics:\n" + "=" * 60)
         for label, group in zip(["Group A", "Group B"], [self.group_a, self.group_b]):
-            print(f"{label}:")
-            print(f"  Min      : {min(group):.3f}")
-            print(f"  Max      : {max(group):.3f}")
-            print(f"  n        : {len(group):.3f}")
-            print(f"  Mean     : {np.mean(group):.3f}")
-            print(f"  Median   : {np.median(group):.3f}")
-            print(f"  Std Dev  : {np.std(group, ddof=1):.3f}")
-            print(f"  Skew     : {skew(group):.3f}")
-            print(f"  Kurtosis : {kurtosis(group):.3f}")
+            print(Fore.MAGENTA +f"{label}:")
+            print(Fore.MAGENTA +f"  Min      : {min(group):.3f}")
+            print(Fore.MAGENTA +f"  Max      : {max(group):.3f}")
+            print(Fore.MAGENTA +f"  n        : {len(group):.3f}")
+            print(Fore.MAGENTA +f"  Mean     : {np.mean(group):.3f}")
+            print(Fore.MAGENTA +f"  Median   : {np.median(group):.3f}")
+            print(Fore.MAGENTA +f"  Std Dev  : {np.std(group, ddof=1):.3f}")
+            print(Fore.MAGENTA +f"  Skew     : {skew(group):.3f}")
+            print(Fore.MAGENTA +f"  Kurtosis : {kurtosis(group):.3f}")
             print("-" * 60)
 
     def results(self) -> dict:
