@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np 
-import seaborn as sns 
+import numpy as np
+import seaborn as sns
 import matplotlib.pyplot as plt
 from math import sqrt
 from scipy.stats import norm
@@ -11,6 +11,7 @@ from scipy.stats import ttest_ind, mannwhitneyu
 from colorama import Fore, Style, init
 
 init(autoreset=True)
+
 
 class IndependentGroupsAnalysis:
     """
@@ -32,11 +33,9 @@ class IndependentGroupsAnalysis:
     def __init__(self):
         pass
 
-    def load_data(self, 
-                  group_a: np.ndarray, 
-                  group_b: np.ndarray, 
-                  alpha: float = 0.05
-                  ) -> None:
+    def load_data(
+        self, group_a: np.ndarray, group_b: np.ndarray, alpha: float = 0.05
+    ) -> None:
         """
         Load the data for both groups and define the significance level.
 
@@ -53,16 +52,15 @@ class IndependentGroupsAnalysis:
         self.median_a = np.median(self.group_a)
         self.median_b = np.median(self.group_b)
 
-    
     def _manwhitney(self):
         """
         Perform the Mann-Whitney U test, a non-parametric alternative to the t-test.
         Stores U-statistic and p-value.
         """
-        self.mu_U, self.p_value = mannwhitneyu(self.group_a,
-                                             self.group_b,
-                                             alternative='two-sided'
-                                                )
+        self.mu_U, self.p_value = mannwhitneyu(
+            self.group_a, self.group_b, alternative="two-sided"
+        )
+
     def _cliffs_delta(self) -> None:
         """
         Fast Cliff's Delta using NumPy broadcasting (O(n log n)).
@@ -81,16 +79,13 @@ class IndependentGroupsAnalysis:
 
         self.cliff_delta_effect_size = (greater - less) / n
 
-    def _welch_t_test(self) -> None: 
+    def _welch_t_test(self) -> None:
         """
         Perform Welch's t-test (for unequal variances) on the two groups.
         Stores t-statistic and p-value.
         """
         self.t_stat, self.p_value = ttest_ind(
-            self.group_a,
-            self.group_b,
-            equal_var=False,
-            alternative="two-sided"
+            self.group_a, self.group_b, equal_var=False, alternative="two-sided"
         )
 
     def _cohen_d(self) -> None:
@@ -104,8 +99,6 @@ class IndependentGroupsAnalysis:
         self.pooled_std = np.sqrt((self.group_a_var + self.group_b_var) / 2)
         self.cohen_d_effect_size = round(self.mean_difference / self.pooled_std, 3)
 
-    
-
     def test_groups(self) -> None:
         """
         Run Welch's t-test and compute Cohen's d.
@@ -113,14 +106,14 @@ class IndependentGroupsAnalysis:
         self._welch_t_test()
         self._cohen_d()
 
-    def test_non_parametric_groups(self) -> None: 
+    def test_non_parametric_groups(self) -> None:
         """
         Run Mann-Whitney U test and compute Cliff's Delta.
         """
         self._manwhitney()
         self._cliffs_delta()
 
-    def summarise_mu(self) -> None: 
+    def summarise_mu(self) -> None:
         print(self.p_value, self.mu_U)
 
     def summarise(self) -> None:
@@ -134,15 +127,22 @@ class IndependentGroupsAnalysis:
         else:
             print(f"U-statistic: {self.mu_U:.3f}")
 
-        if hasattr(self, "cohen_d_effect_size") and self.cohen_d_effect_size is not None:
+        if (
+            hasattr(self, "cohen_d_effect_size")
+            and self.cohen_d_effect_size is not None
+        ):
             print(f"Cohen's d (effect size): {self.cohen_d_effect_size}")
         else:
             print(f"Cliff's Delta (effect size): {self.cliff_delta_effect_size}")
 
         if self.p_value < self.alpha:
-            print(Fore.GREEN +"✅ Statistically significant difference between groups.")
+            print(
+                Fore.GREEN + "✅ Statistically significant difference between groups."
+            )
         else:
-            print(Fore.RED + "❌ No statistically significant difference between groups.")
+            print(
+                Fore.RED + "❌ No statistically significant difference between groups."
+            )
         print("=" * 60)
 
     def describe(self) -> str:
@@ -153,15 +153,15 @@ class IndependentGroupsAnalysis:
 
         print("Descriptive Statistics:\n" + "=" * 60)
         for label, group in zip(["Group A", "Group B"], [self.group_a, self.group_b]):
-            print(Fore.MAGENTA +f"{label}:")
-            print(Fore.MAGENTA +f"  Min      : {min(group):.3f}")
-            print(Fore.MAGENTA +f"  Max      : {max(group):.3f}")
-            print(Fore.MAGENTA +f"  n        : {len(group):.3f}")
-            print(Fore.MAGENTA +f"  Mean     : {np.mean(group):.3f}")
-            print(Fore.MAGENTA +f"  Median   : {np.median(group):.3f}")
-            print(Fore.MAGENTA +f"  Std Dev  : {np.std(group, ddof=1):.3f}")
-            print(Fore.MAGENTA +f"  Skew     : {skew(group):.3f}")
-            print(Fore.MAGENTA +f"  Kurtosis : {kurtosis(group):.3f}")
+            print(Fore.MAGENTA + f"{label}:")
+            print(Fore.MAGENTA + f"  Min      : {min(group):.3f}")
+            print(Fore.MAGENTA + f"  Max      : {max(group):.3f}")
+            print(Fore.MAGENTA + f"  n        : {len(group):.3f}")
+            print(Fore.MAGENTA + f"  Mean     : {np.mean(group):.3f}")
+            print(Fore.MAGENTA + f"  Median   : {np.median(group):.3f}")
+            print(Fore.MAGENTA + f"  Std Dev  : {np.std(group, ddof=1):.3f}")
+            print(Fore.MAGENTA + f"  Skew     : {skew(group):.3f}")
+            print(Fore.MAGENTA + f"  Kurtosis : {kurtosis(group):.3f}")
             print("-" * 60)
 
     def results(self) -> dict:
@@ -176,10 +176,10 @@ class IndependentGroupsAnalysis:
             "p_value": self.p_value,
             "cohen_d": self.cohen_d_effect_size,
             "mean_group_a": self.mean_a,
-            "mean_group_b": self.mean_b
+            "mean_group_b": self.mean_b,
         }
-    
-    def results_mu(self)-> dict:
+
+    def results_mu(self) -> dict:
         """
         Returns a dictionary of the statistical test
 
@@ -191,14 +191,16 @@ class IndependentGroupsAnalysis:
             "p_value": self.p_value,
             "cliffs_delta": self.cliff_delta_effect_size,
             "median_group_b": self.median_a,
-            "median_group_b": self.median_b
+            "median_group_b": self.median_b,
         }
 
-    def plot_distributions(self, 
-                           label_a="Group A", 
-                           label_b="Group B", 
-                           xlabel="Value",
-                           title="Distribution of Values by Category (t-test)") -> None:
+    def plot_distributions(
+        self,
+        label_a="Group A",
+        label_b="Group B",
+        xlabel="Value",
+        title="Distribution of Values by Category (t-test)",
+    ) -> None:
         """
         Plot histogram of the distributions for both groups.
 
@@ -208,24 +210,23 @@ class IndependentGroupsAnalysis:
         - xlabel: str - X-axis label
         - title: str - Plot title
         """
-        sns.set_theme(style='whitegrid')
+        sns.set_theme(style="whitegrid")
 
         fig, ax = plt.subplots(figsize=(9, 6))
 
         ax.hist(
             self.group_a,
-            edgecolor='white',
+            edgecolor="white",
             alpha=0.8,
             label=label_a,
-            bins = int(np.sqrt(len(self.group_a) + len(self.group_b)))
+            bins=int(np.sqrt(len(self.group_a) + len(self.group_b))),
         )
         ax.hist(
             self.group_b,
-            edgecolor='white',
+            edgecolor="white",
             alpha=0.4,
             label=label_b,
-            bins = int(np.sqrt(len(self.group_a) + len(self.group_b)))
-
+            bins=int(np.sqrt(len(self.group_a) + len(self.group_b))),
         )
 
         if hasattr(self, "cohen_d_effect_size"):
@@ -236,28 +237,27 @@ class IndependentGroupsAnalysis:
             effect_label = f"Cliff's Delta = {self.cliff_delta_effect_size}"
 
         ax.text(
-            0.02, 0.95,
-            f"p-value: {self.p_value:.3f}\n"
-            f"{stat_label}\n"
-            f"{effect_label}",
+            0.02,
+            0.95,
+            f"p-value: {self.p_value:.3f}\n" f"{stat_label}\n" f"{effect_label}",
             transform=ax.transAxes,
             fontsize=12,
-            fontweight='bold',
-            verticalalignment='top',
-            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='grey', alpha=0.6)
+            fontweight="bold",
+            verticalalignment="top",
+            bbox=dict(
+                boxstyle="round,pad=0.3", facecolor="white", edgecolor="grey", alpha=0.6
+            ),
         )
 
-        ax.set_title(title, fontsize=14, weight='bold')
+        ax.set_title(title, fontsize=14, weight="bold")
         ax.set_xlabel(xlabel, fontsize=12)
-        ax.set_ylabel('Frequency', fontsize=12)
-        ax.legend(title='Group')
-    
+        ax.set_ylabel("Frequency", fontsize=12)
+        ax.legend(title="Group")
+
         sns.despine()
 
         plt.tight_layout()
         plt.show()
-
-
 
 
 class SampleCertainty:
@@ -284,12 +284,9 @@ class SampleCertainty:
         upper_area = 1.0 - left_tail_area
         return norm_dist.ppf(left_tail_area), norm_dist.ppf(upper_area)
 
-    def confidence_intervals(self, 
-                             confidence: float, 
-                             sample_mean: float, 
-                             sample_std: float, 
-                             n: int
-                             ) -> Tuple[float, float]:
+    def confidence_intervals(
+        self, confidence: float, sample_mean: float, sample_std: float, n: int
+    ) -> Tuple[float, float]:
         """
         Compute a two-sided confidence interval for the mean using the normal distribution.
 
@@ -308,12 +305,9 @@ class SampleCertainty:
         return sample_mean + margin_error_lower, sample_mean + margin_error_upper
 
     @classmethod
-    def compute(cls, 
-                confidence: float, 
-                sample_mean: float, 
-                sample_std: float, 
-                n: int
-                ) -> Tuple[float, float]:
+    def compute(
+        cls, confidence: float, sample_mean: float, sample_std: float, n: int
+    ) -> Tuple[float, float]:
         """
         Compute confidence interval in a one-liner using the class directly.
 
