@@ -1,4 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
 venv/
 .env
+env/
+.venv/
+
+# SQLite database files
+db/
+*.db
+*.sqlite3
+
+# Data files (e.g., raw CSVs)
+data/
+
+# Logs
 *.log
-__pycache__
+logs/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE/editor specific files
+.vscode/
+.idea/
+
+# macOS files
+.DS_Store
+
+# Distribution/build
+build/
+dist/
+*.egg-info/
+
+# Pytest cache
+.pytest_cache/
