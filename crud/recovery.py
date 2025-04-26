@@ -3,38 +3,25 @@ from sqlalchemy import func
 from datetime import datetime, timedelta
 from models.models import Recovery
 
-def get_recoveries(db: Session, skip: int = 0, limit: int = 10  ):
-    return (
-        db.query(Recovery)
-        .offset(skip)
-        .limit(limit)
-        .all()
-        )
+
+def get_recoveries(db: Session, skip: int = 0, limit: int = 10):
+    return db.query(Recovery).offset(skip).limit(limit).all()
 
 
-
-def get_top_recoveries(db:Session,limit:int=10):
+def get_top_recoveries(db: Session, limit: int = 10):
     """
-    Get the Top N Recoveries 
+    Get the Top N Recoveries
     """
     return (
-        db.query(Recovery)
-        .order_by(Recovery.recovery_score.desc())
-        .limit(limit)
-        .all()
+        db.query(Recovery).order_by(Recovery.recovery_score.desc()).limit(limit).all()
     )
 
 
-def get_recent_recovories(db:Session,limit:int=7):
+def get_recent_recovories(db: Session, limit: int = 7):
     """
-    Get Recoveries for the last 7 days 
+    Get Recoveries for the last 7 days
     """
-    return (
-        db.query(Recovery)
-        .limit(limit)
-        .all()
-    )
-
+    return db.query(Recovery).limit(limit).all()
 
 
 def get_avg_recovery_by_week(db: Session, weeks: int = 4):
@@ -45,9 +32,9 @@ def get_avg_recovery_by_week(db: Session, weeks: int = 4):
 
     return (
         db.query(
-            func.strftime('%Y-%W', Recovery.created_at).label("week"),  # ISO week
+            func.strftime("%Y-%W", Recovery.created_at).label("week"),  # ISO week
             func.avg(Recovery.recovery_score).label("avg_recovery_score"),
-            func.avg(Recovery.resting_heart_rate).label("avg_resting_heart_rate")
+            func.avg(Recovery.resting_heart_rate).label("avg_resting_heart_rate"),
         )
         .filter(Recovery.created_at >= since_date)
         .group_by("week")
