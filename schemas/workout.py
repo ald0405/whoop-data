@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel,field_serializer,Field
 from typing import Optional
 from datetime import datetime
 
@@ -10,14 +10,18 @@ class Workouts(BaseModel):
     end: datetime
     sport_id : int
     strain: Optional[float]
-    average_heart_rate: Optional[float ]
-    max_heart_rate: Optional[float ]
+    average_heart_rate: Optional[float]
+    max_heart_rate: Optional[float]
+    distance_meter:float
+    altitude_gain_meter:float
+    altitude_change_meter:float
     zone_zero_minutes: Optional[float]
     zone_one_minutes: Optional[float]
     zone_two_minutes: Optional[float]
     zone_three_minutes: Optional[float]
     zone_four_minutes: Optional[float]
     zone_five_minutes: Optional[float]
+    trimp_score: Optional[float] = None
     class Config:
         from_attributes = True 
 
