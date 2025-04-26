@@ -22,8 +22,12 @@ class Cycle(Base):
     recoveries = relationship("Recovery", back_populates="cycle", cascade="all, delete-orphan")
     workouts = relationship("Workout", back_populates="cycle", cascade="all, delete-orphan")
 
+from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean
+from sqlalchemy.orm import relationship
+
 class Sleep(Base):
     __tablename__ = 'sleep'
+
     id = Column(Integer, primary_key=True)
     user_id = Column(String, nullable=False)
     created_at = Column(DateTime)
@@ -33,11 +37,28 @@ class Sleep(Base):
     timezone_offset = Column(String)
     nap = Column(Boolean)
     score_state = Column(String)
+
     respiratory_rate = Column(Float)
     sleep_performance_percentage = Column(Float)
     sleep_consistency_percentage = Column(Float)
     sleep_efficiency_percentage = Column(Float)
 
+    # --- Stage summary fields ---
+    total_time_in_bed_time_milli = Column(Integer)
+    total_awake_time_milli = Column(Integer)
+    total_no_data_time_milli = Column(Integer)
+    total_slow_wave_sleep_time_milli = Column(Integer)
+    total_rem_sleep_time_milli = Column(Integer)
+    sleep_cycle_count = Column(Integer)
+    disturbance_count = Column(Integer)
+
+    # --- Sleep needed fields ---
+    baseline_sleep_needed_milli = Column(Integer)
+    need_from_sleep_debt_milli = Column(Integer)
+    need_from_recent_strain_milli = Column(Integer)
+    need_from_recent_nap_milli = Column(Integer)
+
+    # Relationships
     recoveries = relationship("Recovery", back_populates="sleep", cascade="all, delete-orphan")
 
 class Recovery(Base):
@@ -103,3 +124,4 @@ class Workout(Base):
     zone_five_minutes = Column(Float)
 
     cycle = relationship("Cycle", back_populates="workouts")
+
