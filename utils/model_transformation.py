@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 
 
 def parse_dt(dt_str):
@@ -8,7 +9,16 @@ def parse_dt(dt_str):
     return datetime.fromisoformat(dt_str.replace("Z", "+00:00")) if dt_str else None
 
 def transform_recovery(item: dict) -> dict:
-    score = item.get("score") or {}
+    """
+    Transform recovery data for database insertion.
+    Note: Fields are now already flattened by the API client.
+    """
+    if isinstance(item, str):
+        try:
+            item = json.loads(item)
+        except json.JSONDecodeError:
+            item = {}  # Assign empty dict to prevent AttributeError
+            pass
 
     return {
         "user_id": item.get("user_id"),
@@ -16,22 +26,23 @@ def transform_recovery(item: dict) -> dict:
         "sleep_id": item.get("sleep_id"),
         "created_at": parse_dt(item.get("created_at")),
         "updated_at": parse_dt(item.get("updated_at")),
-        "score_state": item.get("score_state"),  # this is top-level
-        "user_calibrating": score.get("user_calibrating"),
-        "recovery_score": score.get("recovery_score"),
-        "resting_heart_rate": score.get("resting_heart_rate"),
-        "hrv_rmssd_milli": score.get("hrv_rmssd_milli"),
-        "spo2_percentage": score.get("spo2_percentage"),
-        "skin_temp_celsius": score.get("skin_temp_celsius"),
+        "score_state": item.get("score_state"),
+        # These fields are now already flattened (no more 'score.' prefix)
+        "user_calibrating": item.get("user_calibrating"),
+        "recovery_score": item.get("recovery_score"),
+        "resting_heart_rate": item.get("resting_heart_rate"),
+        "hrv_rmssd_milli": item.get("hrv_rmssd_milli"),
+        "spo2_percentage": item.get("spo2_percentage"),
+        "skin_temp_celsius": item.get("skin_temp_celsius"),
     }
 
 def transform_sleep(item: dict) -> dict:
-    score = item.get("score") or {}
-    stage_summary = score.get("stage_summary") or {}
-    sleep_needed = score.get("sleep_needed") or {}
-
+    """
+    Transform sleep data for database insertion.
+    Note: Fields are now already flattened by the API client.
+    """
     return {
-        "id": item.get("id"),
+        "id": item.get("v1_id") or item.get("id"),  # Use v1_id if available, fallback to id
         "user_id": item.get("user_id"),
         "created_at": parse_dt(item.get("created_at")),
         "updated_at": parse_dt(item.get("updated_at")),
@@ -40,35 +51,37 @@ def transform_sleep(item: dict) -> dict:
         "timezone_offset": item.get("timezone_offset"),
         "nap": item.get("nap"),
         "score_state": item.get("score_state"),
-        "respiratory_rate": score.get("respiratory_rate"),
-        "sleep_performance_percentage": score.get("sleep_performance_percentage"),
-        "sleep_consistency_percentage": score.get("sleep_consistency_percentage"),
-        "sleep_efficiency_percentage": score.get("sleep_efficiency_percentage"),
+        # These fields are now already flattened
+        "respiratory_rate": item.get("respiratory_rate"),
+        "sleep_performance_percentage": item.get("sleep_performance_percentage"),
+        "sleep_consistency_percentage": item.get("sleep_consistency_percentage"),
+        "sleep_efficiency_percentage": item.get("sleep_efficiency_percentage"),
 
-        # Stage summary metrics
-        "total_time_in_bed_time_milli": stage_summary.get("total_in_bed_time_milli"),
-        "total_awake_time_milli": stage_summary.get("total_awake_time_milli"),
-        "total_no_data_time_milli": stage_summary.get("total_no_data_time_milli"),
-        "total_slow_wave_sleep_time_milli": stage_summary.get("total_slow_wave_sleep_time_milli"),
-        "total_rem_sleep_time_milli": stage_summary.get("total_rem_sleep_time_milli"),
-        "sleep_cycle_count": stage_summary.get("sleep_cycle_count"),
-        "disturbance_count": stage_summary.get("disturbance_count"),
+        # Stage summary metrics (already flattened)
+        "total_time_in_bed_time_milli": item.get("total_time_in_bed_time_milli"),
+        "total_awake_time_milli": item.get("total_awake_time_milli"),
+        "total_no_data_time_milli": item.get("total_no_data_time_milli"),
+        "total_slow_wave_sleep_time_milli": item.get("total_slow_wave_sleep_time_milli"),
+        "total_rem_sleep_time_milli": item.get("total_rem_sleep_time_milli"),
+        "sleep_cycle_count": item.get("sleep_cycle_count"),
+        "disturbance_count": item.get("disturbance_count"),
 
-        # Sleep needed metrics
-        "baseline_sleep_needed_milli": sleep_needed.get("baseline_milli"),
-        "need_from_sleep_debt_milli": sleep_needed.get("need_from_sleep_debt_milli"),
-        "need_from_recent_strain_milli": sleep_needed.get("need_from_recent_strain_milli"),
-        "need_from_recent_nap_milli": sleep_needed.get("need_from_recent_nap_milli"),
+        # Sleep needed metrics (already flattened)
+        "baseline_sleep_needed_milli": item.get("baseline_sleep_needed_milli"),
+        "need_from_sleep_debt_milli": item.get("need_from_sleep_debt_milli"),
+        "need_from_recent_strain_milli": item.get("need_from_recent_strain_milli"),
+        "need_from_recent_nap_milli": item.get("need_from_recent_nap_milli"),
     }
 
 
 
 def transform_workout(item: dict) -> dict:
-    score = item.get("score") or {} # As not every workout will have a nest?
-    zone = score.get("zone_duration") or {}
-
+    """
+    Transform workout data for database insertion.
+    Note: Fields are now already flattened by the API client.
+    """
     return {
-        "id": item.get("id"),
+        "id": item.get("v1_id"),
         "user_id": item.get("user_id"),
         "created_at": parse_dt(item.get("created_at")),
         "updated_at": parse_dt(item.get("updated_at")),
@@ -77,20 +90,21 @@ def transform_workout(item: dict) -> dict:
         "timezone_offset": item.get("timezone_offset"),
         "sport_id": item.get("sport_id"),
         "score_state": item.get("score_state"),
-        "strain": score.get("strain"),
-        "average_heart_rate": score.get("average_heart_rate"),
-        "max_heart_rate": score.get("max_heart_rate"),
-        "kilojoule": score.get("kilojoule"),
-        "percent_recorded": score.get("percent_recorded"),
-        "distance_meter": score.get("distance_meter"),
-        "altitude_gain_meter": score.get("altitude_gain_meter"),
-        "altitude_change_meter": score.get("altitude_change_meter"),
+        # These fields are now already flattened
+        "strain": item.get("strain"),
+        "average_heart_rate": item.get("average_heart_rate"),
+        "max_heart_rate": item.get("max_heart_rate"),
+        "kilojoule": item.get("kilojoule"),
+        "percent_recorded": item.get("percent_recorded"),
+        "distance_meter": item.get("distance_meter"),
+        "altitude_gain_meter": item.get("altitude_gain_meter"),
+        "altitude_change_meter": item.get("altitude_change_meter"),
         
-        # Optional: add zone durations (in minutes or hours if you want to transform)
-        "zone_zero_minutes": round(zone.get("zone_zero_milli", 0) / 60000, 2),
-        "zone_one_minutes": round(zone.get("zone_one_milli", 0) / 60000, 2),
-        "zone_two_minutes": round(zone.get("zone_two_milli", 0) / 60000, 2),
-        "zone_three_minutes": round(zone.get("zone_three_milli", 0) / 60000, 2),
-        "zone_four_minutes": round(zone.get("zone_four_milli", 0) / 60000, 2),
-        "zone_five_minutes": round(zone.get("zone_five_milli", 0) / 60000, 2),
+        # Zone durations are already converted to minutes by the API client
+        "zone_zero_minutes": item.get("zone_zero_minutes", 0.0),
+        "zone_one_minutes": item.get("zone_one_minutes", 0.0),
+        "zone_two_minutes": item.get("zone_two_minutes", 0.0),
+        "zone_three_minutes": item.get("zone_three_minutes", 0.0),
+        "zone_four_minutes": item.get("zone_four_minutes", 0.0),
+        "zone_five_minutes": item.get("zone_five_minutes", 0.0),
     }
