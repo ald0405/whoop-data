@@ -1,0 +1,59 @@
+openapi: 3.1.0
+info:
+  title: Whoop Authentication
+  description: Authenticate with the Whoop API to obtain an access token.
+  version: 1.0.0
+servers:
+  - url: https://api-7.whoop.com
+    description: Authentication server
+paths:
+  /oauth/token:
+    post:
+      operationId: authenticate
+      summary: Authenticate with the Whoop API
+      description: Get an access token using your Whoop username and password.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                grant_type:
+                  type: string
+                  description: OAuth grant type. Use "password".
+                  example: password
+                username:
+                  type: string
+                  description: Your Whoop account username.
+                  example: your_email@example.com
+                password:
+                  type: string
+                  description: Your Whoop account password.
+                  example: your_password
+              required:
+                - grant_type
+                - username
+                - password
+      responses:
+        '200':
+          description: Access token response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    description: The access token to use for authenticated requests.
+                  token_type:
+                    type: string
+                    description: Type of token (e.g., Bearer).
+                  expires_in:
+                    type: integer
+                    description: Time in seconds until the token expires.
+                  refresh_token:
+                    type: string
+                    description: Refresh token to obtain a new access token.
+        '400':
+          description: Invalid request or authentication failed

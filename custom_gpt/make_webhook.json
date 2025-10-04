@@ -1,0 +1,55 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+      "title": "Get fitness data",
+      "version": "1.0.0",
+      "description": "Triggers webhook to fetch fitness data from a Google Sheet"
+    },
+    "servers": [
+      {
+        "url": "https://hook.eu2.make.com/wpp76ficp8oer6ushojq4u6usz48in0o",
+        "description": "Make.com webhook server for Google Sheets"
+      }
+    ],
+    "paths": {
+      "/": {
+        "post": {
+          "summary": "Fetch data",
+          "operationId": "getFitnessData",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cycle_id": {
+                      "type": "integer",
+                      "description": "The unique cycle ID to query."
+                    },
+                    "user_id_x": {
+                      "type": "integer",
+                      "description": "The user ID to identify the data."
+                    }
+                  },
+                  "required": ["cycle_id", "user_id_x"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "202": {
+              "description": "Request accepted and is being processed."
+            },
+            "404": {
+              "description": "Data not found for the provided identifiers."
+            },
+            "400": {
+              "description": "Invalid input parameters."
+            }
+          }
+        }
+      }
+    }
+  }
+  
