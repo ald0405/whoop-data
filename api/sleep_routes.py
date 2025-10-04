@@ -13,5 +13,5 @@ router = APIRouter()
             response_model=List[SleepSchema]
             )
 
-def list_sleep(skip:int=0,limit:int=100,db:Session =Depends(get_db)):
+def list_sleep(skip:int=0,limit:int=100,db:Session=Depends(get_db)):
     return get_sleep(db,skip=skip,limit=limit)
