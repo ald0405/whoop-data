@@ -1,7 +1,12 @@
 from whoop_client import Whoop
 import pandas as pd
+import os
+from dotenv import load_dotenv
 
-whoop = Whoop()
+load_dotenv()
+
+
+whoop = Whoop(username=os.getenv("USERNAME"), password=os.getenv("PASSWORD"))
 
 whoop.authenticate()
 
