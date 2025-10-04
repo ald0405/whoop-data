@@ -23,7 +23,7 @@ class SleepSchema(BaseModel):
     disturbance_count:int
 
     # --- Sleep needed fields ---
-    # baseline_sleep_needed_milli = Column(Integer)
-    # need_from_sleep_debt_milli = Column(Integer)
-    # need_from_recent_strain_milli = Column(Integer)
-    # need_from_recent_nap_milli = Column(Integer)
+    baseline_sleep_needed_milli :int
+    need_from_sleep_debt_milli :int
+    need_from_recent_strain_milli :int
+    need_from_recent_nap_milli :int

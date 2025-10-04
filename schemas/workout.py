@@ -12,9 +12,9 @@ class Workouts(BaseModel):
     strain: Optional[float]
     average_heart_rate: Optional[float]
     max_heart_rate: Optional[float]
-    distance_meter:float
-    altitude_gain_meter:float
-    altitude_change_meter:float
+    distance_meter: Optional[float]
+    altitude_gain_meter: Optional[float]
+    altitude_change_meter: Optional[float]
     zone_zero_minutes: Optional[float]
     zone_one_minutes: Optional[float]
     zone_two_minutes: Optional[float]
