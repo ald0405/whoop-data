@@ -1,0 +1,91 @@
+openapi: 3.1.0
+info:
+  title: Whoop Workout Collection
+  description: Retrieve paginated workout data for a user, sorted by start time in descending order.
+  version: 1.0.0
+servers:
+  - url: https://api.prod.whoop.com
+    description: Whoop data server
+paths:
+  /v1/activity/workout:
+    get:
+      operationId: getWorkoutCollection
+      summary: Get a collection of workouts for a user
+      description: Retrieve paginated workout data with optional filters for time range and pagination.
+      security:
+        - bearerAuth: []  # Requires OAuth (read:workout) permission
+      parameters:
+        - name: limit
+          in: query
+          description: Limit on the number of workouts returned (max 25).
+          schema:
+            type: integer
+            default: 10
+            maximum: 25
+        - name: start
+          in: query
+          description: ISO 8601 date-time. Return workouts that occurred after or during this time.
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          description: ISO 8601 date-time. Return workouts that ended before this time.
+          schema:
+            type: string
+            format: date-time
+        - name: nextToken
+          in: query
+          description: Token for pagination to retrieve the next page of results.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A list of workouts and the next page token.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  records:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: Unique ID of the workout.
+                        user_id:
+                          type: integer
+                          description: User ID.
+                        start:
+                          type: string
+                          format: date-time
+                          description: Start time of the workout.
+                        end:
+                          type: string
+                          format: date-time
+                          description: End time of the workout.
+                        sport_id:
+                          type: integer
+                          description: ID of the sport type.
+                        score_state:
+                          type: string
+                          description: The scoring state of the workout.
+                  next_token:
+                    type: string
+                    description: Token for fetching the next page of results.
+        '400':
+          description: Bad request (e.g., invalid query parameters).
+        '401':
+          description: Unauthorised request (invalid or missing token).
+        '429':
+          description: Rate limit exceeded.
+        '500':
+          description: Internal server error.
+components:
+  schemas: {}  # Empty schemas object to satisfy the parser
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
