@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from db.database import get_db
-from models.models import WithingsWeight, WithingsHeartRate
+from whoop_data.models.models import WithingsWeight, WithingsHeartRate
 from typing import List, Optional
 from datetime import datetime, timedelta
 import pandas as pd

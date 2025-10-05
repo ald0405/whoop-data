@@ -5,12 +5,12 @@ Seamless setup and data pipeline for both health platforms
 """
 
 from sqlalchemy.orm import sessionmaker
-from analysis.whoop_client import Whoop
-from services.withings_client import WithingsClient
-from models.models import Recovery, Cycle, Workout, Sleep, WithingsWeight, WithingsHeartRate
+from whoop_data.analysis.whoop_client import Whoop
+from whoop_data.clients.withings_client import WithingsClient
+from whoop_data.models.models import Recovery, Cycle, Workout, Sleep, WithingsWeight, WithingsHeartRate
 from datetime import datetime
-from utils.load_into_database import DBLoader
-from utils.model_transformation import (
+from whoop_data.utils import DBLoader
+from whoop_data.model_transformation import (
     transform_sleep,
     transform_recovery,
     transform_workout,

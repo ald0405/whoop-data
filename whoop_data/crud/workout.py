@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta
-from models.models import Workout
+from whoop_data.models.models import Workout
 
 
 def get_recoveries(db: Session, skip: int = 0, limit: int = 10):
