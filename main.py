@@ -1,6 +1,7 @@
 from api.recovery_routes import router as recovery_router
 from api.workout_routes import router as workout_router
 from api.sleep_routes import router as sleep_router
+from api.withings_routes import router as withings_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -15,3 +16,4 @@ app.add_middleware(
 app.include_router(recovery_router)
 app.include_router(workout_router)
 app.include_router(sleep_router)
+app.include_router(withings_router)
