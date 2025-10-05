@@ -8,8 +8,12 @@ from db.database import get_db
 router = APIRouter()
 
 
-@router.get("/recoveries/", response_model=List[RecoverySchema])
+@router.get("/recovery", response_model=List[RecoverySchema])
 def list_recoveries(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return get_recoveries(db, skip=skip, limit=limit)
+
+@router.get("/recoveries/", response_model=List[RecoverySchema])
+def list_recoveries_alt(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return get_recoveries(db, skip=skip, limit=limit)
 
 
@@ -17,6 +21,14 @@ def list_recoveries(skip: int = 0, limit: int = 100, db: Session = Depends(get_d
 def top_recoveries(limit: int = 10, db: Session = Depends(get_db)):
     return get_top_recoveries(db, limit=limit)
 
+
+@router.get("/recovery/latest", response_model=RecoverySchema)
+def latest_recovery(db: Session = Depends(get_db)):
+    recoveries = get_recoveries(db, skip=0, limit=1)
+    if not recoveries:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="No recovery data found")
+    return recoveries[0]
 
 @router.get(
     "/recoveries/avg_recoveries/",
