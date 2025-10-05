@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}WHOOP Health Data Platform{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <!-- Custom CSS with your color scheme -->
+    <style>
+        :root {
+            /* Your beautiful color palette */
+            --cyan: #8be9fd;
+            --lavender: #bd93f9;
+            --teal-green: #50fa7b;
+            --orange: #ffb86c;
+            --pink: #ff79c6;
+            --yellow: #f1fa8c;
+            --dark-bg: #1a1a1a;
+            --darker-bg: #0d1117;
+            --card-bg: #21262d;
+            --border-color: #30363d;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--darker-bg) 0%, var(--dark-bg) 100%);
+            color: var(--cyan);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: var(--card-bg) !important;
+            border-bottom: 2px solid var(--lavender);
+            backdrop-filter: blur(10px);
+        }
+
+        .navbar-brand {
+            color: var(--lavender) !important;
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+
+        .card {
+            background: var(--card-bg) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+            backdrop-filter: blur(10px) !important;
+        }
+
+        .card-header {
+            background: linear-gradient(90deg, var(--lavender), var(--cyan)) !important;
+            color: var(--darker-bg) !important;
+            font-weight: bold;
+            border-radius: 12px 12px 0 0 !important;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, var(--lavender), var(--cyan)) !important;
+            border: none !important;
+            color: var(--darker-bg) !important;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(45deg, var(--cyan), var(--lavender)) !important;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(139, 233, 253, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, var(--teal-green), var(--yellow)) !important;
+            border: none !important;
+            color: var(--darker-bg) !important;
+            font-weight: bold;
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(45deg, var(--yellow), var(--teal-green)) !important;
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, var(--orange), var(--yellow)) !important;
+            border: none !important;
+            color: var(--darker-bg) !important;
+            font-weight: bold;
+        }
+
+        .btn-warning:hover {
+            background: linear-gradient(45deg, var(--yellow), var(--orange)) !important;
+            transform: translateY(-2px);
+        }
+
+        .btn-info {
+            background: linear-gradient(45deg, var(--cyan), var(--pink)) !important;
+            border: none !important;
+            color: var(--darker-bg) !important;
+            font-weight: bold;
+        }
+
+        .btn-info:hover {
+            background: linear-gradient(45deg, var(--pink), var(--cyan)) !important;
+            transform: translateY(-2px);
+        }
+
+        .table-dark {
+            --bs-table-bg: var(--card-bg);
+            --bs-table-border-color: var(--border-color);
+            color: var(--cyan);
+        }
+
+        .table-dark th {
+            background: linear-gradient(90deg, var(--lavender), var(--cyan)) !important;
+            color: var(--darker-bg) !important;
+            font-weight: bold;
+        }
+
+        .table-dark tr:hover {
+            background-color: rgba(139, 233, 253, 0.1) !important;
+        }
+
+        .alert-info {
+            background: rgba(139, 233, 253, 0.15) !important;
+            border: 1px solid var(--cyan) !important;
+            color: var(--cyan) !important;
+        }
+
+        .alert-success {
+            background: rgba(80, 250, 123, 0.15) !important;
+            border: 1px solid var(--teal-green) !important;
+            color: var(--teal-green) !important;
+        }
+
+        .spinner-border {
+            color: var(--lavender) !important;
+        }
+
+        .text-muted {
+            color: var(--cyan) !important;
+            opacity: 0.7;
+        }
+
+        /* Loading animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Glow effects */
+        .glow {
+            box-shadow: 0 0 20px rgba(139, 233, 253, 0.3);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--darker-bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(var(--lavender), var(--cyan));
+            border-radius: 4px;
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-activity me-2"></i>
+                WHOOP Health Platform
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/docs" target="_blank">
+                            <i class="bi bi-book me-1"></i>API Docs
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/redoc" target="_blank">
+                            <i class="bi bi-file-text me-1"></i>ReDoc
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container py-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
