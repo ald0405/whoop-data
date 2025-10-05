@@ -8,9 +8,21 @@ from typing import List
 router = APIRouter()
 
 
-@router.get("/workouts/", response_model=List[WorkoutSchema])
+@router.get("/workouts", response_model=List[WorkoutSchema])
 def list_workouts(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return get_recoveries(db, skip=skip, limit=limit)
+
+@router.get("/workouts/", response_model=List[WorkoutSchema])
+def list_workouts_alt(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return get_recoveries(db, skip=skip, limit=limit)
+
+@router.get("/workouts/latest", response_model=WorkoutSchema)
+def latest_workout(db: Session = Depends(get_db)):
+    workouts = get_recoveries(db, skip=0, limit=1)
+    if not workouts:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="No workout data found")
+    return workouts[0]
 
 
 @router.get(

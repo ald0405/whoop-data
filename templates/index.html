@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - WHOOP Health Data Platform{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Welcome Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card glow">
+                <div class="card-header text-center">
+                    <h1 class="mb-0">
+                        <i class="bi bi-heart-pulse me-2"></i>
+                        Health Data Dashboard
+                    </h1>
+                </div>
+                <div class="card-body text-center">
+                    <p class="card-text mb-0">
+                        Welcome to your comprehensive WHOOP and Withings health data platform.
+                        Explore your recovery, sleep, workouts, and body composition data below.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Endpoints Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-3">
+                <i class="bi bi-lightning me-2"></i>
+                Quick Access
+            </h2>
+        </div>
+    </div>
+
+    <!-- WHOOP Data Buttons -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="bi bi-activity me-2"></i>
+                        WHOOP Data
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <button class="btn btn-primary w-100" onclick="fetchData('recovery')">
+                                <i class="bi bi-heart me-2"></i>
+                                Recovery Data
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary w-100" onclick="fetchLatestData('recovery')">
+                                <i class="bi bi-heart-fill me-2"></i>
+                                Latest Recovery
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-success w-100" onclick="fetchData('sleep')">
+                                <i class="bi bi-moon me-2"></i>
+                                Sleep Data
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-success w-100" onclick="fetchLatestData('sleep')">
+                                <i class="bi bi-moon-fill me-2"></i>
+                                Latest Sleep
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-3">
+                            <button class="btn btn-warning w-100" onclick="fetchData('workouts')">
+                                <i class="bi bi-bicycle me-2"></i>
+                                Workout Data
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-warning w-100" onclick="fetchLatestData('workouts')">
+                                <i class="bi bi-trophy me-2"></i>
+                                Latest Workout
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-warning w-100" onclick="fetchData('workouts/get_runs')">
+                                <i class="bi bi-person-walking me-2"></i>
+                                Running Data
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-warning w-100" onclick="fetchData('workouts/get_tennis')">
+                                <i class="bi bi-circle me-2"></i>
+                                Tennis Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Withings Data Buttons -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="bi bi-speedometer me-2"></i>
+                        Withings Data
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <button class="btn btn-info w-100" onclick="fetchData('withings/weight')">
+                                <i class="bi bi-graph-up me-2"></i>
+                                Weight Data
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-info w-100" onclick="fetchLatestData('withings/weight')">
+                                <i class="bi bi-graph-up-arrow me-2"></i>
+                                Latest Weight
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-info w-100" onclick="fetchData('withings/weight/stats')">
+                                <i class="bi bi-bar-chart me-2"></i>
+                                Weight Stats
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-info w-100" onclick="fetchData('withings/heart-rate')">
+                                <i class="bi bi-heart-pulse me-2"></i>
+                                Heart Rate Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loading" class="text-center mb-4" style="display: none;">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Fetching your health data...</p>
+    </div>
+
+    <!-- Data Display Section -->
+    <div id="dataSection" class="row" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0" id="dataTitle">
+                        <i class="bi bi-table me-2"></i>
+                        Data Results
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div id="dataContent">
+                        <!-- Data will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Display -->
+    <div id="errorSection" class="row" style="display: none;">
+        <div class="col-12">
+            <div class="alert alert-danger">
+                <h4 class="alert-heading">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Error
+                </h4>
+                <p id="errorMessage"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Summary -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="bi bi-speedometer2 me-2"></i>
+                        Quick Summary
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div id="summaryContent">
+                        <div class="alert alert-info text-center">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Click any button above to load your health data and see a summary here!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentData = null;
+
+    // Function to fetch data from API endpoints
+    async function fetchData(endpoint) {
+        const loading = document.getElementById('loading');
+        const dataSection = document.getElementById('dataSection');
+        const errorSection = document.getElementById('errorSection');
+        const dataTitle = document.getElementById('dataTitle');
+        const dataContent = document.getElementById('dataContent');
+        
+        // Show loading
+        loading.style.display = 'block';
+        dataSection.style.display = 'none';
+        errorSection.style.display = 'none';
+        
+        try {
+            const response = await fetch(`/${endpoint}?limit=10`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            currentData = data;
+            
+            // Update title
+            dataTitle.innerHTML = `<i class="bi bi-table me-2"></i>${formatEndpointName(endpoint)} Data`;
+            
+            // Display data
+            if (Array.isArray(data) && data.length > 0) {
+                dataContent.innerHTML = createTable(data);
+                updateSummary(endpoint, data);
+            } else if (typeof data === 'object') {
+                dataContent.innerHTML = createSingleRecordView(data);
+                updateSummary(endpoint, [data]);
+            } else {
+                dataContent.innerHTML = '<p class="text-center">No data available</p>';
+            }
+            
+            dataSection.style.display = 'block';
+            
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            document.getElementById('errorMessage').textContent = 
+                `Failed to fetch ${endpoint} data: ${error.message}`;
+            errorSection.style.display = 'block';
+        } finally {
+            loading.style.display = 'none';
+        }
+    }
+
+    // Function to fetch latest data (single record)
+    async function fetchLatestData(endpoint) {
+        await fetchData(`${endpoint}/latest`);
+    }
+
+    // Function to format endpoint names for display
+    function formatEndpointName(endpoint) {
+        const names = {
+            'recovery': 'Recovery',
+            'sleep': 'Sleep',
+            'workouts': 'Workouts',
+            'workouts/get_runs': 'Running',
+            'workouts/get_tennis': 'Tennis',
+            'withings/weight': 'Weight',
+            'withings/heart-rate': 'Heart Rate',
+            'withings/weight/stats': 'Weight Statistics'
+        };
+        return names[endpoint] || endpoint.replace(/\//g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+
+    // Function to create a table from array data
+    function createTable(data) {
+        if (!data || data.length === 0) return '<p>No data available</p>';
+        
+        const firstRow = data[0];
+        const headers = Object.keys(firstRow);
+        
+        let html = '<div class="table-responsive"><table class="table table-dark table-striped table-hover">';
+        
+        // Headers
+        html += '<thead><tr>';
+        headers.forEach(header => {
+            html += `<th>${formatHeader(header)}</th>`;
+        });
+        html += '</tr></thead>';
+        
+        // Body
+        html += '<tbody>';
+        data.slice(0, 10).forEach(row => { // Limit to 10 rows for display
+            html += '<tr>';
+            headers.forEach(header => {
+                const value = row[header];
+                html += `<td>${formatValue(header, value)}</td>`;
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        
+        if (data.length > 10) {
+            html += `<p class="text-muted text-center">Showing 10 of ${data.length} records</p>`;
+        }
+        
+        return html;
+    }
+
+    // Function to create a single record view
+    function createSingleRecordView(data) {
+        let html = '<div class="row">';
+        const entries = Object.entries(data);
+        
+        entries.forEach(([key, value], index) => {
+            if (index % 2 === 0) html += '<div class="col-md-6">';
+            
+            html += `
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2 text-muted">${formatHeader(key)}</h6>
+                        <p class="card-text">${formatValue(key, value)}</p>
+                    </div>
+                </div>
+            `;
+            
+            if (index % 2 === 1 || index === entries.length - 1) html += '</div>';
+        });
+        
+        html += '</div>';
+        return html;
+    }
+
+    // Function to format header names
+    function formatHeader(header) {
+        return header.replace(/_/g, ' ')
+                    .replace(/\b\w/g, l => l.toUpperCase())
+                    .replace(/Id/g, 'ID');
+    }
+
+    // Function to format values
+    function formatValue(key, value) {
+        if (value === null || value === undefined) return '<span class="text-muted">—</span>';
+        
+        // Format dates
+        if (key.includes('date') || key.includes('time') || key === 'created_at' || key === 'updated_at') {
+            if (typeof value === 'string' && value.includes('T')) {
+                return new Date(value).toLocaleString();
+            }
+        }
+        
+        // Format percentages
+        if (key.includes('score') || key.includes('percent') || key.includes('ratio')) {
+            if (typeof value === 'number') {
+                return `${value}%`;
+            }
+        }
+        
+        // Format weights
+        if (key.includes('weight') || key.includes('mass')) {
+            if (typeof value === 'number') {
+                return `${value} kg`;
+            }
+        }
+        
+        // Format heart rate
+        if (key.includes('heart_rate') || key.includes('bpm')) {
+            if (typeof value === 'number') {
+                return `${value} bpm`;
+            }
+        }
+        
+        return value;
+    }
+
+    // Function to update summary
+    function updateSummary(endpoint, data) {
+        const summaryContent = document.getElementById('summaryContent');
+        let summaryHtml = '';
+        
+        if (data && data.length > 0) {
+            summaryHtml = `
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="card bg-primary bg-opacity-25">
+                            <div class="card-body">
+                                <h5>Total Records</h5>
+                                <h3>${data.length}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-success bg-opacity-25">
+                            <div class="card-body">
+                                <h5>Data Source</h5>
+                                <h3>${endpoint.includes('withings') ? 'Withings' : 'WHOOP'}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-info bg-opacity-25">
+                            <div class="card-body">
+                                <h5>Last Updated</h5>
+                                <h3>${new Date().toLocaleTimeString()}</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        summaryContent.innerHTML = summaryHtml;
+    }
+</script>
+{% endblock %}
