@@ -1,7 +1,7 @@
-from api.recovery_routes import router as recovery_router
-from api.workout_routes import router as workout_router
-from api.sleep_routes import router as sleep_router
-from api.withings_routes import router as withings_router
+from whoop_data.api.recovery_routes import router as recovery_router
+from whoop_data.api.workout_routes import router as workout_router
+from whoop_data.api.sleep_routes import router as sleep_router
+from whoop_data.api.withings_routes import router as withings_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

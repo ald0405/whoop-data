@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List
-from schemas.recovery import Recovery as RecoverySchema, AvgRecovery
-from crud.recovery import get_recoveries, get_top_recoveries, get_avg_recovery_by_week
+from whoop_data.schemas.recovery import Recovery as RecoverySchema, AvgRecovery
+from whoop_data.crud.recovery import get_recoveries, get_top_recoveries, get_avg_recovery_by_week
 from db.database import get_db
 
 router = APIRouter()

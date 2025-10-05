@@ -54,7 +54,7 @@ def ensure_database_tables():
     """Ensure all database tables exist"""
     try:
         from db.database import engine
-        from models.models import Base
+        from whoop_data.models.models import Base
         
         console.print("🗄️  [bold]Ensuring database tables exist...[/bold]")
         
@@ -81,7 +81,7 @@ def run_data_pipeline():
     
     try:
         # Import and run the ETL pipeline
-        from extract_transform_load_combined import run_complete_etl
+        from whoop_data.etl import run_complete_etl
         
         with Progress(
             SpinnerColumn(),

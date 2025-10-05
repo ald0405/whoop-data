@@ -1,9 +1,9 @@
 from db.database import get_db
-from crud.sleep import get_sleep
+from whoop_data.crud.sleep import get_sleep
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List
-from schemas.sleep import SleepSchema
+from whoop_data.schemas.sleep import SleepSchema
 
 router = APIRouter()
 
