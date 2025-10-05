@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models.models import Recovery, Cycle, Sleep, Workout, WithingsWeight, WithingsHeartRate
+from whoop_data.models.models import Recovery, Cycle, Sleep, Workout, WithingsWeight, WithingsHeartRate
 
 class DBLoader:
     """

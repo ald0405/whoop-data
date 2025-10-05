@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta
-from models.models import Sleep
+from whoop_data.models.models import Sleep
 
 
 def get_sleep(db: Session, skip: int = 0, limit: int = 10):

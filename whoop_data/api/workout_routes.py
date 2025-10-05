@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
-from schemas.workout import Workouts as WorkoutSchema
+from whoop_data.schemas.workout import Workouts as WorkoutSchema
 from db.database import SessionLocal, get_db
 from sqlalchemy.orm import Session
-from crud.workout import get_recoveries, get_runs, get_tennis
+from whoop_data.crud.workout import get_recoveries, get_runs, get_tennis
 from typing import List
 
 router = APIRouter()
