@@ -38,3 +38,4 @@ dist/
 
 # Pytest cache
 .pytest_cache/.whoop_tokens.json
+.withings_tokens.json

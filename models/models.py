@@ -125,3 +125,97 @@ class Workout(Base):
 
     cycle = relationship("Cycle", back_populates="workouts")
 
+
+class WithingsWeight(Base):
+    __tablename__ = 'withings_weight'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String, nullable=False)
+    grpid = Column(Integer)  # Withings group ID
+    deviceid = Column(String)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    date = Column(Integer)  # Unix timestamp from Withings
+    datetime = Column(DateTime)  # Converted datetime
+    timezone = Column(String)
+    comment = Column(String)
+    category = Column(Integer)  # 1 for real measures, 2 for objectives
+    
+    # Weight measurements
+    weight_kg = Column(Float)
+    height_m = Column(Float)
+    fat_free_mass_kg = Column(Float)
+    fat_ratio_percent = Column(Float)
+    fat_mass_kg = Column(Float)
+    
+    # Additional body composition (optional)
+    muscle_mass_kg = Column(Float)
+    bone_mass_kg = Column(Float)
+    hydration_kg = Column(Float)
+    visceral_fat = Column(Float)
+    
+    def __repr__(self):
+        return f"<WithingsWeight(user_id='{self.user_id}', weight={self.weight_kg}kg, date='{self.datetime}')>"
+    
+    def bmi(self):
+        """Calculate BMI if both weight and height are available"""
+        if self.weight_kg and self.height_m and self.height_m > 0:
+            return round(self.weight_kg / (self.height_m ** 2), 1)
+        return None
+        
+    def weight_category(self):
+        """BMI-based weight category"""
+        bmi = self.bmi()
+        if bmi is None:
+            return "Unknown"
+        elif bmi < 18.5:
+            return "Underweight"
+        elif 18.5 <= bmi < 25:
+            return "Normal"
+        elif 25 <= bmi < 30:
+            return "Overweight"
+        else:
+            return "Obese"
+
+
+class WithingsHeartRate(Base):
+    __tablename__ = 'withings_heart_rate'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String, nullable=False)
+    grpid = Column(Integer)  # Withings group ID
+    deviceid = Column(String)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    date = Column(Integer)  # Unix timestamp
+    datetime = Column(DateTime)  # Converted datetime
+    timezone = Column(String)
+    category = Column(Integer)
+    
+    # Heart rate and blood pressure measurements
+    heart_rate_bpm = Column(Float)
+    systolic_bp_mmhg = Column(Float)
+    diastolic_bp_mmhg = Column(Float)
+    
+    def __repr__(self):
+        return f"<WithingsHeartRate(user_id='{self.user_id}', hr={self.heart_rate_bpm}bpm, date='{self.datetime}')>"
+    
+    def bp_category(self):
+        """Blood pressure category based on AHA guidelines"""
+        if not self.systolic_bp_mmhg or not self.diastolic_bp_mmhg:
+            return "Unknown"
+        
+        systolic = self.systolic_bp_mmhg
+        diastolic = self.diastolic_bp_mmhg
+        
+        if systolic < 120 and diastolic < 80:
+            return "Normal"
+        elif systolic < 130 and diastolic < 80:
+            return "Elevated"
+        elif (130 <= systolic < 140) or (80 <= diastolic < 90):
+            return "Stage 1 High"
+        elif (140 <= systolic < 180) or (90 <= diastolic < 120):
+            return "Stage 2 High"
+        else:
+            return "Crisis"
+

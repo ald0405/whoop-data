@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models.models import Recovery, Cycle, Sleep, Workout
+from models.models import Recovery, Cycle, Sleep, Workout, WithingsWeight, WithingsHeartRate
 
 class DBLoader:
     """
@@ -79,3 +79,67 @@ class DBLoader:
         self.db.commit()
         self.db.refresh(sleep)
         return sleep
+
+    def load_withings_weight(self, data: dict) -> WithingsWeight:
+        """
+        Insert a Withings Weight record into the database.
+        
+        Args:
+            data (dict): Dictionary of Withings weight/body composition data.
+        
+        Returns:
+            WithingsWeight: The created WithingsWeight ORM object.
+        """
+        # Check if record already exists (avoid duplicates)
+        existing = self.db.query(WithingsWeight).filter(
+            WithingsWeight.grpid == data.get('grpid'),
+            WithingsWeight.user_id == data.get('user_id')
+        ).first()
+        
+        if existing:
+            # Update existing record
+            for key, value in data.items():
+                if value is not None:  # Only update non-None values
+                    setattr(existing, key, value)
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
+        else:
+            # Create new record
+            weight_record = WithingsWeight(**data)
+            self.db.add(weight_record)
+            self.db.commit()
+            self.db.refresh(weight_record)
+            return weight_record
+
+    def load_withings_heart_rate(self, data: dict) -> WithingsHeartRate:
+        """
+        Insert a Withings Heart Rate record into the database.
+        
+        Args:
+            data (dict): Dictionary of Withings heart rate/blood pressure data.
+        
+        Returns:
+            WithingsHeartRate: The created WithingsHeartRate ORM object.
+        """
+        # Check if record already exists (avoid duplicates)
+        existing = self.db.query(WithingsHeartRate).filter(
+            WithingsHeartRate.grpid == data.get('grpid'),
+            WithingsHeartRate.user_id == data.get('user_id')
+        ).first()
+        
+        if existing:
+            # Update existing record
+            for key, value in data.items():
+                if value is not None:  # Only update non-None values
+                    setattr(existing, key, value)
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
+        else:
+            # Create new record
+            hr_record = WithingsHeartRate(**data)
+            self.db.add(hr_record)
+            self.db.commit()
+            self.db.refresh(hr_record)
+            return hr_record
