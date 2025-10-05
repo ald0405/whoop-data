@@ -1,0 +1,12 @@
+{
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "health_agent": {
+      "path": "whoop_data.agent.graph:build_graph",
+      "config_schema": "whoop_data.agent.schemas:HealthContextSchema"
+    }
+  },
+  "env": ".env"
+}

@@ -1,9 +1,10 @@
 import numpy as np
+# Configure matplotlib for headless operation before importing pyplot
+import matplotlib
+matplotlib.use('Agg', force=True)
 import matplotlib.pyplot as plt
+plt.ioff()  # Turn off interactive mode
 import seaborn as sns
-import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
 from math import sqrt
 from scipy.stats import norm
 from typing import Tuple

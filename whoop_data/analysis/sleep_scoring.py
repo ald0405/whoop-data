@@ -10,8 +10,12 @@ from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_err
 
 # For handling missing values
 from sklearn.impute import SimpleImputer
-import seaborn as sns
+# Configure matplotlib for headless operation before importing pyplot
+import matplotlib
+matplotlib.use('Agg', force=True)
 import matplotlib.pyplot as plt
+plt.ioff()  # Turn off interactive mode
+import seaborn as sns
 import os
 from datetime import datetime, timedelta
 from whoop_functions import (
@@ -153,8 +157,7 @@ print(f"Mean Absolute Error (MAE): {mae:.2f}")
 print(f"Root Mean Squared Error (RMSE): {rmse:.2f}")
 print(f"R-squared (R2): {r2:.2f}")
 
-import matplotlib.pyplot as plt
-import seaborn as sns
+# matplotlib and seaborn already imported above
 
 sns.histplot(df["sleep_time_hr_float"], bins=20, kde=True)
 plt.title("Distribution of Sleep Time in Hours")
