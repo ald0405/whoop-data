@@ -1,9 +1,20 @@
-# WHOOP Health Data Platform
+# 🏥 AI-Powered Health Data Platform
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![OpenAI](https://img.shields.io/badge/AI-OpenAI%20GPT-green.svg)](https://openai.com/)
+[![LangGraph](https://img.shields.io/badge/Agent-LangGraph-purple.svg)](https://langchain-ai.github.io/langgraph/)
 
-A comprehensive health data integration platform for WHOOP and Withings devices with FastAPI backend.
+A comprehensive **AI-powered health data platform** that integrates WHOOP and Withings devices with a conversational agent interface. Chat with your health data using natural language queries!
+
+## ✨ Features
+
+- 🤖 **AI Health Data Agent** - Chat with your data using natural language
+- 📊 **Comprehensive Data Integration** - WHOOP + Withings APIs
+- 🎾 **Sport-Specific Analysis** - Tennis, running, and general workout tracking
+- 📈 **Trend Analysis** - Weight, recovery, sleep patterns over time
+- 🌐 **REST API** - Complete FastAPI backend with documentation
+- 💬 **Web Chat Interface** - Beautiful Gradio-powered chat UI
 
 ## Project Structure
 
@@ -16,6 +27,13 @@ whoop-data/
 │   ├── database.py           # Database setup utilities  
 │   ├── utils.py              # Database loading utilities
 │   ├── model_transformation.py # Data transformation functions
+│   ├── agent/                # 🤖 AI Agent System
+│   │   ├── __init__.py
+│   │   ├── graph.py          # LangGraph agent orchestration
+│   │   ├── nodes.py          # Agent nodes (supervisor, tools)
+│   │   ├── tools.py          # Health data tools for agent
+│   │   ├── schemas.py        # Agent state and configuration
+│   │   └── settings.py       # Agent configuration
 │   ├── api/                  # FastAPI routes
 │   │   ├── __init__.py
 │   │   ├── recovery_routes.py
@@ -39,6 +57,11 @@ whoop-data/
 │   │   ├── recovery.py
 │   │   ├── sleep.py
 │   │   └── workout.py
+│   ├── utils/                # Utility functions
+│   │   ├── __init__.py
+│   │   ├── db_loader.py      # Database loading utilities
+│   │   ├── date_filters.py   # Date filtering utilities
+│   │   └── matplotlib_config.py # Chart configuration
 │   ├── tests/                # Test files
 │   │   ├── __init__.py
 │   │   └── test_withings.py
@@ -48,63 +71,127 @@ whoop-data/
 ├── scripts/                  # Helper scripts
 │   ├── create_tables.py      # Database table creation
 │   └── run_etl.py           # Standalone ETL runner
+├── chat_app.py              # 💬 Gradio chat interface
+├── start_health_chat.py     # 🚀 Complete system launcher
 ├── django_whoop/             # Django project (optional)
 ├── main.py                   # FastAPI application entry point
-├── run_app.py               # Simple application runner
+├── run_app.py               # Complete data pipeline + API server
+├── app.py                    # Main FastAPI application
 ├── setup.py                 # Package configuration
 ├── requirements.txt         # Python dependencies
 ├── .env                     # Environment variables
+├── AGENT_PERSONALITY_GUIDE.md # AI agent coaching style guide
 └── README.md
 
 ```
 
-## Quick Start
+## 🚀 Quick Start Guide
 
-### 1. Install Dependencies
+### Step 1: Install Dependencies
 
 ```bash
+# Create virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install required packages
 pip install -r requirements.txt
 ```
 
-### 2. Set up Environment Variables
+### Step 2: Set up Environment Variables
 
-Create a `.env` file with your credentials:
+Create a `.env` file with your API credentials:
 
 ```bash
-# WHOOP credentials
-USERNAME=your_whoop_email@example.com
-PASSWORD=your_whoop_password
+# WHOOP OAuth 2.0 (Browser-based authentication - no username/password needed!)
+WHOOP_CLIENT_ID=your_whoop_client_id
+WHOOP_CLIENT_SECRET=your_whoop_client_secret
 
-# Withings OAuth credentials
+# Withings OAuth credentials  
 WITHINGS_CLIENT_ID=your_withings_client_id
 WITHINGS_CLIENT_SECRET=your_withings_client_secret
-WITHINGS_REDIRECT_URI=http://localhost:8080/callback
+WITHINGS_CALLBACK_URL=http://localhost:8766/callback
+
+# OpenAI API for AI agent functionality
+OPENAI_API_KEY=your_openai_api_key
 ```
 
-### 3. Run the Application
+**📝 Note**: WHOOP uses OAuth 2.0 browser authentication - you'll be redirected to login through their website when needed.
 
-**Option 1: Using the simple runner**
+### Step 3: Initialize Database & Load Data
+
+The system automatically creates the database and loads your health data:
+
 ```bash
-./run_app.py
+# Complete setup: Creates database + Loads fresh data + Starts API server
+python run_app.py
 ```
 
-**Option 2: Using the package directly**
+This will:
+1. 📦 **Create database tables** (SQLite in `./db/whoop.db`)
+2. 🔐 **Authenticate with WHOOP** (browser popup for OAuth)
+3. 🔐 **Authenticate with Withings** (browser popup for OAuth)
+4. 📊 **Load your health data** (recovery, workouts, sleep, weight, etc.)
+5. 🌐 **Start the API server** (http://localhost:8000)
+
+### Step 4: Start the AI Chat Interface
+
+**🎯 Option A: Complete System (Recommended)**
 ```bash
-python -m whoop_data.start
+# Launches both API server (8000) + Chat interface (7860)
+python start_health_chat.py
 ```
 
-**Option 3: After installing the package**
+**💬 Option B: Chat Interface Only**
 ```bash
-pip install -e .
-whoop-start
+# Just the chat interface (requires API server running separately)
+python chat_app.py
 ```
 
-### 4. Access the API
+### Step 5: Start Chatting with Your Health Data! 🎉
 
-Once running, the FastAPI server will be available at:
-- **Main API**: http://localhost:8000
-- **Interactive Documentation**: http://localhost:8000/docs
-- **ReDoc Documentation**: http://localhost:8000/redoc
+**🤖 AI Chat Interface**: http://localhost:7860
+
+**Example Questions to Try:**
+- "Show me my tennis workouts from 2025"
+- "What's my weight trend over the last 30 days?"
+- "How has my recovery been this month?"
+- "Get my latest sleep data and analyze my patterns"
+- "Show me my running performance with TRIMP scores"
+
+**🌐 REST API Access:**
+- **Interactive API Docs**: http://localhost:8000/docs
+- **Alternative Docs**: http://localhost:8000/redoc
+- **Sample Endpoint**: http://localhost:8000/recovery/latest
+
+## 📊 Data Pipeline Details
+
+### What Gets Loaded
+
+When you run `python run_app.py`, the system loads:
+
+**WHOOP Data:**
+- 📊 **Recovery scores** (HRV, RHR, sleep quality)
+- 🏋️ **Workout data** (strain, heart rate zones, sports)
+- 😴 **Sleep tracking** (stages, efficiency, duration)
+
+**Withings Data:**
+- ⚖️ **Weight & body composition** (BMI, fat ratio, muscle mass)
+- 💗 **Heart rate & blood pressure** (systolic, diastolic)
+
+### Database Setup
+
+The system automatically:
+1. Creates SQLite database at `./db/whoop.db`
+2. Sets up all required tables
+3. Handles data transformations and relationships
+4. Manages duplicate prevention
+
+### Token Management
+
+- **WHOOP**: OAuth tokens auto-refresh, occasional re-authentication needed
+- **Withings**: Long-lived tokens with automatic refresh (rarely need to re-login)
+- **Tokens stored securely** in hidden files with proper permissions
 
 ## API Endpoints
 
