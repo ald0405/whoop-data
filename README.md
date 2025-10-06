@@ -118,7 +118,7 @@ OPENAI_API_KEY=your_openai_api_key
 
 **📝 Note**: WHOOP uses OAuth 2.0 browser authentication - you'll be redirected to login through their website when needed.
 
-### Step 3: Initialize Database & Load Data
+### Step 3: Initialise Database & Load Data
 
 The system automatically creates the database and loads your health data:
 
@@ -156,7 +156,7 @@ python chat_app.py
 - "Show me my tennis workouts from 2025"
 - "What's my weight trend over the last 30 days?"
 - "How has my recovery been this month?"
-- "Get my latest sleep data and analyze my patterns"
+- "Get my latest sleep data and analyse my patterns"
 - "Show me my running performance with TRIMP scores"
 
 **🌐 REST API Access:**
