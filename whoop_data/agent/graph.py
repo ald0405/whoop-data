@@ -7,10 +7,31 @@ from .nodes import supervisor_node, tools_node
 
 
 def should_continue(state: HealthAgentState) -> str:
-    """Decide whether to continue to tools or end the conversation."""
+    """Decide whether to continue to tools or end the conversation with loop prevention."""
     messages = state.get("messages", [])
     
     if not messages:
+        return END
+    
+    # Count iterations (supervisor -> tools cycles)
+    iteration_count = 0
+    tool_call_count = 0
+    
+    for message in messages:
+        if hasattr(message, "tool_calls") and message.tool_calls:
+            iteration_count += 1
+            tool_call_count += len(message.tool_calls)
+    
+    # MAX 3 iterations to prevent infinite loops
+    MAX_ITERATIONS = 3
+    MAX_TOOL_CALLS = 5
+    
+    if iteration_count >= MAX_ITERATIONS:
+        print(f"⚠️  Stopping agent after {iteration_count} iterations to prevent infinite loop")
+        return END
+        
+    if tool_call_count >= MAX_TOOL_CALLS:
+        print(f"⚠️  Stopping agent after {tool_call_count} tool calls to prevent excessive API usage")
         return END
     
     last_message = messages[-1]
