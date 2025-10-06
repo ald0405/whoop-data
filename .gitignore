@@ -37,5 +37,51 @@ dist/
 *.egg-info/
 
 # Pytest cache
-.pytest_cache/.whoop_tokens.json
+.pytest_cache/
+
+# 🔒 SECURITY: Never commit tokens, credentials or sensitive data
+# Health data API tokens
+.whoop_tokens.json
 .withings_tokens.json
+*_tokens.json
+*.tokens
+*.token
+
+# API credentials and keys
+*.credentials
+*.key
+*.pem
+*.p12
+*.pfx
+api_keys.json
+credentials.json
+secrets.json
+
+# Environment files with potential secrets
+.env
+.env.*
+!.env.example
+.envrc
+
+# Authentication and session files
+auth.json
+session.json
+auth_cache/
+
+# Backup files that might contain sensitive data
+*.backup
+*.bak
+*~
+
+# Directories that might contain sensitive data
+secrets/
+credentials/
+keys/
+auth/
+private/
+
+# Health data exports (in case of manual exports)
+*.csv
+*.xlsx
+health_data/
+exports/
