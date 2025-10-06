@@ -9,17 +9,45 @@ from . import settings
 
 
 # WHOOP Recovery Tools
-@tool("get_latest_recovery", description="Get the most recent WHOOP recovery data including recovery score, HRV, and resting heart rate")
-async def get_latest_recovery_tool() -> str:
-    """Get the latest WHOOP recovery data from the database.
+@tool("get_recovery_data", description="Get WHOOP recovery data with flexible filtering - supports latest, historical ranges, and comprehensive analysis")
+async def get_recovery_data_tool(latest: bool = True, limit: int = 100, skip: int = 0, start_date: str = None, end_date: str = None, top: bool = False) -> str:
+    """Get WHOOP recovery data with flexible filtering options.
+    
+    Args:
+        latest: Get only the latest recovery record (default: True)
+        limit: Maximum number of records to retrieve (default: 100, can be much higher)
+        skip: Number of records to skip for pagination (default: 0)
+        start_date: Start date filter in YYYY-MM-DD format (optional)
+        end_date: End date filter in YYYY-MM-DD format (optional)  
+        top: Get top recoveries by score instead of latest (default: False)
     
     Returns:
-        JSON string containing recovery score, HRV, resting heart rate, and other recovery metrics
+        JSON string containing recovery data with scores, HRV, resting heart rate, and other metrics
+        
+    Examples:
+        - get_recovery_data_tool() - Latest recovery only
+        - get_recovery_data_tool(latest=False, limit=365) - Full year of data
+        - get_recovery_data_tool(start_date="2024-01-01", end_date="2024-12-31", latest=False) - 2024 data
+        - get_recovery_data_tool(top=True, limit=10, latest=False) - Top 10 recovery scores
     """
     try:
         async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
-            url = f"{settings.HEALTH_API_BASE_URL}/recovery/latest"
-            response = await client.get(url)
+            url = f"{settings.HEALTH_API_BASE_URL}/recovery"
+            params = {}
+            
+            if latest:
+                params["latest"] = "true"
+            if top:
+                params["top"] = "true" 
+            if not latest and not top:
+                params["limit"] = limit
+                params["skip"] = skip
+            if start_date:
+                params["start_date"] = start_date
+            if end_date:
+                params["end_date"] = end_date
+                
+            response = await client.get(url, params=params)
             
             if response.status_code == 200:
                 data = response.json()
@@ -62,17 +90,41 @@ async def get_top_recoveries_tool(limit: int = 10) -> str:
 
 
 # WHOOP Sleep Tools
-@tool("get_latest_sleep", description="Get the most recent WHOOP sleep data including sleep stages, efficiency, and sleep quality")
-async def get_latest_sleep_tool() -> str:
-    """Get the latest WHOOP sleep data from the database.
+@tool("get_sleep_data", description="Get WHOOP sleep data with flexible filtering - supports latest, historical ranges, and comprehensive analysis")
+async def get_sleep_data_tool(latest: bool = True, limit: int = 100, skip: int = 0, start_date: str = None, end_date: str = None) -> str:
+    """Get WHOOP sleep data with flexible filtering options.
+    
+    Args:
+        latest: Get only the latest sleep record (default: True)
+        limit: Maximum number of records to retrieve (default: 100, can be much higher)
+        skip: Number of records to skip for pagination (default: 0)
+        start_date: Start date filter in YYYY-MM-DD format (optional)
+        end_date: End date filter in YYYY-MM-DD format (optional)
     
     Returns:
         JSON string containing sleep stages, efficiency, duration, and sleep quality metrics
+        
+    Examples:
+        - get_sleep_data_tool() - Latest sleep only
+        - get_sleep_data_tool(latest=False, limit=365) - Full year of sleep data
+        - get_sleep_data_tool(start_date="2024-01-01", end_date="2024-12-31", latest=False) - 2024 sleep data
     """
     try:
         async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
-            url = f"{settings.HEALTH_API_BASE_URL}/sleep/latest"
-            response = await client.get(url)
+            url = f"{settings.HEALTH_API_BASE_URL}/sleep"
+            params = {}
+            
+            if latest:
+                params["latest"] = "true"
+            else:
+                params["limit"] = limit
+                params["skip"] = skip
+            if start_date:
+                params["start_date"] = start_date
+            if end_date:
+                params["end_date"] = end_date
+                
+            response = await client.get(url, params=params)
             
             if response.status_code == 200:
                 data = response.json()
@@ -85,17 +137,41 @@ async def get_latest_sleep_tool() -> str:
 
 
 # WHOOP Workout Tools
-@tool("get_latest_workout", description="Get the most recent WHOOP workout data including strain, calories, and heart rate zones")
-async def get_latest_workout_tool() -> str:
-    """Get the latest WHOOP workout data from the database.
+@tool("get_workout_data", description="Get WHOOP workout data with flexible filtering - supports latest, historical ranges, and comprehensive analysis")
+async def get_workout_data_tool(latest: bool = True, limit: int = 100, skip: int = 0, start_date: str = None, end_date: str = None) -> str:
+    """Get WHOOP workout data with flexible filtering options.
+    
+    Args:
+        latest: Get only the latest workout record (default: True)
+        limit: Maximum number of records to retrieve (default: 100, can be much higher)
+        skip: Number of records to skip for pagination (default: 0) 
+        start_date: Start date filter in YYYY-MM-DD format (optional)
+        end_date: End date filter in YYYY-MM-DD format (optional)
     
     Returns:
-        JSON string containing workout strain, calories burned, heart rate zones, and workout type
+        JSON string containing workout data with strain, calories, heart rate zones, and workout type
+        
+    Examples:
+        - get_workout_data_tool() - Latest workout only
+        - get_workout_data_tool(latest=False, limit=200) - Comprehensive workout history
+        - get_workout_data_tool(start_date="2024-01-01", end_date="2024-12-31", latest=False) - 2024 workouts
     """
     try:
         async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
-            url = f"{settings.HEALTH_API_BASE_URL}/workouts/latest"
-            response = await client.get(url)
+            url = f"{settings.HEALTH_API_BASE_URL}/workouts"
+            params = {}
+            
+            if latest:
+                params["latest"] = "true"
+            else:
+                params["limit"] = limit
+                params["skip"] = skip
+            if start_date:
+                params["start_date"] = start_date
+            if end_date:
+                params["end_date"] = end_date
+                
+            response = await client.get(url, params=params)
             
             if response.status_code == 200:
                 data = response.json()
@@ -121,8 +197,8 @@ async def get_running_workouts_tool(limit: int = 10) -> str:
     """
     try:
         async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
-            url = f"{settings.HEALTH_API_BASE_URL}/workouts/get_run_trimp"
-            params = {"limit": limit}
+            url = f"{settings.HEALTH_API_BASE_URL}/workouts/analytics/trimp"
+            params = {"limit": limit, "skip": 0}
             response = await client.get(url, params=params)
             
             if response.status_code == 200:
@@ -149,8 +225,8 @@ async def get_tennis_workouts_tool(limit: int = 10) -> str:
     """
     try:
         async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
-            url = f"{settings.HEALTH_API_BASE_URL}/workouts/get_tennis"
-            params = {"limit": limit}
+            url = f"{settings.HEALTH_API_BASE_URL}/workouts/types/tennis"
+            params = {"limit": limit, "skip": 0}
             response = await client.get(url, params=params)
             
             if response.status_code == 200:
@@ -164,17 +240,41 @@ async def get_tennis_workouts_tool(limit: int = 10) -> str:
 
 
 # Withings Weight Tools
-@tool("get_latest_weight", description="Get the most recent weight measurement from Withings scale with BMI and body composition")
-async def get_latest_weight_tool() -> str:
-    """Get the latest weight measurement from Withings scale.
+@tool("get_weight_data", description="Get Withings weight data with flexible filtering - supports latest, historical ranges, and comprehensive analysis")
+async def get_weight_data_tool(latest: bool = True, limit: int = 100, skip: int = 0, start_date: str = None, end_date: str = None) -> str:
+    """Get Withings weight and body composition data with flexible filtering options.
+    
+    Args:
+        latest: Get only the latest weight record (default: True)
+        limit: Maximum number of records to retrieve (default: 100, can be much higher)
+        skip: Number of records to skip for pagination (default: 0)
+        start_date: Start date filter in YYYY-MM-DD format (optional)
+        end_date: End date filter in YYYY-MM-DD format (optional)
     
     Returns:
-        JSON string containing weight, BMI, body fat percentage, muscle mass, and weight category
+        JSON string containing weight, BMI, body fat percentage, muscle mass, and weight category data
+        
+    Examples:
+        - get_weight_data_tool() - Latest weight only
+        - get_weight_data_tool(latest=False, limit=365) - Full year of weight data
+        - get_weight_data_tool(start_date="2024-01-01", end_date="2024-12-31", latest=False) - 2024 weight data
     """
     try:
         async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
-            url = f"{settings.HEALTH_API_BASE_URL}/withings/weight/latest"
-            response = await client.get(url)
+            url = f"{settings.HEALTH_API_BASE_URL}/withings/weight"
+            params = {}
+            
+            if latest:
+                params["latest"] = "true"
+            else:
+                params["limit"] = limit
+                params["skip"] = skip
+            if start_date:
+                params["start_date"] = start_date
+            if end_date:
+                params["end_date"] = end_date
+                
+            response = await client.get(url, params=params)
             
             if response.status_code == 200:
                 data = response.json()
@@ -198,7 +298,7 @@ async def get_weight_stats_tool(days: int = 30) -> str:
     """
     try:
         async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
-            url = f"{settings.HEALTH_API_BASE_URL}/withings/weight/stats"
+            url = f"{settings.HEALTH_API_BASE_URL}/withings/weight/analytics"
             params = {"days": days}
             response = await client.get(url, params=params)
             
@@ -213,17 +313,41 @@ async def get_weight_stats_tool(days: int = 30) -> str:
 
 
 # Withings Heart Rate Tools
-@tool("get_latest_heart_rate", description="Get the most recent heart rate and blood pressure measurement from Withings devices")
-async def get_latest_heart_rate_tool() -> str:
-    """Get the latest heart rate and blood pressure data from Withings devices.
+@tool("get_heart_rate_data", description="Get Withings heart rate data with flexible filtering - supports latest, historical ranges, and comprehensive analysis")
+async def get_heart_rate_data_tool(latest: bool = True, limit: int = 100, skip: int = 0, start_date: str = None, end_date: str = None) -> str:
+    """Get Withings heart rate and blood pressure data with flexible filtering options.
+    
+    Args:
+        latest: Get only the latest heart rate record (default: True)
+        limit: Maximum number of records to retrieve (default: 100, can be much higher)
+        skip: Number of records to skip for pagination (default: 0)
+        start_date: Start date filter in YYYY-MM-DD format (optional)
+        end_date: End date filter in YYYY-MM-DD format (optional)
     
     Returns:
-        JSON string containing heart rate, systolic/diastolic blood pressure, and BP category
+        JSON string containing heart rate, systolic/diastolic blood pressure, and BP category data
+        
+    Examples:
+        - get_heart_rate_data_tool() - Latest heart rate only
+        - get_heart_rate_data_tool(latest=False, limit=365) - Full year of heart rate data
+        - get_heart_rate_data_tool(start_date="2024-01-01", end_date="2024-12-31", latest=False) - 2024 heart rate data
     """
     try:
         async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
-            url = f"{settings.HEALTH_API_BASE_URL}/withings/heart-rate/latest"
-            response = await client.get(url)
+            url = f"{settings.HEALTH_API_BASE_URL}/withings/heart-rate"
+            params = {}
+            
+            if latest:
+                params["latest"] = "true"
+            else:
+                params["limit"] = limit
+                params["skip"] = skip
+            if start_date:
+                params["start_date"] = start_date
+            if end_date:
+                params["end_date"] = end_date
+                
+            response = await client.get(url, params=params)
             
             if response.status_code == 200:
                 data = response.json()
@@ -300,8 +424,8 @@ async def get_recovery_trends_tool(weeks: int = 4) -> str:
     """
     try:
         async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
-            url = f"{settings.HEALTH_API_BASE_URL}/recoveries/avg_recoveries/"
-            params = {"week": weeks}
+            url = f"{settings.HEALTH_API_BASE_URL}/recovery/analytics/weekly"
+            params = {"weeks": weeks}
             response = await client.get(url, params=params)
             
             if response.status_code == 200:
@@ -371,26 +495,24 @@ python_repl_tool = PythonREPLTool(
 
 # List of all available tools for easy import
 AVAILABLE_TOOLS = [
-    # WHOOP Recovery Tools
-    get_latest_recovery_tool,
-    get_top_recoveries_tool,
-    get_all_recovery_data_tool,
+    # WHOOP Recovery Tools  
+    get_recovery_data_tool,
     get_recovery_trends_tool,
     
     # WHOOP Sleep Tools
-    get_latest_sleep_tool,
+    get_sleep_data_tool,
     
     # WHOOP Workout Tools
-    get_latest_workout_tool,
+    get_workout_data_tool,
     get_running_workouts_tool,
     get_tennis_workouts_tool,
     
     # Withings Weight Tools
-    get_latest_weight_tool,
+    get_weight_data_tool,
     get_weight_stats_tool,
     
     # Withings Heart Rate Tools
-    get_latest_heart_rate_tool,
+    get_heart_rate_data_tool,
     
     # Summary Tools
     get_withings_summary_tool,
