@@ -171,6 +171,15 @@ python scripts/create_tables.py
 ### Workout Tracking
 - WHOOP tracks workouts and measures accumulated Strain over each workout.
 
+## Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/README.md) directory:
+
+- **[Technical Documentation](docs/technical/)** - Development logs, API changes, and troubleshooting
+- **[Features Documentation](docs/features/)** - Feature specifications and configurations
+
+For API documentation, visit http://localhost:8000/docs after starting the application.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
