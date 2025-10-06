@@ -37,5 +37,16 @@ dist/
 *.egg-info/
 
 # Pytest cache
-.pytest_cache/.whoop_tokens.json
+.pytest_cache/
+
+# ⚠️  SECURITY: Never commit tokens or credentials
+.whoop_tokens.json
 .withings_tokens.json
+*_tokens.json
+*.tokens
+*.credentials
+.env.local
+.env.production
+.env.development
+secrets/
+credentials/
