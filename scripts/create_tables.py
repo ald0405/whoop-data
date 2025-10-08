@@ -17,7 +17,7 @@ console = Console()
 def create_all_tables():
     """Create all database tables"""
     try:
-        from db.database import engine
+        from whoopdata.database.database import engine
         from models.models import Base
         
         console.print("🗄️  [bold]Creating database tables...[/bold]")
@@ -45,7 +45,7 @@ def create_all_tables():
 def check_existing_tables():
     """Check what tables already exist"""
     try:
-        from db.database import engine
+        from whoopdata.database.database import engine
         from sqlalchemy import inspect
         
         inspector = inspect(engine)

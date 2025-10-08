@@ -51,7 +51,7 @@ def test_agent_tools_import():
     """Test importing the agent tools with matplotlib configuration."""
     try:
         print("Testing agent tools import...")
-        from whoop_data.agent.tools import python_repl_tool
+        from whoopdata.agent.tools import python_repl_tool
         print("✅ Agent tools imported successfully")
         
         # Test the Python REPL tool

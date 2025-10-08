@@ -1,7 +1,7 @@
-from whoop_data.api.recovery_routes import router as recovery_router
-from whoop_data.api.workout_routes import router as workout_router
-from whoop_data.api.sleep_routes import router as sleep_router
-from whoop_data.api.withings_routes import router as withings_router
+from whoopdata.api.recovery_routes import router as recovery_router
+from whoopdata.api.workout_routes import router as workout_router
+from whoopdata.api.sleep_routes import router as sleep_router
+from whoopdata.api.withings_routes import router as withings_router
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates

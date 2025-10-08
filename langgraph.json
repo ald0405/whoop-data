@@ -4,8 +4,8 @@
   ],
   "graphs": {
     "health_agent": {
-      "path": "whoop_data.agent.graph:build_graph",
-      "config_schema": "whoop_data.agent.schemas:HealthContextSchema"
+      "path": "whoopdata.agent.graph:build_graph",
+      "config_schema": "whoopdata.agent.schemas:HealthContextSchema"
     }
   },
   "env": ".env"

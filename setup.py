@@ -40,8 +40,8 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "whoop-start=whoop_data.start:main",
-            "whoop-etl=whoop_data.etl:run_complete_etl",
+            "whoop-start=whoopdata.cli:main",
+            "whoop-etl=whoopdata.etl:run_complete_etl",
         ]
     },
     classifiers=[
