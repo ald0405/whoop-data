@@ -20,7 +20,7 @@ A comprehensive **AI-powered health data platform** that integrates WHOOP and Wi
 
 ```
 whoop-data/
-├── whoop_data/               # Main package directory
+├── whoopdata/               # Main package directory
 │   ├── __init__.py
 │   ├── start.py              # Main application launcher
 │   ├── etl.py                # ETL pipeline logic
@@ -216,7 +216,7 @@ The system automatically:
 ### Testing Withings Integration
 
 ```bash
-python whoop_data/tests/test_withings.py
+python whoopdata/tests/test_withings.py
 ```
 
 ### Running ETL Pipeline Only

@@ -8,7 +8,7 @@ Ask questions about your workouts, sleep, recovery, weight trends, and more!
 
 import asyncio
 import gradio as gr
-from whoop_data.agent.graph import run_agent
+from whoopdata.agent.graph import run_agent
 import uuid
 from datetime import datetime
 from typing import List, Tuple
