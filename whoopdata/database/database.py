@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 # Path to your SQLite database file
-DATABASE_URL = "sqlite:///db/whoop.db"
+DATABASE_URL = "sqlite:///whoopdata/database/whoop.db"
 
 # Create the SQLAlchemy engine
 engine = create_engine(

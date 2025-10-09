@@ -18,7 +18,7 @@ def create_all_tables():
     """Create all database tables"""
     try:
         from whoopdata.database.database import engine
-        from models.models import Base
+        from whoopdata.models.models import Base
         
         console.print("🗄️  [bold]Creating database tables...[/bold]")
         
