@@ -14,7 +14,6 @@
 ## 🚀 Quick Links
 
 - **Main README**: [../README.md](../README.md) - Project overview and setup
-- **Django App**: [../django_whoop/README.md](../django_whoop/README.md) - Django-specific documentation
 
 ## 📊 API Documentation
 
