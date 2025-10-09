@@ -73,7 +73,6 @@ whoop-data/
 │   └── run_etl.py           # Standalone ETL runner
 ├── chat_app.py              # 💬 Gradio chat interface
 ├── start_health_chat.py     # 🚀 Complete system launcher
-├── django_whoop/             # Django project (optional)
 ├── main.py                   # FastAPI application entry point
 ├── run_app.py               # Complete data pipeline + API server
 ├── app.py                    # Main FastAPI application
