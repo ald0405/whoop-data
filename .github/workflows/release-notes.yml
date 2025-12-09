@@ -1,0 +1,118 @@
+name: Generate Release Notes
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-release-notes:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for accurate changelog
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          echo "## 📝 Changes in this PR" > CHANGELOG.tmp
+          echo "" >> CHANGELOG.tmp
+          
+          # Get commits between base and head
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          
+          # Categories for different types of changes
+          echo "### ✨ Features" >> CHANGELOG.tmp
+          git log $BASE_SHA..$HEAD_SHA --oneline --grep="feat:" --grep="feature:" -i | sed 's/^/- /' >> CHANGELOG.tmp || echo "- None" >> CHANGELOG.tmp
+          echo "" >> CHANGELOG.tmp
+          
+          echo "### 🐛 Bug Fixes" >> CHANGELOG.tmp
+          git log $BASE_SHA..$HEAD_SHA --oneline --grep="fix:" --grep="bug:" -i | sed 's/^/- /' >> CHANGELOG.tmp || echo "- None" >> CHANGELOG.tmp
+          echo "" >> CHANGELOG.tmp
+          
+          echo "### 📚 Documentation" >> CHANGELOG.tmp
+          git log $BASE_SHA..$HEAD_SHA --oneline --grep="docs:" --grep="documentation:" -i | sed 's/^/- /' >> CHANGELOG.tmp || echo "- None" >> CHANGELOG.tmp
+          echo "" >> CHANGELOG.tmp
+          
+          echo "### 🧹 Refactoring" >> CHANGELOG.tmp
+          git log $BASE_SHA..$HEAD_SHA --oneline --grep="refactor:" --grep="clean:" -i | sed 's/^/- /' >> CHANGELOG.tmp || echo "- None" >> CHANGELOG.tmp
+          echo "" >> CHANGELOG.tmp
+          
+          echo "### 🧪 Testing" >> CHANGELOG.tmp
+          git log $BASE_SHA..$HEAD_SHA --oneline --grep="test:" -i | sed 's/^/- /' >> CHANGELOG.tmp || echo "- None" >> CHANGELOG.tmp
+          echo "" >> CHANGELOG.tmp
+          
+          echo "### 🔧 Maintenance" >> CHANGELOG.tmp
+          git log $BASE_SHA..$HEAD_SHA --oneline --grep="chore:" --grep="deps:" -i | sed 's/^/- /' >> CHANGELOG.tmp || echo "- None" >> CHANGELOG.tmp
+          echo "" >> CHANGELOG.tmp
+          
+          echo "### 📦 All Commits" >> CHANGELOG.tmp
+          git log $BASE_SHA..$HEAD_SHA --oneline | sed 's/^/- /' >> CHANGELOG.tmp
+          
+          cat CHANGELOG.tmp
+        if: github.event_name == 'pull_request'
+      
+      - name: Comment PR with changelog
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const changelog = fs.readFileSync('CHANGELOG.tmp', 'utf8');
+            
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.data.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('📝 Changes in this PR')
+            );
+            
+            const body = `${changelog}\n\n---\n*This changelog is automatically generated from commit messages*`;
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+      
+      - name: Generate release notes for GitHub Release
+        if: github.event_name == 'release'
+        run: |
+          echo "## 🎉 Release ${{ github.event.release.tag_name }}" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### Highlights" >> RELEASE_NOTES.md
+          git log $(git describe --tags --abbrev=0 HEAD^)..HEAD --oneline | sed 's/^/- /' >> RELEASE_NOTES.md
