@@ -4,6 +4,12 @@ Setup configuration for the WHOOP Data package
 """
 
 from setuptools import setup, find_packages
+import os
+import sys
+
+# Add project root to path to import version
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+from whoopdata.__version__ import __version__
 
 # Read requirements from requirements.txt
 with open("requirements.txt", "r", encoding="utf-8") as f:
@@ -18,7 +24,7 @@ except FileNotFoundError:
 
 setup(
     name="whoop-data",
-    version="0.1.0",
+    version=__version__,
     description="WHOOP and Withings Health Data Integration Platform",
     long_description=long_description,
     long_description_content_type="text/markdown",

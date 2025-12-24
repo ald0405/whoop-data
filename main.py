@@ -5,6 +5,7 @@ from whoopdata.api.withings_routes import router as withings_router
 from whoopdata.api.weather_routes import router as weather_router
 from whoopdata.api.transport_routes import router as transport_router
 from whoopdata.api.dashboard_routes import router as dashboard_router
+from whoopdata.__version__ import __version__
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
@@ -14,7 +15,7 @@ from pathlib import Path
 app = FastAPI(
     title="WHOOP Health Data Platform",
     description="A comprehensive health data integration platform for WHOOP and Withings devices",
-    version="1.0.0"
+    version=__version__
 )
 
 # Add CORS middleware
