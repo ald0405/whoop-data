@@ -2,6 +2,9 @@ from whoopdata.api.recovery_routes import router as recovery_router
 from whoopdata.api.workout_routes import router as workout_router
 from whoopdata.api.sleep_routes import router as sleep_router
 from whoopdata.api.withings_routes import router as withings_router
+from whoopdata.api.weather_routes import router as weather_router
+from whoopdata.api.transport_routes import router as transport_router
+from whoopdata.api.dashboard_routes import router as dashboard_router
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
@@ -44,3 +47,6 @@ app.include_router(recovery_router)
 app.include_router(workout_router)
 app.include_router(sleep_router)
 app.include_router(withings_router)
+app.include_router(weather_router)
+app.include_router(transport_router)
+app.include_router(dashboard_router)

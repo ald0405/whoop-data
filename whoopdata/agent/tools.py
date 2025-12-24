@@ -438,6 +438,121 @@ async def get_recovery_trends_tool(weeks: int = 4) -> str:
         return f"Error retrieving recovery trends: {str(e)}"
 
 
+# Weather and Transport Tools
+@tool("get_weather", description="Get current weather conditions for a location - useful for planning workouts and outdoor activities")
+async def get_weather_tool(location: str = settings.DEFAULT_LOCATION) -> str:
+    """Get current weather conditions for a location.
+    
+    Args:
+        location: Location name (e.g., "Canary Wharf", "London", "New York")
+        
+    Returns:
+        JSON string containing current weather with temperature, conditions, humidity, wind speed
+        
+    Examples:
+        - get_weather_tool() - Weather for default location (Canary Wharf)
+        - get_weather_tool("Central London") - Weather for Central London
+    """
+    try:
+        async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
+            url = f"{settings.HEALTH_API_BASE_URL}/weather/current"
+            params = {"location": location}
+            response = await client.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return json.dumps(data, indent=2)
+            else:
+                return f"Error retrieving weather: HTTP {response.status_code} - {response.text}"
+                
+    except Exception as e:
+        return f"Error retrieving weather: {str(e)}"
+
+
+@tool("get_air_quality", description="Get current air quality index (AQI) for a location - important for outdoor workout planning")
+async def get_air_quality_tool(location: str = settings.DEFAULT_LOCATION) -> str:
+    """Get current air quality index and pollutant levels for a location.
+    
+    Args:
+        location: Location name (e.g., "Canary Wharf", "London")
+        
+    Returns:
+        JSON string containing AQI (1=Good, 2=Fair, 3=Moderate, 4=Poor, 5=Very Poor) and pollutant levels
+        
+    Use case: Determine if outdoor running or cycling is safe based on air quality
+    """
+    try:
+        async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
+            url = f"{settings.HEALTH_API_BASE_URL}/weather/air-quality"
+            params = {"location": location}
+            response = await client.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return json.dumps(data, indent=2)
+            else:
+                return f"Error retrieving air quality: HTTP {response.status_code} - {response.text}"
+                
+    except Exception as e:
+        return f"Error retrieving air quality: {str(e)}"
+
+
+@tool("get_weather_forecast", description="Get multi-day weather forecast for a location - useful for planning training schedules")
+async def get_weather_forecast_tool(location: str = settings.DEFAULT_LOCATION, days: int = 3) -> str:
+    """Get weather forecast for upcoming days.
+    
+    Args:
+        location: Location name (e.g., "Canary Wharf", "London")
+        days: Number of days to forecast (1-5, default: 3)
+        
+    Returns:
+        JSON string containing weather forecast with 3-hour intervals
+        
+    Examples:
+        - get_weather_forecast_tool() - 3-day forecast for default location
+        - get_weather_forecast_tool("London", 5) - 5-day forecast for London
+    """
+    try:
+        async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
+            url = f"{settings.HEALTH_API_BASE_URL}/weather/forecast"
+            params = {"location": location, "days": days}
+            response = await client.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return json.dumps(data, indent=2)
+            else:
+                return f"Error retrieving forecast: HTTP {response.status_code} - {response.text}"
+                
+    except Exception as e:
+        return f"Error retrieving forecast: {str(e)}"
+
+
+@tool("get_transport_status", description="Get current TfL transport status for key lines (Jubilee, DLR, Elizabeth, Northern) - relevant for workout timing and stress levels")
+async def get_transport_status_tool() -> str:
+    """Get current status of key London transport lines.
+    
+    Returns:
+        JSON string containing status for Jubilee Line, DLR, Elizabeth Line, and Northern Line
+        Status is either "Good Service" or describes disruptions
+        
+    Use case: Check for transport disruptions that might affect workout timing or increase daily stress
+    """
+    try:
+        async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
+            url = f"{settings.HEALTH_API_BASE_URL}/transport/status"
+            response = await client.get(url)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return json.dumps(data, indent=2)
+            else:
+                return f"Error retrieving transport status: HTTP {response.status_code} - {response.text}"
+                
+    except Exception as e:
+        return f"Error retrieving transport status: {str(e)}"
+
+
 # Configure matplotlib globally before creating the tool
 import matplotlib
 matplotlib.use('Agg', force=True)
@@ -516,6 +631,14 @@ AVAILABLE_TOOLS = [
     
     # Summary Tools
     get_withings_summary_tool,
+    
+    # Weather Tools
+    get_weather_tool,
+    get_air_quality_tool,
+    get_weather_forecast_tool,
+    
+    # Transport Tools
+    get_transport_status_tool,
     
     # Code Execution Tools
     python_repl_tool,
