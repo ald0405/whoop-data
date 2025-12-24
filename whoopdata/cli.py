@@ -166,6 +166,8 @@ def start_fastapi_server():
     try:
         # Start uvicorn server
         subprocess.run([
+            sys.executable,
+            "-m",
             "uvicorn", 
             "main:app", 
             "--host", "0.0.0.0",

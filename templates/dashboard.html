@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Dashboard - Set Me Up For The Day</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #1e1e2e;
+            --bg-card: #313244;
+            --grid-color: rgba(68, 71, 90, 0.3);
+            --text-primary: #f1f1f1;
+            --text-secondary: #a6adc8;
+            --spine-color: #313244;
+            
+            /* Metric colors */
+            --color-recovery: #8be9fd;
+            --color-bedtime: #bd93f9;
+            --color-strain: #50fa7b;
+            --color-efficiency: #ffb86c;
+            --color-hrv: #ff79c6;
+            --color-rhr: #f1fa8c;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: 600;
+            font-size: 2em;
+        }
+        
+        .info-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .card h3 {
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+        
+        .metric-value {
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-container {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            position: relative;
+            height: 300px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+        
+        .error {
+            background: rgba(255, 100, 100, 0.2);
+            color: #ff6b6b;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .transport-line {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        
+        .transport-line.good {
+            border-left: 4px solid var(--color-strain);
+        }
+        
+        .transport-line.disrupted {
+            border-left: 4px solid #ff6b6b;
+        }
+        
+        .line-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .line-status {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+        }
+        
+        @media (max-width: 1200px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏃 Set Me Up For The Day</h1>
+        
+        <div class="info-cards">
+            <div class="card" id="weather-card">
+                <h3>☀️ Weather</h3>
+                <div class="card-content">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+            
+            <div class="card" id="transport-card">
+                <h3>🚇 Transport</h3>
+                <div class="card-content">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="charts-grid">
+            <div class="chart-container">
+                <canvas id="recoveryChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="hrvChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="rhrChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="strainChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="sleepEfficiencyChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="remPercentageChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Chart.js default configuration
+        Chart.defaults.color = '#a6adc8';
+        Chart.defaults.borderColor = 'rgba(68, 71, 90, 0.3)';
+        Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif";
+        
+        const chartConfig = {
+            type: 'line',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#313244',
+                        titleColor: '#f1f1f1',
+                        bodyColor: '#a6adc8',
+                        borderColor: '#44475a',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            maxTicksLimit: 7
+                        }
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(68, 71, 90, 0.3)'
+                        }
+                    }
+                },
+                elements: {
+                    line: {
+                        tension: 0.4,
+                        borderWidth: 3
+                    },
+                    point: {
+                        radius: 4,
+                        hoverRadius: 6,
+                        borderWidth: 2
+                    }
+                }
+            }
+        };
+        
+        function createChart(canvasId, label, metricData, color, unit = '', higherIsBetter = true) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const data = metricData.last_7_days;
+            
+            // Generate labels (days ago)
+            const labels = data.map((_, i) => {
+                if (i === 0) return 'Today';
+                return `${i}d ago`;
+            }).reverse();
+            
+            const values = [...data].reverse();
+            
+            // Calculate trend
+            const avg7 = metricData.avg_7_days;
+            const avg28 = metricData.avg_28_days;
+            let trendArrow = '';
+            let trendColor = '';
+            
+            if (avg7 != null && avg28 != null) {
+                if (avg7 > avg28) {
+                    trendArrow = higherIsBetter ? '↑' : '↓';
+                    trendColor = higherIsBetter ? '#50fa7b' : '#ff6b6b';
+                } else if (avg7 < avg28) {
+                    trendArrow = higherIsBetter ? '↓' : '↑';
+                    trendColor = higherIsBetter ? '#ff6b6b' : '#50fa7b';
+                } else {
+                    trendArrow = '→';
+                    trendColor = '#ffb86c';
+                }
+            }
+            
+            // Build subtitle text
+            let subtitle = '';
+            if (avg7 != null) subtitle += `7d avg: ${avg7}${unit}`;
+            if (avg28 != null) subtitle += ` | 28d avg: ${avg28}${unit}`;
+            if (trendArrow) subtitle += ` ${trendArrow}`;
+            
+            return new Chart(ctx, {
+                ...chartConfig,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: values,
+                        borderColor: color,
+                        backgroundColor: color + '33',
+                        pointBackgroundColor: color,
+                        pointBorderColor: color,
+                        fill: true
+                    }]
+                },
+                options: {
+                    ...chartConfig.options,
+                    plugins: {
+                        ...chartConfig.options.plugins,
+                        title: {
+                            display: true,
+                            text: label + (unit ? ` (${unit})` : ''),
+                            color: '#f1f1f1',
+                            font: {
+                                size: 14,
+                                weight: '600'
+                            },
+                            padding: {
+                                bottom: 5
+                            }
+                        },
+                        subtitle: {
+                            display: true,
+                            text: subtitle,
+                            color: trendColor || '#a6adc8',
+                            font: {
+                                size: 11,
+                                weight: '400'
+                            },
+                            padding: {
+                                bottom: 10
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        async function loadHealthMetrics() {
+            try {
+                const response = await fetch('/dashboard/health-metrics');
+                const data = await response.json();
+                
+                // Create charts (pass full metric data, not just last_7_days)
+                // Last param: true = higher is better, false = lower is better
+                createChart('recoveryChart', 'Recovery Score', data.recovery_score, '#8be9fd', '%', true);
+                createChart('hrvChart', 'HRV', data.hrv, '#ff79c6', 'ms', true);
+                createChart('rhrChart', 'Resting Heart Rate', data.rhr, '#f1fa8c', 'bpm', false); // Lower is better
+                createChart('strainChart', 'Strain', data.strain, '#50fa7b', '', true);
+                createChart('sleepEfficiencyChart', 'Sleep Efficiency', data.sleep_efficiency, '#ffb86c', '%', true);
+                createChart('remPercentageChart', 'REM Sleep', data.rem_percentage, '#bd93f9', '%', true);
+                
+            } catch (error) {
+                console.error('Error loading health metrics:', error);
+                document.querySelectorAll('.chart-container').forEach(container => {
+                    container.innerHTML = '<div class="error">Failed to load health metrics</div>';
+                });
+            }
+        }
+        
+        async function loadWeather() {
+            try {
+                const response = await fetch('/dashboard/weather-extended');
+                const data = await response.json();
+                
+                const weatherCard = document.getElementById('weather-card');
+                let html = `
+                    <div class="metric-row">
+                        <span class="metric-label">Temperature</span>
+                        <span class="metric-value">${data.current.temperature}°C (feels like ${data.current.feels_like}°C)</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Conditions</span>
+                        <span class="metric-value">${data.current.conditions}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Wind</span>
+                        <span class="metric-value">${data.current.wind_speed} m/s</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Sunrise / Sunset</span>
+                        <span class="metric-value">${data.current.sunrise} / ${data.current.sunset}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Air Quality</span>
+                        <span class="metric-value">AQI ${data.air_quality.current.aqi} (${data.air_quality.current.description})</span>
+                    </div>
+                `;
+                
+                // Add forecast by time of day
+                if (data.forecast_by_time && data.forecast_by_time.length > 0) {
+                    html += '<div style="border-top: 1px solid rgba(68, 71, 90, 0.5); margin-top: 10px; padding-top: 8px;">';
+                    html += '<details style="cursor: pointer;"><summary style="font-weight: 600; color: #a6adc8; padding: 4px 0;">☀️ Forecast</summary>';
+                    html += '<div style="margin-top: 8px; font-size: 0.9em;">';
+                    
+                    // Group by date for cleaner display
+                    let currentDate = null;
+                    data.forecast_by_time.slice(0, 12).forEach(forecast => { // Show up to 12 periods (4 days * 3 periods)
+                        const date = new Date(forecast.date);
+                        const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                        
+                        if (forecast.date !== currentDate) {
+                            if (currentDate !== null) html += '<div style="margin-bottom: 4px;"></div>';
+                            currentDate = forecast.date;
+                        }
+                        
+                        html += `
+                            <div style="padding: 2px 0; color: #f1f1f1;">
+                                <span style="color: #a6adc8;">${dateStr} ${forecast.period}:</span>
+                                <span style="color: #ffb86c; font-weight: 600;"> ${forecast.temp_avg}°C</span>
+                                <span style="color: #a6adc8; font-size: 0.85em;"> - ${forecast.conditions}</span>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div></details></div>';
+                }
+                
+                weatherCard.querySelector('.card-content').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading weather:', error);
+                document.getElementById('weather-card').querySelector('.card-content').innerHTML = 
+                    '<div class="error">Failed to load weather data</div>';
+            }
+        }
+        
+        function formatRelativeTime(minutes) {
+            if (minutes < 1) return 'Due';
+            if (minutes === 1) return '1 min';
+            return `${minutes} mins`;
+        }
+        
+        async function loadTransport() {
+            try {
+                // Fetch line status
+                const statusResponse = await fetch('/transport/status');
+                const statusData = await statusResponse.json();
+                
+                // Fetch arrivals
+                const arrivalsResponse = await fetch('/transport/arrivals');
+                const arrivalsData = await arrivalsResponse.json();
+                
+                const transportCard = document.getElementById('transport-card');
+                let html = '<div style="margin-bottom: 15px;">';
+                
+                // Line status section
+                for (const [line, info] of Object.entries(statusData.lines)) {
+                    const isGood = info.status === 'Good Service';
+                    html += `
+                        <div class="transport-line ${isGood ? 'good' : 'disrupted'}">
+                            <div class="line-name">${line}</div>
+                            <div class="line-status">${info.status}</div>
+                            ${!isGood ? `<div class="line-status">${info.description}</div>` : ''}
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+                
+                // Next trains section
+                if (arrivalsData.arrivals && arrivalsData.arrivals.length > 0) {
+                    html += '<div style="border-top: 1px solid rgba(68, 71, 90, 0.5); padding-top: 10px; margin-top: 10px;">';
+                    html += '<div style="font-weight: 600; margin-bottom: 8px; color: #a6adc8;">🚉 Next Trains</div>';
+                    
+                    arrivalsData.arrivals.forEach(arrival => {
+                        const timeText = formatRelativeTime(arrival.time_to_station_minutes);
+                        // Shorten destination names
+                        const dest = arrival.destination.replace(' Underground Station', '').replace(' DLR Station', '');
+                        html += `
+                            <div style="margin-bottom: 6px; font-size: 0.9em; padding: 4px 0;">
+                                <span style="color: #50fa7b; font-weight: 600;">${timeText}</span>
+                                <span style="color: #f1f1f1;"> - ${arrival.line} to ${dest}</span>
+                                <span style="color: #a6adc8; font-size: 0.85em;"> (${arrival.platform})</span>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                }
+                
+                transportCard.querySelector('.card-content').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading transport:', error);
+                document.getElementById('transport-card').querySelector('.card-content').innerHTML = 
+                    '<div class="error">Failed to load transport data</div>';
+            }
+        }
+        
+        // Load all data
+        loadHealthMetrics();
+        loadWeather();
+        loadTransport();
+        
+        // Auto-refresh transport data every 30 seconds
+        setInterval(loadTransport, 30000);
+    </script>
+</body>
+</html>

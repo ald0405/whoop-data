@@ -20,6 +20,14 @@ LANGCHAIN_PROJECT = os.getenv("LANGCHAIN_PROJECT", "whoop-health-agent")
 HEALTH_API_BASE_URL = os.getenv("HEALTH_API_BASE_URL", "http://localhost:8000")
 DEFAULT_USER_ID = "default_user"
 
+# Weather API Configuration
+OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
+DEFAULT_LOCATION = "Canary Wharf"  # Default location for weather queries
+
+# Transport API Configuration
+TFL_API_BASE_URL = "https://api.tfl.gov.uk"
+TFL_KEY_LINES = ["Jubilee", "DLR", "Elizabeth line", "Northern"]  # Lines near South Quay DLR
+
 # Agent Configuration
 AGENT_TIMEOUT_SECONDS = 30.0
 MAX_ITERATIONS = 10
