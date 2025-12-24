@@ -18,19 +18,36 @@ class DBLoader:
 
     def load_recovery(self, data: dict) -> Recovery:
         """
-        Insert a Recovery record into the database.
+        Insert or update a Recovery record in the database (upsert).
+        Uses cycle_id as the unique identifier to prevent duplicates.
 
         Args:
             data (dict): Dictionary of recovery data.
 
         Returns:
-            Recovery: The created Recovery ORM object.
+            Recovery: The created or updated Recovery ORM object.
         """
-        recovery = Recovery(**data)
-        self.db.add(recovery)
-        self.db.commit()
-        self.db.refresh(recovery)
-        return recovery
+        # Check if record already exists (avoid duplicates)
+        existing = self.db.query(Recovery).filter(
+            Recovery.cycle_id == data.get('cycle_id'),
+            Recovery.user_id == data.get('user_id')
+        ).first()
+        
+        if existing:
+            # Update existing record
+            for key, value in data.items():
+                if value is not None:  # Only update non-None values
+                    setattr(existing, key, value)
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
+        else:
+            # Create new record
+            recovery = Recovery(**data)
+            self.db.add(recovery)
+            self.db.commit()
+            self.db.refresh(recovery)
+            return recovery
 
     def load_cycle(self, data: dict) -> Cycle:
         """
@@ -50,35 +67,73 @@ class DBLoader:
 
     def load_workout(self, data: dict) -> Workout:
         """
-        Insert a Workout record into the database.
+        Insert or update a Workout record in the database (upsert).
+        Uses id (from WHOOP API v1_id) as the unique identifier to prevent duplicates.
 
         Args:
             data (dict): Dictionary of workout data.
 
         Returns:
-            Workout: The created Workout ORM object.
+            Workout: The created or updated Workout ORM object.
         """
-        workout = Workout(**data)
-        self.db.add(workout)
-        self.db.commit()
-        self.db.refresh(workout)
-        return workout
+        # Check if record already exists (avoid duplicates)
+        # Note: data['id'] comes from WHOOP API v1_id field
+        existing = None
+        if data.get('id'):
+            existing = self.db.query(Workout).filter(
+                Workout.id == data.get('id')
+            ).first()
+        
+        if existing:
+            # Update existing record
+            for key, value in data.items():
+                if value is not None:  # Only update non-None values
+                    setattr(existing, key, value)
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
+        else:
+            # Create new record
+            workout = Workout(**data)
+            self.db.add(workout)
+            self.db.commit()
+            self.db.refresh(workout)
+            return workout
 
     def load_sleep(self, data: dict) -> Sleep:
         """
-        Insert a Sleep record into the database.
+        Insert or update a Sleep record in the database (upsert).
+        Uses id (from WHOOP API v1_id) as the unique identifier to prevent duplicates.
 
         Args:
             data (dict): Dictionary of sleep data.
 
         Returns:
-            Sleep: The created Sleep ORM object.
+            Sleep: The created or updated Sleep ORM object.
         """
-        sleep = Sleep(**data)
-        self.db.add(sleep)
-        self.db.commit()
-        self.db.refresh(sleep)
-        return sleep
+        # Check if record already exists (avoid duplicates)
+        # Note: data['id'] comes from WHOOP API v1_id field
+        existing = None
+        if data.get('id'):
+            existing = self.db.query(Sleep).filter(
+                Sleep.id == data.get('id')
+            ).first()
+        
+        if existing:
+            # Update existing record
+            for key, value in data.items():
+                if value is not None:  # Only update non-None values
+                    setattr(existing, key, value)
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
+        else:
+            # Create new record
+            sleep = Sleep(**data)
+            self.db.add(sleep)
+            self.db.commit()
+            self.db.refresh(sleep)
+            return sleep
 
     def load_withings_weight(self, data: dict) -> WithingsWeight:
         """
