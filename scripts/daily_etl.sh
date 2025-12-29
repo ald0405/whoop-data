@@ -21,21 +21,16 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 # Change to project directory
 cd "$PROJECT_DIR"
 
-# Activate virtual environment if it exists
-if [ -d "venv" ]; then
-    source venv/bin/activate
-elif [ -d ".venv" ]; then
-    source .venv/bin/activate
-fi
+# UV manages virtual environment automatically - no activation needed
 
 # Log timestamp
 echo "========================================="
 echo "Running WHOOP Data ETL: $(date)"
 echo "========================================="
 
-# Run the incremental ETL pipeline using Python directly
+# Run the incremental ETL pipeline using UV
 # This bypasses the CLI menu and runs incremental load directly
-python -c "
+uv run python -c "
 from whoopdata.etl import run_complete_etl
 from whoopdata.database.database import engine
 from whoopdata.models.models import Base

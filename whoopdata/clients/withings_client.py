@@ -5,7 +5,9 @@ import logging
 import pandas as pd
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+
 load_dotenv()
+
 
 class WithingsClient:
     """
@@ -63,19 +65,17 @@ class WithingsClient:
         196: "Electrodermal activity feet",
         226: "Basal Metabolic Rate (BMR)",
         227: "Metabolic Age",
-        229: "Electrochemical Skin Conductance (ESC)"
+        229: "Electrochemical Skin Conductance (ESC)",
     }
 
-    def __init__(self, 
-                 client_id: str = None, 
-                 client_secret: str = None):
+    def __init__(self, client_id: str = None, client_secret: str = None):
         self.client_id = client_id or os.getenv("WITHINGS_CLIENT_ID")
         self.client_secret = client_secret or os.getenv("WITHINGS_CLIENT_SECRET")
         self.callback_url = os.getenv("WITHINGS_CALLBACK_URL", "http://localhost:8766/callback")
-        
+
         if not self.client_id or not self.client_secret:
             raise ValueError("Withings Client ID and Client Secret must be provided")
-        
+
         self.access_token = None
         self.refresh_token = None
         self.token_expires_at = None
@@ -87,35 +87,35 @@ class WithingsClient:
         """Load saved tokens from file"""
         try:
             if os.path.exists(self.token_file):
-                with open(self.token_file, 'r') as f:
+                with open(self.token_file, "r") as f:
                     token_data = json.load(f)
-                    self.access_token = token_data.get('access_token')
-                    self.refresh_token = token_data.get('refresh_token')
-                    self.user_id = token_data.get('user_id')
-                    expires_str = token_data.get('expires_at')
+                    self.access_token = token_data.get("access_token")
+                    self.refresh_token = token_data.get("refresh_token")
+                    self.user_id = token_data.get("user_id")
+                    expires_str = token_data.get("expires_at")
                     if expires_str:
                         self.token_expires_at = datetime.fromisoformat(expires_str)
                     return True
         except Exception as e:
             self.logger.warning(f"Failed to load tokens: {e}")
         return False
-    
+
     def _save_tokens(self):
         """Save tokens to file"""
         try:
             token_data = {
-                'access_token': self.access_token,
-                'refresh_token': self.refresh_token,
-                'user_id': self.user_id,
-                'expires_at': self.token_expires_at.isoformat() if self.token_expires_at else None
+                "access_token": self.access_token,
+                "refresh_token": self.refresh_token,
+                "user_id": self.user_id,
+                "expires_at": self.token_expires_at.isoformat() if self.token_expires_at else None,
             }
-            with open(self.token_file, 'w') as f:
+            with open(self.token_file, "w") as f:
                 json.dump(token_data, f)
             # Make file readable only by user for security
             os.chmod(self.token_file, 0o600)
         except Exception as e:
             self.logger.warning(f"Failed to save tokens: {e}")
-    
+
     def _is_token_valid(self):
         """Check if the current access token is valid and not expired"""
         if not self.access_token:
@@ -123,12 +123,12 @@ class WithingsClient:
         if self.token_expires_at and datetime.now() >= self.token_expires_at:
             return False
         return True
-    
+
     def _refresh_access_token(self):
         """Refresh the access token using the refresh token"""
         if not self.refresh_token:
             return False
-            
+
         data = {
             "action": "requesttoken",
             "grant_type": "refresh_token",
@@ -136,13 +136,13 @@ class WithingsClient:
             "client_secret": self.client_secret,
             "refresh_token": self.refresh_token,
         }
-        
+
         try:
             r = requests.post(self.TOKEN_URL, data=data)
             if r.status_code == 200:
                 response_data = r.json()
-                if response_data.get('status') == 0:  # Withings uses status 0 for success
-                    body = response_data.get('body', {})
+                if response_data.get("status") == 0:  # Withings uses status 0 for success
+                    body = response_data.get("body", {})
                     self.access_token = body.get("access_token")
                     if "refresh_token" in body:
                         self.refresh_token = body.get("refresh_token")
@@ -151,7 +151,7 @@ class WithingsClient:
                         self.token_expires_at = datetime.now() + timedelta(seconds=expires_in)
                     if "userid" in body:
                         self.user_id = body.get("userid")
-                    
+
                     self._save_tokens()
                     self.logger.info("Access token refreshed successfully")
                     print("🔄 Withings access token refreshed")
@@ -159,7 +159,7 @@ class WithingsClient:
         except Exception as e:
             self.logger.warning(f"Failed to refresh token: {e}")
         return False
-    
+
     def authenticate(self):
         """Authenticate using OAuth 2.0 authorization code flow"""
         # First, try to load existing tokens
@@ -171,99 +171,110 @@ class WithingsClient:
                 return
             else:
                 print("⚠️ Existing tokens expired, need new authorization")
-        
+
         # If no valid tokens, proceed with OAuth flow
         self._authenticate_authorization_code()
-    
+
     def _authenticate_authorization_code(self):
         """Authenticate using authorization code flow with local callback server"""
         self.logger.info("Starting Withings Authorization Code Flow Authentication")
-        
+
         import urllib.parse
         import webbrowser
         from http.server import HTTPServer, BaseHTTPRequestHandler
         import threading
         import time
         import secrets
-        
+
         auth_code = None
         state = secrets.token_urlsafe(32)
-        
+
         print(f"\n🔐 Generated state: '{state}' (length: {len(state)})")
         print(f"🌐 Callback URL: {self.callback_url}")
-        
+
         # Parse callback URL to get port
         from urllib.parse import urlparse
+
         parsed_url = urlparse(self.callback_url)
         port = parsed_url.port or 8766
-        
+
         class CallbackHandler(BaseHTTPRequestHandler):
             def log_message(self, format, *args):
                 pass
-                
+
             def do_GET(self):
                 nonlocal auth_code
-                if self.path.startswith('/callback'):
+                if self.path.startswith("/callback"):
                     query = urllib.parse.urlparse(self.path).query
                     params = urllib.parse.parse_qs(query)
-                    
-                    if 'error' in params:
-                        error = params.get('error', ['Unknown error'])[0]
-                        error_desc = params.get('error_description', ['No description'])[0]
+
+                    if "error" in params:
+                        error = params.get("error", ["Unknown error"])[0]
+                        error_desc = params.get("error_description", ["No description"])[0]
                         print(f"\n❌ OAuth Error: {error}")
                         print(f"Description: {urllib.parse.unquote(error_desc)}")
                         self.send_response(400)
-                        self.send_header('Content-type', 'text/html')
+                        self.send_header("Content-type", "text/html")
                         self.end_headers()
-                        self.wfile.write(f'<html><body><h1>Authorization failed!</h1><p>Error: {error}</p></body></html>'.encode())
-                    elif 'code' in params:
-                        received_state = params.get('state', [''])[0]
+                        self.wfile.write(
+                            f"<html><body><h1>Authorization failed!</h1><p>Error: {error}</p></body></html>".encode()
+                        )
+                    elif "code" in params:
+                        received_state = params.get("state", [""])[0]
                         if received_state == state:
-                            auth_code = params['code'][0]
+                            auth_code = params["code"][0]
                             self.send_response(200)
-                            self.send_header('Content-type', 'text/html')
+                            self.send_header("Content-type", "text/html")
                             self.end_headers()
-                            self.wfile.write(b'<html><body><h1>Withings Authorization successful!</h1><p>You can close this window.</p></body></html>')
+                            self.wfile.write(
+                                b"<html><body><h1>Withings Authorization successful!</h1><p>You can close this window.</p></body></html>"
+                            )
                         else:
-                            print(f"\n⚠️ State mismatch! Expected: {state}, Received: {received_state}")
+                            print(
+                                f"\n⚠️ State mismatch! Expected: {state}, Received: {received_state}"
+                            )
                             self.send_response(400)
-                            self.send_header('Content-type', 'text/html')
+                            self.send_header("Content-type", "text/html")
                             self.end_headers()
-                            self.wfile.write(b'<html><body><h1>Authorization failed!</h1><p>State parameter mismatch</p></body></html>')
-        
+                            self.wfile.write(
+                                b"<html><body><h1>Authorization failed!</h1><p>State parameter mismatch</p></body></html>"
+                            )
+
         # Start callback server
-        server = HTTPServer(('localhost', port), CallbackHandler)
+        server = HTTPServer(("localhost", port), CallbackHandler)
         server_thread = threading.Thread(target=server.serve_forever)
         server_thread.daemon = True
         server_thread.start()
-        
+
         # Create authorization URL
         auth_params = {
             "response_type": "code",
             "client_id": self.client_id,
             "redirect_uri": self.callback_url,
             "scope": "user.metrics",
-            "state": state
+            "state": state,
         }
-        
+
         auth_url = f"{self.AUTH_URL}?" + urllib.parse.urlencode(auth_params)
-        
+
         print(f"\n🌐 Please visit this URL to authorize the Withings application:")
         print(f"🔗 {auth_url}")
         print("🌐 Opening browser...")
         webbrowser.open(auth_url)
-        
+
         # Wait for authorization
         timeout = 300
         start_time = time.time()
         while auth_code is None and (time.time() - start_time) < timeout:
             time.sleep(1)
-        
+
         server.shutdown()
-        
+
         if auth_code is None:
-            raise Exception("Authorization timeout - user did not complete authorization within 5 minutes")
-        
+            raise Exception(
+                "Authorization timeout - user did not complete authorization within 5 minutes"
+            )
+
         # Exchange code for token
         data = {
             "action": "requesttoken",
@@ -271,35 +282,35 @@ class WithingsClient:
             "client_id": self.client_id,
             "client_secret": self.client_secret,
             "code": auth_code,
-            "redirect_uri": self.callback_url
+            "redirect_uri": self.callback_url,
         }
-        
+
         r = requests.post(self.TOKEN_URL, data=data)
-        
+
         if r.status_code != 200:
             self.logger.error(f"Token exchange failed: {r.status_code} - {r.text}")
             raise Exception(f"Token exchange failed: {r.status_code} - {r.text}")
-            
+
         response_data = r.json()
-        
-        if response_data.get('status') != 0:
+
+        if response_data.get("status") != 0:
             self.logger.error(f"Withings API error: {response_data}")
             raise Exception(f"Withings API error: {response_data}")
-        
+
         # Extract tokens from response
-        body = response_data.get('body', {})
+        body = response_data.get("body", {})
         self.access_token = body.get("access_token")
         self.refresh_token = body.get("refresh_token")
         self.user_id = body.get("userid")
-        
+
         # Calculate expiration time
         if "expires_in" in body:
             expires_in = int(body.get("expires_in"))
             self.token_expires_at = datetime.now() + timedelta(seconds=expires_in)
-        
+
         # Save tokens to file for future use
         self._save_tokens()
-        
+
         self.logger.info("User Authenticated successfully with Withings")
         print("✅ Withings Authentication successful!")
         print(f"👤 User ID: {self.user_id}")
@@ -308,57 +319,55 @@ class WithingsClient:
         """Make authenticated API request to Withings /measure endpoint"""
         if not self.access_token:
             raise Exception("Authenticate before making API requests")
-        
+
         # Ensure token is valid
         if not self._is_token_valid():
             if self.refresh_token and self._refresh_access_token():
                 pass
             else:
                 raise Exception("No valid authentication. Please re-authenticate.")
-        
+
         # Add authentication to params
         if params is None:
             params = {}
-        
-        params.update({
-            "access_token": self.access_token
-        })
-        
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-        
+
+        params.update({"access_token": self.access_token})
+
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
         response = requests.post(self.MEASURE_URL, data=params, headers=headers)
-        
+
         if response.status_code == 401:
             # Try to refresh token and retry once
             if self.refresh_token and self._refresh_access_token():
                 params["access_token"] = self.access_token
                 response = requests.post(self.MEASURE_URL, data=params, headers=headers)
-        
+
         if response.status_code != 200:
             raise Exception(f"API request failed: {response.status_code} - {response.text}")
-        
+
         return response.json()
 
     def _parse_measurement_value(self, measure):
         """Parse measurement value considering the unit multiplier"""
-        value = measure.get('value', 0)
-        unit = measure.get('unit', 0)
+        value = measure.get("value", 0)
+        unit = measure.get("unit", 0)
         # Withings uses unit as a power of 10 multiplier
-        actual_value = value * (10 ** unit)
+        actual_value = value * (10**unit)
         return actual_value
 
-    def get_measurements(self, 
-                        meastypes: str = "1,4,5,6,8",
-                        category: int = None,
-                        startdate: int = None,
-                        enddate: int = None,
-                        lastupdate: int = None,
-                        offset: int = None):
+    def get_measurements(
+        self,
+        meastypes: str = "1,4,5,6,8",
+        category: int = None,
+        startdate: int = None,
+        enddate: int = None,
+        lastupdate: int = None,
+        offset: int = None,
+    ):
         """
         Get measurements from Withings API
-        
+
         Args:
             meastypes: Comma-separated measurement types (default: weight, height, fat measurements)
             category: 1 for real measures, 2 for user objectives
@@ -367,11 +376,8 @@ class WithingsClient:
             lastupdate: Timestamp for data updated after this date
             offset: Offset for pagination when more data available
         """
-        params = {
-            "action": "getmeas",
-            "meastypes": meastypes
-        }
-        
+        params = {"action": "getmeas", "meastypes": meastypes}
+
         if category:
             params["category"] = category
         if startdate:
@@ -382,12 +388,12 @@ class WithingsClient:
             params["lastupdate"] = lastupdate
         if offset:
             params["offset"] = offset
-            
+
         response = self._make_api_request(params)
-        
-        if response.get('status') != 0:
+
+        if response.get("status") != 0:
             raise Exception(f"Withings API error: {response}")
-        
+
         return response
 
     def get_body_measurements(self, startdate: int = None, enddate: int = None):
@@ -395,61 +401,61 @@ class WithingsClient:
         return self.get_measurements(
             meastypes="1,4,5,6,8",  # Weight, Height, Fat Free Mass, Fat Ratio, Fat Mass Weight
             startdate=startdate,
-            enddate=enddate
+            enddate=enddate,
         )
 
     def get_all_measurements(self, startdate: int = None, enddate: int = None):
         """Get all available measurement types"""
         all_types = ",".join(map(str, self.MEASUREMENT_TYPES.keys()))
-        return self.get_measurements(
-            meastypes=all_types,
-            startdate=startdate,
-            enddate=enddate
-        )
+        return self.get_measurements(meastypes=all_types, startdate=startdate, enddate=enddate)
 
     def get_heart_measurements(self, startdate: int = None, enddate: int = None):
         """Get heart-related measurements (blood pressure, heart rate)"""
         return self.get_measurements(
             meastypes="9,10,11",  # Diastolic, Systolic, Heart Rate
             startdate=startdate,
-            enddate=enddate
+            enddate=enddate,
         )
 
     def transform_to_dataframe(self, response):
         """Transform Withings API response into pandas DataFrame"""
-        body = response.get('body', {})
-        measuregrps = body.get('measuregrps', [])
-        
+        body = response.get("body", {})
+        measuregrps = body.get("measuregrps", [])
+
         records = []
         for grp in measuregrps:
             base_record = {
-                'grpid': grp.get('grpid'),
-                'date': grp.get('date'),
-                'created': grp.get('created'),
-                'modified': grp.get('modified'),
-                'category': grp.get('category'),
-                'deviceid': grp.get('deviceid'),
-                'timezone': grp.get('timezone'),
-                'comment': grp.get('comment'),
-                'datetime': datetime.fromtimestamp(grp.get('date', 0))
+                "grpid": grp.get("grpid"),
+                "date": grp.get("date"),
+                "created": grp.get("created"),
+                "modified": grp.get("modified"),
+                "category": grp.get("category"),
+                "deviceid": grp.get("deviceid"),
+                "timezone": grp.get("timezone"),
+                "comment": grp.get("comment"),
+                "datetime": datetime.fromtimestamp(grp.get("date", 0)),
             }
-            
-            measures = grp.get('measures', [])
+
+            measures = grp.get("measures", [])
             for measure in measures:
                 record = base_record.copy()
-                measure_type = measure.get('type')
-                record.update({
-                    'measure_type': measure_type,
-                    'measure_type_name': self.MEASUREMENT_TYPES.get(measure_type, f"Type {measure_type}"),
-                    'raw_value': measure.get('value'),
-                    'unit_multiplier': measure.get('unit'),
-                    'actual_value': self._parse_measurement_value(measure),
-                    'algo': measure.get('algo'),
-                    'fm': measure.get('fm'),
-                    'position': measure.get('position')
-                })
+                measure_type = measure.get("type")
+                record.update(
+                    {
+                        "measure_type": measure_type,
+                        "measure_type_name": self.MEASUREMENT_TYPES.get(
+                            measure_type, f"Type {measure_type}"
+                        ),
+                        "raw_value": measure.get("value"),
+                        "unit_multiplier": measure.get("unit"),
+                        "actual_value": self._parse_measurement_value(measure),
+                        "algo": measure.get("algo"),
+                        "fm": measure.get("fm"),
+                        "position": measure.get("position"),
+                    }
+                )
                 records.append(record)
-        
+
         return pd.DataFrame(records)
 
     # Simple convenience methods that return DataFrames

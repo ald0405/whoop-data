@@ -40,9 +40,7 @@ def whoop_authentication(username: str, password: str) -> str:
     )
 
     if r.status_code != 200:
-        raise Exception(
-            f"Authentication Failed. {r.text} Please Check Username & Password"
-        )
+        raise Exception(f"Authentication Failed. {r.text} Please Check Username & Password")
     response_data = r.json()
     print("User Authenticated")
     # user_id = response_data['user']['id']
@@ -313,6 +311,7 @@ def transform_cycles(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+
 def transform_recovery(df: pd.DataFrame) -> pd.DataFrame:
     """
     Renames, transforms, and processes the 'recovery' table.
@@ -324,20 +323,22 @@ def transform_recovery(df: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: The converted DataFrame.
     """
     # Rename columns
-    df = df.rename(columns={
-        "created_at": "created_ts",
-        "updated_at": "updated_ts",
-        "score.user_calibrating": "user_calibrating",
-        "score.recovery_score": "recovery_score",
-        "score.resting_heart_rate": "resting_heart_rate",
-        "score.hrv_rmssd_milli": "hrv_rmssd_milli",
-        "score.spo2_percentage": "spo2_percentage",
-        "score.skin_temp_celsius": "skin_temp_celsius"
-    })
-    
+    df = df.rename(
+        columns={
+            "created_at": "created_ts",
+            "updated_at": "updated_ts",
+            "score.user_calibrating": "user_calibrating",
+            "score.recovery_score": "recovery_score",
+            "score.resting_heart_rate": "resting_heart_rate",
+            "score.hrv_rmssd_milli": "hrv_rmssd_milli",
+            "score.spo2_percentage": "spo2_percentage",
+            "score.skin_temp_celsius": "skin_temp_celsius",
+        }
+    )
+
     # Format timestamp columns
-    cols_ts = ['created_ts', 'updated_ts']
+    cols_ts = ["created_ts", "updated_ts"]
     for col in cols_ts:
         df[col] = pd.to_datetime(df[col])
-    
+
     return df

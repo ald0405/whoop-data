@@ -5,6 +5,67 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-12-29
+
+### 🔄 Changed - UV Package Management Migration
+
+#### Package Management Modernization
+- **Migrated from pip/venv to UV** - Fast, modern Python package management
+- **Added pyproject.toml** - PEP 621 compliant project configuration
+- **Consolidated dependencies** - Single source of truth for all dependencies
+- **Added uv.lock** - Reproducible dependency resolution
+- **Updated Python requirement** to >=3.10 (required by Gradio 5.9.1)
+
+#### Developer Experience Improvements
+- **Added Makefile** with convenient commands:
+  - `make install` / `make dev` - Install dependencies
+  - `make run` / `make server` - Start application
+  - `make test` / `make format` / `make lint` - Development tools
+  - `make clean` - Cleanup commands
+- **Updated shell scripts** to use UV (`activate_env.sh`, `scripts/daily_etl.sh`)
+- **Console scripts** still work the same: `whoop-start`, `whoop-etl`
+
+#### Technical Changes
+- Build system: hatchling (replaces setuptools)
+- Virtual environment: `.venv/` (UV managed)
+- Added scikit-learn and scipy to dependencies (for analytics)
+- Updated .gitignore for UV artifacts
+
+### 📚 Documentation
+- See `MIGRATION_UV.md` for migration guide
+- Updated installation instructions in README.md
+- Updated all command examples to use UV or Make
+
+### ⚠️ Breaking Changes
+- **Python >=3.10 required** (was >=3.8)
+- Old `venv/` no longer used (can be removed with `make clean-all`)
+
+### 🔄 Backward Compatibility
+- `setup.py` kept for pip compatibility
+- `requirements.txt` kept as reference
+- All entry points work identically
+- No changes to API or functionality
+
+### 📦 Migration Instructions
+```bash
+# Remove old venv (optional)
+rm -rf venv
+
+# Install UV (if not installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv sync
+
+# Or use make
+make dev
+
+# Run application
+make run
+# or
+uv run whoop-start
+```
+
 ## [1.3.0] - 2025-12-29
 
 ### ✨ Added - Advanced Analytics Engine (PR #13)

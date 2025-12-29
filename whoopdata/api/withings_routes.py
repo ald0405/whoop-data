@@ -8,6 +8,7 @@ import pandas as pd
 
 router = APIRouter()
 
+
 @router.get("/withings/weight", response_model=Union[List[dict], dict])
 async def get_weight_data(
     latest: bool = Query(False, description="Get only the latest record"),
@@ -16,11 +17,11 @@ async def get_weight_data(
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     user_id: str = Query("default_user", description="User ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Unified Withings weight endpoint with flexible filtering.
-    
+
     Examples:
     - GET /withings/weight - All weight data
     - GET /withings/weight?latest=true - Latest weight only
@@ -29,22 +30,26 @@ async def get_weight_data(
     """
     try:
         query = db.query(WithingsWeight).filter(WithingsWeight.user_id == user_id)
-        
+
         # Apply date filters if provided
         if start_date:
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
             query = query.filter(WithingsWeight.datetime >= start_dt)
-        
+
         if end_date:
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
             query = query.filter(WithingsWeight.datetime <= end_dt)
-        
+
         if latest:
             # Get only the latest record
-            record = query.filter(WithingsWeight.weight_kg.isnot(None)).order_by(WithingsWeight.datetime.desc()).first()
+            record = (
+                query.filter(WithingsWeight.weight_kg.isnot(None))
+                .order_by(WithingsWeight.datetime.desc())
+                .first()
+            )
             if not record:
                 raise HTTPException(status_code=404, detail="No weight data found")
-            
+
             return {
                 "id": record.id,
                 "user_id": record.user_id,
@@ -62,12 +67,12 @@ async def get_weight_data(
                 "weight_category": record.weight_category(),
                 "deviceid": record.deviceid,
                 "timezone": record.timezone,
-                "comment": record.comment
+                "comment": record.comment,
             }
-        
+
         # Get multiple records with pagination
         records = query.order_by(WithingsWeight.datetime.desc()).offset(skip).limit(limit).all()
-        
+
         # Convert to dict format
         result = []
         for record in records:
@@ -88,34 +93,35 @@ async def get_weight_data(
                 "weight_category": record.weight_category(),
                 "deviceid": record.deviceid,
                 "timezone": record.timezone,
-                "comment": record.comment
+                "comment": record.comment,
             }
             result.append(data)
-        
+
         return result
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving weight data: {str(e)}")
 
 
 @router.get("/withings/weight/latest")
 async def get_latest_weight(
-    db: Session = Depends(get_db),
-    user_id: str = Query("default_user", description="User ID")
+    db: Session = Depends(get_db), user_id: str = Query("default_user", description="User ID")
 ):
     """
     Get the most recent weight measurement
     """
     try:
-        record = db.query(WithingsWeight)\
-                   .filter(WithingsWeight.user_id == user_id)\
-                   .filter(WithingsWeight.weight_kg.isnot(None))\
-                   .order_by(WithingsWeight.datetime.desc())\
-                   .first()
-        
+        record = (
+            db.query(WithingsWeight)
+            .filter(WithingsWeight.user_id == user_id)
+            .filter(WithingsWeight.weight_kg.isnot(None))
+            .order_by(WithingsWeight.datetime.desc())
+            .first()
+        )
+
         if not record:
             raise HTTPException(status_code=404, detail="No weight data found")
-        
+
         return {
             "id": record.id,
             "user_id": record.user_id,
@@ -125,9 +131,9 @@ async def get_latest_weight(
             "weight_category": record.weight_category(),
             "fat_ratio_percent": record.fat_ratio_percent,
             "fat_mass_kg": record.fat_mass_kg,
-            "muscle_mass_kg": record.muscle_mass_kg
+            "muscle_mass_kg": record.muscle_mass_kg,
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -138,36 +144,40 @@ async def get_latest_weight(
 async def get_weight_stats(
     db: Session = Depends(get_db),
     user_id: str = Query("default_user", description="User ID"),
-    days: int = Query(30, description="Number of days to analyze")
+    days: int = Query(30, description="Number of days to analyze"),
 ):
     """
     Get weight statistics over a specified period
     """
     try:
         start_date = datetime.now() - timedelta(days=days)
-        
-        records = db.query(WithingsWeight)\
-                   .filter(WithingsWeight.user_id == user_id)\
-                   .filter(WithingsWeight.weight_kg.isnot(None))\
-                   .filter(WithingsWeight.datetime >= start_date)\
-                   .order_by(WithingsWeight.datetime.asc())\
-                   .all()
-        
+
+        records = (
+            db.query(WithingsWeight)
+            .filter(WithingsWeight.user_id == user_id)
+            .filter(WithingsWeight.weight_kg.isnot(None))
+            .filter(WithingsWeight.datetime >= start_date)
+            .order_by(WithingsWeight.datetime.asc())
+            .all()
+        )
+
         if not records:
-            raise HTTPException(status_code=404, detail="No weight data found for the specified period")
-        
+            raise HTTPException(
+                status_code=404, detail="No weight data found for the specified period"
+            )
+
         weights = [r.weight_kg for r in records]
-        
+
         # Calculate statistics
         current_weight = weights[-1] if weights else None
         min_weight = min(weights) if weights else None
         max_weight = max(weights) if weights else None
         avg_weight = sum(weights) / len(weights) if weights else None
         weight_change = weights[-1] - weights[0] if len(weights) >= 2 else 0
-        
+
         # Get latest BMI and category
         latest_record = records[-1]
-        
+
         return {
             "period_days": days,
             "total_measurements": len(records),
@@ -179,9 +189,9 @@ async def get_weight_stats(
             "current_bmi": latest_record.bmi(),
             "weight_category": latest_record.weight_category(),
             "start_date": start_date.date().isoformat(),
-            "end_date": datetime.now().date().isoformat()
+            "end_date": datetime.now().date().isoformat(),
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -196,11 +206,11 @@ async def get_heart_rate_data(
     start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
     user_id: str = Query("default_user", description="User ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Unified Withings heart rate endpoint with flexible filtering.
-    
+
     Examples:
     - GET /withings/heart-rate - All heart rate data
     - GET /withings/heart-rate?latest=true - Latest heart rate only
@@ -209,22 +219,22 @@ async def get_heart_rate_data(
     """
     try:
         query = db.query(WithingsHeartRate).filter(WithingsHeartRate.user_id == user_id)
-        
+
         # Apply date filters if provided
         if start_date:
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
             query = query.filter(WithingsHeartRate.datetime >= start_dt)
-        
+
         if end_date:
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
             query = query.filter(WithingsHeartRate.datetime <= end_dt)
-        
+
         if latest:
             # Get only the latest record
             record = query.order_by(WithingsHeartRate.datetime.desc()).first()
             if not record:
                 raise HTTPException(status_code=404, detail="No heart rate data found")
-            
+
             return {
                 "id": record.id,
                 "user_id": record.user_id,
@@ -234,12 +244,12 @@ async def get_heart_rate_data(
                 "diastolic_bp_mmhg": record.diastolic_bp_mmhg,
                 "bp_category": record.bp_category(),
                 "deviceid": record.deviceid,
-                "timezone": record.timezone
+                "timezone": record.timezone,
             }
-        
+
         # Get multiple records with pagination
         records = query.order_by(WithingsHeartRate.datetime.desc()).offset(skip).limit(limit).all()
-        
+
         # Convert to dict format
         result = []
         for record in records:
@@ -252,33 +262,34 @@ async def get_heart_rate_data(
                 "diastolic_bp_mmhg": record.diastolic_bp_mmhg,
                 "bp_category": record.bp_category(),
                 "deviceid": record.deviceid,
-                "timezone": record.timezone
+                "timezone": record.timezone,
             }
             result.append(data)
-        
+
         return result
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving heart rate data: {str(e)}")
 
 
 @router.get("/withings/heart-rate/latest")
 async def get_latest_heart_rate(
-    db: Session = Depends(get_db),
-    user_id: str = Query("default_user", description="User ID")
+    db: Session = Depends(get_db), user_id: str = Query("default_user", description="User ID")
 ):
     """
     Get the most recent heart rate/blood pressure measurement
     """
     try:
-        record = db.query(WithingsHeartRate)\
-                   .filter(WithingsHeartRate.user_id == user_id)\
-                   .order_by(WithingsHeartRate.datetime.desc())\
-                   .first()
-        
+        record = (
+            db.query(WithingsHeartRate)
+            .filter(WithingsHeartRate.user_id == user_id)
+            .order_by(WithingsHeartRate.datetime.desc())
+            .first()
+        )
+
         if not record:
             raise HTTPException(status_code=404, detail="No heart rate data found")
-        
+
         return {
             "id": record.id,
             "user_id": record.user_id,
@@ -286,9 +297,9 @@ async def get_latest_heart_rate(
             "heart_rate_bpm": record.heart_rate_bpm,
             "systolic_bp_mmhg": record.systolic_bp_mmhg,
             "diastolic_bp_mmhg": record.diastolic_bp_mmhg,
-            "bp_category": record.bp_category()
+            "bp_category": record.bp_category(),
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -297,58 +308,61 @@ async def get_latest_heart_rate(
 
 @router.get("/withings/summary")
 async def get_withings_summary(
-    db: Session = Depends(get_db),
-    user_id: str = Query("default_user", description="User ID")
+    db: Session = Depends(get_db), user_id: str = Query("default_user", description="User ID")
 ):
     """
     Get a summary of all Withings data
     """
     try:
         # Latest weight data
-        latest_weight = db.query(WithingsWeight)\
-                         .filter(WithingsWeight.user_id == user_id)\
-                         .filter(WithingsWeight.weight_kg.isnot(None))\
-                         .order_by(WithingsWeight.datetime.desc())\
-                         .first()
-        
-        # Latest heart rate data  
-        latest_hr = db.query(WithingsHeartRate)\
-                     .filter(WithingsHeartRate.user_id == user_id)\
-                     .order_by(WithingsHeartRate.datetime.desc())\
-                     .first()
-        
+        latest_weight = (
+            db.query(WithingsWeight)
+            .filter(WithingsWeight.user_id == user_id)
+            .filter(WithingsWeight.weight_kg.isnot(None))
+            .order_by(WithingsWeight.datetime.desc())
+            .first()
+        )
+
+        # Latest heart rate data
+        latest_hr = (
+            db.query(WithingsHeartRate)
+            .filter(WithingsHeartRate.user_id == user_id)
+            .order_by(WithingsHeartRate.datetime.desc())
+            .first()
+        )
+
         # Count total records
         weight_count = db.query(WithingsWeight).filter(WithingsWeight.user_id == user_id).count()
         hr_count = db.query(WithingsHeartRate).filter(WithingsHeartRate.user_id == user_id).count()
-        
+
         summary = {
             "user_id": user_id,
             "total_weight_records": weight_count,
             "total_heart_rate_records": hr_count,
             "latest_weight": None,
-            "latest_heart_rate": None
+            "latest_heart_rate": None,
         }
-        
+
         if latest_weight:
             summary["latest_weight"] = {
                 "datetime": latest_weight.datetime.isoformat() if latest_weight.datetime else None,
                 "weight_kg": latest_weight.weight_kg,
                 "bmi": latest_weight.bmi(),
                 "weight_category": latest_weight.weight_category(),
-                "fat_ratio_percent": latest_weight.fat_ratio_percent
+                "fat_ratio_percent": latest_weight.fat_ratio_percent,
             }
-        
+
         if latest_hr:
             summary["latest_heart_rate"] = {
                 "datetime": latest_hr.datetime.isoformat() if latest_hr.datetime else None,
                 "heart_rate_bpm": latest_hr.heart_rate_bpm,
                 "systolic_bp_mmhg": latest_hr.systolic_bp_mmhg,
                 "diastolic_bp_mmhg": latest_hr.diastolic_bp_mmhg,
-                "bp_category": latest_hr.bp_category()
+                "bp_category": latest_hr.bp_category(),
             }
-        
+
         return summary
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving Withings summary: {str(e)}")
 
@@ -357,22 +371,24 @@ async def get_withings_summary(
 # BACKWARD COMPATIBILITY ROUTES (for website)
 # ============================================================================
 
+
 @router.get("/withings/weight/latest")
 async def get_latest_weight_compat(
-    db: Session = Depends(get_db),
-    user_id: str = Query("default_user", description="User ID")
+    db: Session = Depends(get_db), user_id: str = Query("default_user", description="User ID")
 ):
     """Backward compatibility endpoint - redirects to unified weight endpoint."""
     try:
-        record = db.query(WithingsWeight)\
-                   .filter(WithingsWeight.user_id == user_id)\
-                   .filter(WithingsWeight.weight_kg.isnot(None))\
-                   .order_by(WithingsWeight.datetime.desc())\
-                   .first()
-        
+        record = (
+            db.query(WithingsWeight)
+            .filter(WithingsWeight.user_id == user_id)
+            .filter(WithingsWeight.weight_kg.isnot(None))
+            .order_by(WithingsWeight.datetime.desc())
+            .first()
+        )
+
         if not record:
             raise HTTPException(status_code=404, detail="No weight data found")
-        
+
         return {
             "id": record.id,
             "user_id": record.user_id,
@@ -382,9 +398,9 @@ async def get_latest_weight_compat(
             "weight_category": record.weight_category(),
             "fat_ratio_percent": record.fat_ratio_percent,
             "fat_mass_kg": record.fat_mass_kg,
-            "muscle_mass_kg": record.muscle_mass_kg
+            "muscle_mass_kg": record.muscle_mass_kg,
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -395,34 +411,38 @@ async def get_latest_weight_compat(
 async def get_weight_stats_compat(
     db: Session = Depends(get_db),
     user_id: str = Query("default_user", description="User ID"),
-    days: int = Query(30, description="Number of days to analyze")
+    days: int = Query(30, description="Number of days to analyze"),
 ):
     """Backward compatibility endpoint - redirects to analytics endpoint."""
     try:
         start_date = datetime.now() - timedelta(days=days)
-        
-        records = db.query(WithingsWeight)\
-                   .filter(WithingsWeight.user_id == user_id)\
-                   .filter(WithingsWeight.weight_kg.isnot(None))\
-                   .filter(WithingsWeight.datetime >= start_date)\
-                   .order_by(WithingsWeight.datetime.asc())\
-                   .all()
-        
+
+        records = (
+            db.query(WithingsWeight)
+            .filter(WithingsWeight.user_id == user_id)
+            .filter(WithingsWeight.weight_kg.isnot(None))
+            .filter(WithingsWeight.datetime >= start_date)
+            .order_by(WithingsWeight.datetime.asc())
+            .all()
+        )
+
         if not records:
-            raise HTTPException(status_code=404, detail="No weight data found for the specified period")
-        
+            raise HTTPException(
+                status_code=404, detail="No weight data found for the specified period"
+            )
+
         weights = [r.weight_kg for r in records]
-        
+
         # Calculate statistics
         current_weight = weights[-1] if weights else None
         min_weight = min(weights) if weights else None
         max_weight = max(weights) if weights else None
         avg_weight = sum(weights) / len(weights) if weights else None
         weight_change = weights[-1] - weights[0] if len(weights) >= 2 else 0
-        
+
         # Get latest BMI and category
         latest_record = records[-1]
-        
+
         return {
             "period_days": days,
             "total_measurements": len(records),
@@ -434,9 +454,9 @@ async def get_weight_stats_compat(
             "current_bmi": latest_record.bmi(),
             "weight_category": latest_record.weight_category(),
             "start_date": start_date.date().isoformat(),
-            "end_date": datetime.now().date().isoformat()
+            "end_date": datetime.now().date().isoformat(),
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:
@@ -445,19 +465,20 @@ async def get_weight_stats_compat(
 
 @router.get("/withings/heart-rate/latest")
 async def get_latest_heart_rate_compat(
-    db: Session = Depends(get_db),
-    user_id: str = Query("default_user", description="User ID")
+    db: Session = Depends(get_db), user_id: str = Query("default_user", description="User ID")
 ):
     """Backward compatibility endpoint - redirects to unified heart rate endpoint."""
     try:
-        record = db.query(WithingsHeartRate)\
-                   .filter(WithingsHeartRate.user_id == user_id)\
-                   .order_by(WithingsHeartRate.datetime.desc())\
-                   .first()
-        
+        record = (
+            db.query(WithingsHeartRate)
+            .filter(WithingsHeartRate.user_id == user_id)
+            .order_by(WithingsHeartRate.datetime.desc())
+            .first()
+        )
+
         if not record:
             raise HTTPException(status_code=404, detail="No heart rate data found")
-        
+
         return {
             "id": record.id,
             "user_id": record.user_id,
@@ -465,9 +486,9 @@ async def get_latest_heart_rate_compat(
             "heart_rate_bpm": record.heart_rate_bpm,
             "systolic_bp_mmhg": record.systolic_bp_mmhg,
             "diastolic_bp_mmhg": record.diastolic_bp_mmhg,
-            "bp_category": record.bp_category()
+            "bp_category": record.bp_category(),
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:

@@ -5,22 +5,14 @@ from whoopdata.models.models import Recovery
 
 
 def get_recoveries(db: Session, skip: int = 0, limit: int = 10):
-    return (
-        db.query(Recovery)
-        .order_by(Recovery.created_at.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    return db.query(Recovery).order_by(Recovery.created_at.desc()).offset(skip).limit(limit).all()
 
 
 def get_top_recoveries(db: Session, limit: int = 10):
     """
     Get the Top N Recoveries
     """
-    return (
-        db.query(Recovery).order_by(Recovery.recovery_score.desc()).limit(limit).all()
-    )
+    return db.query(Recovery).order_by(Recovery.recovery_score.desc()).limit(limit).all()
 
 
 def get_recent_recovories(db: Session, limit: int = 7):

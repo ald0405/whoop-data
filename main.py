@@ -16,7 +16,7 @@ from pathlib import Path
 app = FastAPI(
     title="WHOOP Health Data Platform",
     description="A comprehensive health data integration platform for WHOOP and Withings devices",
-    version=__version__
+    version=__version__,
 )
 
 # Add CORS middleware
@@ -38,17 +38,20 @@ except RuntimeError:
     # Directory doesn't exist yet, we'll create it
     pass
 
+
 # Homepage route
 @app.get("/")
 async def homepage(request: Request):
     """Homepage with dashboard overview"""
     return templates.TemplateResponse("index.html", {"request": request})
 
+
 # Analytics dashboard route
 @app.get("/analytics")
 async def analytics_page(request: Request):
     """Analytics and insights dashboard"""
     return templates.TemplateResponse("analytics.html", {"request": request})
+
 
 # Include API routers
 app.include_router(recovery_router)

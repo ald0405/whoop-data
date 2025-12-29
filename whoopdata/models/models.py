@@ -1,10 +1,12 @@
 from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import relationship, declarative_base
-from datetime import datetime 
+from datetime import datetime
+
 Base = declarative_base()
 
+
 class Cycle(Base):
-    __tablename__ = 'cycles'
+    __tablename__ = "cycles"
     id = Column(Integer, primary_key=True)
     user_id = Column(String, nullable=False)
     created_at = Column(DateTime)
@@ -22,11 +24,13 @@ class Cycle(Base):
     recoveries = relationship("Recovery", back_populates="cycle", cascade="all, delete-orphan")
     workouts = relationship("Workout", back_populates="cycle", cascade="all, delete-orphan")
 
+
 from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean
 from sqlalchemy.orm import relationship
 
+
 class Sleep(Base):
-    __tablename__ = 'sleep'
+    __tablename__ = "sleep"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     whoop_id = Column(String, unique=True, nullable=False)  # WHOOP API string ID
@@ -62,8 +66,9 @@ class Sleep(Base):
     # Relationships
     recoveries = relationship("Recovery", back_populates="sleep", cascade="all, delete-orphan")
 
+
 class Recovery(Base):
-    __tablename__ = 'recovery'
+    __tablename__ = "recovery"
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String, nullable=False)
     cycle_id = Column(Integer, ForeignKey("cycles.id"))
@@ -83,19 +88,20 @@ class Recovery(Base):
 
     def recovery_category(self):
         if self.recovery_score >= 67:
-            return 'Green'
+            return "Green"
         elif 34 <= self.recovery_score < 67:
-            return 'Yellow'
+            return "Yellow"
         else:
-            return 'Red'
-    
+            return "Red"
+
     def is_weekend(self) -> bool:
         if self.created_at:
             return self.created_at.weekday() > 4  # 5 = Saturday, 6 = Sunday
         return False
 
+
 class Workout(Base):
-    __tablename__ = 'workout'
+    __tablename__ = "workout"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     whoop_id = Column(String, unique=True, nullable=False)  # WHOOP API string ID
@@ -129,7 +135,7 @@ class Workout(Base):
 
 
 class WithingsWeight(Base):
-    __tablename__ = 'withings_weight'
+    __tablename__ = "withings_weight"
 
     id = Column(Integer, primary_key=True)
     user_id = Column(String, nullable=False)
@@ -142,29 +148,29 @@ class WithingsWeight(Base):
     timezone = Column(String)
     comment = Column(String)
     category = Column(Integer)  # 1 for real measures, 2 for objectives
-    
+
     # Weight measurements
     weight_kg = Column(Float)
     height_m = Column(Float)
     fat_free_mass_kg = Column(Float)
     fat_ratio_percent = Column(Float)
     fat_mass_kg = Column(Float)
-    
+
     # Additional body composition (optional)
     muscle_mass_kg = Column(Float)
     bone_mass_kg = Column(Float)
     hydration_kg = Column(Float)
     visceral_fat = Column(Float)
-    
+
     def __repr__(self):
         return f"<WithingsWeight(user_id='{self.user_id}', weight={self.weight_kg}kg, date='{self.datetime}')>"
-    
+
     def bmi(self):
         """Calculate BMI if both weight and height are available"""
         if self.weight_kg and self.height_m and self.height_m > 0:
-            return round(self.weight_kg / (self.height_m ** 2), 1)
+            return round(self.weight_kg / (self.height_m**2), 1)
         return None
-        
+
     def weight_category(self):
         """BMI-based weight category"""
         bmi = self.bmi()
@@ -181,7 +187,7 @@ class WithingsWeight(Base):
 
 
 class WithingsHeartRate(Base):
-    __tablename__ = 'withings_heart_rate'
+    __tablename__ = "withings_heart_rate"
 
     id = Column(Integer, primary_key=True)
     user_id = Column(String, nullable=False)
@@ -193,23 +199,23 @@ class WithingsHeartRate(Base):
     datetime = Column(DateTime)  # Converted datetime
     timezone = Column(String)
     category = Column(Integer)
-    
+
     # Heart rate and blood pressure measurements
     heart_rate_bpm = Column(Float)
     systolic_bp_mmhg = Column(Float)
     diastolic_bp_mmhg = Column(Float)
-    
+
     def __repr__(self):
         return f"<WithingsHeartRate(user_id='{self.user_id}', hr={self.heart_rate_bpm}bpm, date='{self.datetime}')>"
-    
+
     def bp_category(self):
         """Blood pressure category based on AHA guidelines"""
         if not self.systolic_bp_mmhg or not self.diastolic_bp_mmhg:
             return "Unknown"
-        
+
         systolic = self.systolic_bp_mmhg
         diastolic = self.diastolic_bp_mmhg
-        
+
         if systolic < 120 and diastolic < 80:
             return "Normal"
         elif systolic < 130 and diastolic < 80:
@@ -220,4 +226,3 @@ class WithingsHeartRate(Base):
             return "Stage 2 High"
         else:
             return "Crisis"
-

@@ -1,8 +1,11 @@
 import numpy as np
+
 # Configure matplotlib for headless operation before importing pyplot
 import matplotlib
-matplotlib.use('Agg', force=True)
+
+matplotlib.use("Agg", force=True)
 import matplotlib.pyplot as plt
+
 plt.ioff()  # Turn off interactive mode
 import seaborn as sns
 from math import sqrt
@@ -35,9 +38,7 @@ class IndependentGroupsAnalysis:
     def __init__(self):
         pass
 
-    def load_data(
-        self, group_a: np.ndarray, group_b: np.ndarray, alpha: float = 0.05
-    ) -> None:
+    def load_data(self, group_a: np.ndarray, group_b: np.ndarray, alpha: float = 0.05) -> None:
         """
         Load the data for both groups and define the significance level.
 
@@ -59,9 +60,7 @@ class IndependentGroupsAnalysis:
         Perform the Mann-Whitney U test, a non-parametric alternative to the t-test.
         Stores U-statistic and p-value.
         """
-        self.mu_U, self.p_value = mannwhitneyu(
-            self.group_a, self.group_b, alternative="two-sided"
-        )
+        self.mu_U, self.p_value = mannwhitneyu(self.group_a, self.group_b, alternative="two-sided")
 
     def _cliffs_delta(self) -> None:
         """
@@ -129,22 +128,15 @@ class IndependentGroupsAnalysis:
         else:
             print(f"U-statistic: {self.mu_U:.3f}")
 
-        if (
-            hasattr(self, "cohen_d_effect_size")
-            and self.cohen_d_effect_size is not None
-        ):
+        if hasattr(self, "cohen_d_effect_size") and self.cohen_d_effect_size is not None:
             print(f"Cohen's d (effect size): {self.cohen_d_effect_size}")
         else:
             print(f"Cliff's Delta (effect size): {self.cliff_delta_effect_size}")
 
         if self.p_value < self.alpha:
-            print(
-                Fore.GREEN + "✅ Statistically significant difference between groups."
-            )
+            print(Fore.GREEN + "✅ Statistically significant difference between groups.")
         else:
-            print(
-                Fore.RED + "❌ No statistically significant difference between groups."
-            )
+            print(Fore.RED + "❌ No statistically significant difference between groups.")
         print("=" * 60)
 
     def describe(self) -> str:
@@ -166,7 +158,6 @@ class IndependentGroupsAnalysis:
             print(Fore.MAGENTA + f"  Kurtosis : {kurtosis(group):.3f}")
             print("-" * 60)
 
-    
     @staticmethod
     def _interpret_cohens_d(d: float) -> str:
         d = abs(d)
@@ -190,10 +181,11 @@ class IndependentGroupsAnalysis:
             return "medium"
         else:
             return "large"
+
     def results(self) -> dict:
         """
-            Return a JSON-friendly dictionary of all relevant statistical test results.
-            Suitable for passing to an LLM for further explanation or display.
+        Return a JSON-friendly dictionary of all relevant statistical test results.
+        Suitable for passing to an LLM for further explanation or display.
         """
 
         results = {
@@ -221,7 +213,7 @@ class IndependentGroupsAnalysis:
             },
         }
 
-            # Test statistic and effect size
+        # Test statistic and effect size
         if hasattr(self, "t_stat"):
             results["statistic"] = {
                 "t_statistic": float(self.t_stat),
@@ -308,9 +300,7 @@ class IndependentGroupsAnalysis:
             fontsize=12,
             fontweight="bold",
             verticalalignment="top",
-            bbox=dict(
-                boxstyle="round,pad=0.3", facecolor="white", edgecolor="grey", alpha=0.6
-            ),
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor="grey", alpha=0.6),
         )
 
         ax.set_title(title, fontsize=14, weight="bold")
