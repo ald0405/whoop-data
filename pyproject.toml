@@ -58,7 +58,7 @@ dependencies = [
     # LangChain ecosystem
     "langchain==0.3.17",
     "langchain-openai==0.2.14",
-    "langgraph>=0.2.62",
+    "langgraph>=1.0.0",
     "langsmith>=0.2.10",
     "langchain-experimental==0.3.4",
     "langchain-core>=0.3.33,<0.4.0",

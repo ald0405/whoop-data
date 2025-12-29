@@ -13,6 +13,9 @@ env/
 uv.lock
 .python-version
 
+# LangGraph API runtime files
+.langgraph_api/
+
 # SQLite database files
 db/
 *.db
