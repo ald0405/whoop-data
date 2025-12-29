@@ -42,7 +42,7 @@ def transform_sleep(item: dict) -> dict:
     Note: Fields are now already flattened by the API client.
     """
     return {
-        "id": item.get("v1_id") or item.get("id"),  # Use v1_id if available, fallback to id
+        "whoop_id": item.get("v1_id") or item.get("id"),  # WHOOP API string ID
         "user_id": item.get("user_id"),
         "created_at": parse_dt(item.get("created_at")),
         "updated_at": parse_dt(item.get("updated_at")),
@@ -81,7 +81,7 @@ def transform_workout(item: dict) -> dict:
     Note: Fields are now already flattened by the API client.
     """
     return {
-        "id": item.get("v1_id"),
+        "whoop_id": item.get("v1_id") or item.get("id"),  # WHOOP API string ID
         "user_id": item.get("user_id"),
         "created_at": parse_dt(item.get("created_at")),
         "updated_at": parse_dt(item.get("updated_at")),
