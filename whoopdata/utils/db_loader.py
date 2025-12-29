@@ -1,5 +1,13 @@
 from sqlalchemy.orm import Session
-from whoopdata.models.models import Recovery, Cycle, Sleep, Workout, WithingsWeight, WithingsHeartRate
+from whoopdata.models.models import (
+    Recovery,
+    Cycle,
+    Sleep,
+    Workout,
+    WithingsWeight,
+    WithingsHeartRate,
+)
+
 
 class DBLoader:
     """
@@ -28,11 +36,14 @@ class DBLoader:
             Recovery: The created or updated Recovery ORM object.
         """
         # Check if record already exists (avoid duplicates)
-        existing = self.db.query(Recovery).filter(
-            Recovery.cycle_id == data.get('cycle_id'),
-            Recovery.user_id == data.get('user_id')
-        ).first()
-        
+        existing = (
+            self.db.query(Recovery)
+            .filter(
+                Recovery.cycle_id == data.get("cycle_id"), Recovery.user_id == data.get("user_id")
+            )
+            .first()
+        )
+
         if existing:
             # Update existing record
             for key, value in data.items():
@@ -79,11 +90,9 @@ class DBLoader:
         # Check if record already exists (avoid duplicates)
         # Note: data['id'] comes from WHOOP API v1_id field
         existing = None
-        if data.get('id'):
-            existing = self.db.query(Workout).filter(
-                Workout.id == data.get('id')
-            ).first()
-        
+        if data.get("id"):
+            existing = self.db.query(Workout).filter(Workout.id == data.get("id")).first()
+
         if existing:
             # Update existing record
             for key, value in data.items():
@@ -114,11 +123,9 @@ class DBLoader:
         # Check if record already exists (avoid duplicates)
         # Note: data['id'] comes from WHOOP API v1_id field
         existing = None
-        if data.get('id'):
-            existing = self.db.query(Sleep).filter(
-                Sleep.id == data.get('id')
-            ).first()
-        
+        if data.get("id"):
+            existing = self.db.query(Sleep).filter(Sleep.id == data.get("id")).first()
+
         if existing:
             # Update existing record
             for key, value in data.items():
@@ -138,19 +145,23 @@ class DBLoader:
     def load_withings_weight(self, data: dict) -> WithingsWeight:
         """
         Insert a Withings Weight record into the database.
-        
+
         Args:
             data (dict): Dictionary of Withings weight/body composition data.
-        
+
         Returns:
             WithingsWeight: The created WithingsWeight ORM object.
         """
         # Check if record already exists (avoid duplicates)
-        existing = self.db.query(WithingsWeight).filter(
-            WithingsWeight.grpid == data.get('grpid'),
-            WithingsWeight.user_id == data.get('user_id')
-        ).first()
-        
+        existing = (
+            self.db.query(WithingsWeight)
+            .filter(
+                WithingsWeight.grpid == data.get("grpid"),
+                WithingsWeight.user_id == data.get("user_id"),
+            )
+            .first()
+        )
+
         if existing:
             # Update existing record
             for key, value in data.items():
@@ -170,19 +181,23 @@ class DBLoader:
     def load_withings_heart_rate(self, data: dict) -> WithingsHeartRate:
         """
         Insert a Withings Heart Rate record into the database.
-        
+
         Args:
             data (dict): Dictionary of Withings heart rate/blood pressure data.
-        
+
         Returns:
             WithingsHeartRate: The created WithingsHeartRate ORM object.
         """
         # Check if record already exists (avoid duplicates)
-        existing = self.db.query(WithingsHeartRate).filter(
-            WithingsHeartRate.grpid == data.get('grpid'),
-            WithingsHeartRate.user_id == data.get('user_id')
-        ).first()
-        
+        existing = (
+            self.db.query(WithingsHeartRate)
+            .filter(
+                WithingsHeartRate.grpid == data.get("grpid"),
+                WithingsHeartRate.user_id == data.get("user_id"),
+            )
+            .first()
+        )
+
         if existing:
             # Update existing record
             for key, value in data.items():

@@ -28,30 +28,34 @@ def migrate_database():
     try:
         from whoopdata.database.database import engine
         from sqlalchemy import text, inspect
-        
+
         console.print("🔄 [bold]Starting database migration...[/bold]")
-        
+
         inspector = inspect(engine)
-        
+
         # Check if tables exist
         tables = inspector.get_table_names()
-        
+
         with engine.begin() as conn:
             # Migrate Sleep table
-            if 'sleep' in tables:
-                columns = [col['name'] for col in inspector.get_columns('sleep')]
-                
-                if 'whoop_id' not in columns:
+            if "sleep" in tables:
+                columns = [col["name"] for col in inspector.get_columns("sleep")]
+
+                if "whoop_id" not in columns:
                     console.print("📝 Adding whoop_id to sleep table...")
-                    
+
                     # Since SQLite doesn't support ADD COLUMN with constraints easily,
                     # we need to check if table has data
                     result = conn.execute(text("SELECT COUNT(*) FROM sleep"))
                     count = result.scalar()
-                    
+
                     if count > 0:
-                        console.print(f"⚠️  [yellow]Sleep table has {count} existing records![/yellow]")
-                        console.print("⚠️  [yellow]Recommended: Drop the database and reload with new schema[/yellow]")
+                        console.print(
+                            f"⚠️  [yellow]Sleep table has {count} existing records![/yellow]"
+                        )
+                        console.print(
+                            "⚠️  [yellow]Recommended: Drop the database and reload with new schema[/yellow]"
+                        )
                         console.print("⚠️  [yellow]Or manually export data and reimport[/yellow]")
                         return False
                     else:
@@ -60,20 +64,24 @@ def migrate_database():
                         console.print("✅ Added whoop_id to empty sleep table")
                 else:
                     console.print("✅ Sleep table already has whoop_id column")
-            
+
             # Migrate Workout table
-            if 'workout' in tables:
-                columns = [col['name'] for col in inspector.get_columns('workout')]
-                
-                if 'whoop_id' not in columns:
+            if "workout" in tables:
+                columns = [col["name"] for col in inspector.get_columns("workout")]
+
+                if "whoop_id" not in columns:
                     console.print("📝 Adding whoop_id to workout table...")
-                    
+
                     result = conn.execute(text("SELECT COUNT(*) FROM workout"))
                     count = result.scalar()
-                    
+
                     if count > 0:
-                        console.print(f"⚠️  [yellow]Workout table has {count} existing records![/yellow]")
-                        console.print("⚠️  [yellow]Recommended: Drop the database and reload with new schema[/yellow]")
+                        console.print(
+                            f"⚠️  [yellow]Workout table has {count} existing records![/yellow]"
+                        )
+                        console.print(
+                            "⚠️  [yellow]Recommended: Drop the database and reload with new schema[/yellow]"
+                        )
                         console.print("⚠️  [yellow]Or manually export data and reimport[/yellow]")
                         return False
                     else:
@@ -81,10 +89,10 @@ def migrate_database():
                         console.print("✅ Added whoop_id to empty workout table")
                 else:
                     console.print("✅ Workout table already has whoop_id column")
-        
+
         console.print("✅ [bold green]Migration completed successfully![/bold green]")
         return True
-        
+
     except Exception as e:
         console.print(f"❌ [bold red]Migration failed: {str(e)}[/bold red]")
         return False
@@ -95,20 +103,20 @@ def drop_and_recreate():
     try:
         from whoopdata.database.database import engine
         from whoopdata.models.models import Base
-        
+
         console.print("⚠️  [bold yellow]DROPPING ALL TABLES![/bold yellow]")
         console.print("⚠️  All existing data will be lost!")
-        
+
         # Drop all tables
         Base.metadata.drop_all(bind=engine)
         console.print("🗑️  Dropped all tables")
-        
+
         # Recreate with new schema
         Base.metadata.create_all(bind=engine)
         console.print("✅ [bold green]Created tables with new schema![/bold green]")
-        
+
         return True
-        
+
     except Exception as e:
         console.print(f"❌ [bold red]Failed to drop/recreate: {str(e)}[/bold red]")
         return False
@@ -116,26 +124,30 @@ def drop_and_recreate():
 
 def main():
     """Main migration function"""
-    console.print(Panel.fit(
-        "🔄 [bold]Database Migration: Add whoop_id columns[/bold] 🔄\n\n"
-        "This will add the whoop_id column to Sleep and Workout tables.\n\n"
-        "[yellow]Options:[/yellow]\n"
-        "1. Migrate existing database (only works if tables are empty)\n"
-        "2. Drop all tables and recreate (⚠️  DESTROYS ALL DATA)\n"
-        "3. Cancel",
-        style="bold cyan"
-    ))
-    
+    console.print(
+        Panel.fit(
+            "🔄 [bold]Database Migration: Add whoop_id columns[/bold] 🔄\n\n"
+            "This will add the whoop_id column to Sleep and Workout tables.\n\n"
+            "[yellow]Options:[/yellow]\n"
+            "1. Migrate existing database (only works if tables are empty)\n"
+            "2. Drop all tables and recreate (⚠️  DESTROYS ALL DATA)\n"
+            "3. Cancel",
+            style="bold cyan",
+        )
+    )
+
     try:
         choice = console.input("\n[bold]Enter your choice (1/2/3): [/bold]")
-        
+
         if choice == "1":
             success = migrate_database()
             if not success:
-                console.print("\n💡 Consider option 2 (drop & recreate) or manually backup/restore data")
+                console.print(
+                    "\n💡 Consider option 2 (drop & recreate) or manually backup/restore data"
+                )
         elif choice == "2":
             confirm = console.input("[bold red]Are you sure? Type 'yes' to confirm: [/bold red]")
-            if confirm.lower() == 'yes':
+            if confirm.lower() == "yes":
                 drop_and_recreate()
             else:
                 console.print("❌ Cancelled")
@@ -143,7 +155,7 @@ def main():
             console.print("✋ Migration cancelled")
         else:
             console.print("❌ Invalid choice")
-            
+
     except KeyboardInterrupt:
         console.print("\n⚠️ [bold yellow]Cancelled by user[/bold yellow]")
     except Exception as e:

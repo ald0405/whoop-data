@@ -1,6 +1,7 @@
 # 🏥 AI-Powered Health Data Platform
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![UV](https://img.shields.io/badge/package%20manager-UV-orange.svg)](https://github.com/astral-sh/uv)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![OpenAI](https://img.shields.io/badge/AI-OpenAI%20GPT-green.svg)](https://openai.com/)
 [![LangGraph](https://img.shields.io/badge/Agent-LangGraph-purple.svg)](https://langchain-ai.github.io/langgraph/)
@@ -86,10 +87,23 @@ whoop-data/
 
 ## 🚀 Quick Start Guide
 
-### Step 1: Install Dependencies
+### Step 1: Install UV and Dependencies
 
+**Option A: Using UV (Recommended - Fast & Modern)**
 ```bash
-# Create virtual environment (recommended)
+# Install UV if you haven't already
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install all dependencies (creates .venv automatically)
+uv sync
+
+# Or use make for convenience
+make dev
+```
+
+**Option B: Traditional pip/venv (Still supported)**
+```bash
+# Create virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
@@ -121,8 +135,19 @@ OPENAI_API_KEY=your_openai_api_key
 
 The system automatically creates the database and loads your health data:
 
+**Using UV/Make:**
 ```bash
-# Complete setup: Creates database + Loads fresh data + Starts API server
+# Start the interactive CLI launcher
+make run
+# or
+uv run whoop-start
+
+# Or run directly
+uv run python run_app.py
+```
+
+**Using traditional Python:**
+```bash
 python run_app.py
 ```
 
@@ -137,14 +162,21 @@ This will:
 
 **🎯 Option A: Complete System (Recommended)**
 ```bash
-# Launches both API server (8000) + Chat interface (7860)
+# Using make
+make chat
+
+# Or using UV directly
+uv run python start_health_chat.py
+
+# Or traditional
 python start_health_chat.py
 ```
 
 **💬 Option B: Chat Interface Only**
 ```bash
-# Just the chat interface (requires API server running separately)
-python chat_app.py
+make chat
+# or
+uv run python chat_app.py
 ```
 
 ### Step 5: Start Chatting with Your Health Data! 🎉
@@ -210,24 +242,63 @@ The system automatically:
 - `GET /withings/heart-rate/latest` - Most recent heart rate
 - `GET /withings/summary` - Withings data summary
 
+## 🛠️ Make Commands
+
+Convenient commands for common tasks (requires UV):
+
+```bash
+# Setup
+make help        # Show all available commands
+make install     # Install production dependencies
+make dev         # Install with dev dependencies
+make sync        # Update dependencies
+
+# Run
+make run         # Start interactive CLI launcher
+make server      # Start FastAPI server
+make etl         # Run ETL pipeline (incremental)
+make etl-full    # Run ETL pipeline (full load)
+make chat        # Start chat interface
+make analytics   # Run analytics pipeline
+
+# Development
+make test        # Run tests
+make test-cov    # Run tests with coverage
+make format      # Format code with black
+make lint        # Lint with flake8
+make typecheck   # Type check with mypy
+make verify      # Run system verification
+
+# Maintenance
+make clean       # Clean cache files
+make clean-all   # Clean everything including venv
+```
+
 ## Development
 
 ### Testing Withings Integration
 
 ```bash
-python whoopdata/tests/test_withings.py
+make test
+# or
+uv run python whoopdata/tests/test_withings.py
 ```
 
 ### Running ETL Pipeline Only
 
 ```bash
-python scripts/run_etl.py
+make etl        # Incremental load
+make etl-full   # Full load
+# or
+uv run python scripts/run_etl.py
 ```
 
-### Creating Database Tables
+### System Verification
 
 ```bash
-python scripts/create_tables.py
+make verify
+# or
+uv run python verify_system.py
 ```
 
 ## WHOOP Data Summary

@@ -7,6 +7,7 @@ from datetime import datetime
 
 class FactorImportance(BaseModel):
     """Individual factor importance with explanation."""
+
     factor_name: str
     importance_percentage: float
     explanation: str
@@ -16,6 +17,7 @@ class FactorImportance(BaseModel):
 
 class FactorImportanceResponse(BaseModel):
     """Response for recovery factor importance analysis."""
+
     factors: List[FactorImportance]
     top_lever: str  # Plain English summary of #1 factor
     model_accuracy: float  # R² score
@@ -24,6 +26,7 @@ class FactorImportanceResponse(BaseModel):
 
 class CorrelationPair(BaseModel):
     """Single correlation relationship."""
+
     metric_1: str
     metric_2: str
     correlation: float
@@ -35,6 +38,7 @@ class CorrelationPair(BaseModel):
 
 class CorrelationAnalysisResponse(BaseModel):
     """Response for correlation analysis."""
+
     correlations: List[CorrelationPair]
     summary: str  # Overall interpretation
     timestamp: datetime
@@ -42,8 +46,11 @@ class CorrelationAnalysisResponse(BaseModel):
 
 class RecoveryPredictionRequest(BaseModel):
     """Request for recovery prediction."""
+
     sleep_hours: float = Field(..., ge=0, le=14, description="Hours of sleep")
-    sleep_efficiency: Optional[float] = Field(None, ge=0, le=100, description="Sleep efficiency percentage")
+    sleep_efficiency: Optional[float] = Field(
+        None, ge=0, le=100, description="Sleep efficiency percentage"
+    )
     strain: Optional[float] = Field(None, ge=0, le=21, description="Strain score")
     hrv: Optional[float] = Field(None, ge=0, description="HRV in milliseconds")
     rhr: Optional[float] = Field(None, ge=30, le=120, description="Resting heart rate")
@@ -51,6 +58,7 @@ class RecoveryPredictionRequest(BaseModel):
 
 class RecoveryPredictionResponse(BaseModel):
     """Response for recovery prediction."""
+
     predicted_recovery: float  # Percentage 0-100
     confidence_interval: tuple[float, float]  # (lower, upper)
     recovery_category: str  # "Green", "Yellow", "Red"
@@ -61,6 +69,7 @@ class RecoveryPredictionResponse(BaseModel):
 
 class SleepPredictionRequest(BaseModel):
     """Request for sleep performance prediction."""
+
     total_sleep_hours: float = Field(..., ge=0, le=14)
     rem_sleep_hours: float = Field(..., ge=0, le=5)
     awake_time_hours: float = Field(..., ge=0, le=5)
@@ -68,6 +77,7 @@ class SleepPredictionRequest(BaseModel):
 
 class SleepPredictionResponse(BaseModel):
     """Response for sleep performance prediction."""
+
     predicted_performance: float  # Percentage 0-100
     confidence_interval: tuple[float, float]
     explanation: str
@@ -76,6 +86,7 @@ class SleepPredictionResponse(BaseModel):
 
 class Insight(BaseModel):
     """Single actionable insight."""
+
     insight_text: str  # Natural language insight
     category: str  # "success", "opportunity", "alert"
     priority: int  # 1-5, 1 being highest priority
@@ -84,6 +95,7 @@ class Insight(BaseModel):
 
 class InsightResponse(BaseModel):
     """Response for weekly insights."""
+
     insights: List[Insight]
     summary: str  # Overall weekly summary
     timestamp: datetime
@@ -91,6 +103,7 @@ class InsightResponse(BaseModel):
 
 class TrendPoint(BaseModel):
     """Single point in time series."""
+
     date: str
     value: float
     annotation: Optional[str] = None  # e.g., "↑ 12% improvement"
@@ -98,6 +111,7 @@ class TrendPoint(BaseModel):
 
 class PatternDetectionResponse(BaseModel):
     """Response for pattern/trend detection."""
+
     metric_name: str
     trend_direction: str  # "up", "down", "stable"
     trend_percentage: float  # Overall change
@@ -109,6 +123,7 @@ class PatternDetectionResponse(BaseModel):
 
 class AnalyticsSummaryResponse(BaseModel):
     """Comprehensive analytics summary for dashboard."""
+
     factor_importance: FactorImportanceResponse
     top_correlations: List[CorrelationPair]  # Top 5-7 only
     weekly_insights: InsightResponse

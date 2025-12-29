@@ -10,18 +10,18 @@ from . import settings
 
 async def supervisor_node(state: HealthAgentState) -> HealthAgentState:
     """Main supervisor node that processes user queries and decides on tool usage."""
-    
+
     messages = state.get("messages", [])
-    
+
     # Initialize OpenAI LLM
     llm = ChatOpenAI(
         model=settings.OPENAI_MODEL,
         temperature=settings.OPENAI_TEMPERATURE,
         max_tokens=settings.OPENAI_MAX_TOKENS,
         api_key=settings.OPENAI_API_KEY,
-        timeout=settings.AGENT_TIMEOUT_SECONDS
+        timeout=settings.AGENT_TIMEOUT_SECONDS,
     )
-    
+
     # Add system message if not present
     if not any(message.type == "system" for message in messages):
         system_content = """Listen up! I'm your no-bullshit health data coach with a PhD in calling out your patterns.
@@ -65,16 +65,16 @@ async def supervisor_node(state: HealthAgentState) -> HealthAgentState:
         I'm here to make you better, not make you feel better. The numbers don't care about excuses.
         
         Ready to see what your data actually says about you?"""
-        
+
         system_message = SystemMessage(content=system_content)
         messages = [system_message] + messages
-    
+
     # Bind tools to the LLM
     llm_with_tools = llm.bind_tools(AVAILABLE_TOOLS)
-    
+
     # Get response from LLM
     response = await llm_with_tools.ainvoke(messages)
-    
+
     # Return updated state
     if any(message.type == "system" for message in state.get("messages", [])):
         return {"messages": [response]}
@@ -84,8 +84,8 @@ async def supervisor_node(state: HealthAgentState) -> HealthAgentState:
 
 async def tools_node(state: HealthAgentState) -> HealthAgentState:
     """Execute tool calls and return results."""
-    
+
     tool_executor = ToolNode(AVAILABLE_TOOLS)
     result = await tool_executor.ainvoke(state)
-    
+
     return result

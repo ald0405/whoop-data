@@ -8,11 +8,12 @@ def parse_dt(dt_str):
     """
     return datetime.fromisoformat(dt_str.replace("Z", "+00:00")) if dt_str else None
 
+
 def transform_recovery(item: dict, db_session=None) -> dict:
     """
     Transform recovery data for database insertion.
     Note: Fields are now already flattened by the API client.
-    
+
     Args:
         item: Recovery data dict from API
         db_session: Optional SQLAlchemy session to map sleep_id from whoop_id to database id
@@ -29,10 +30,11 @@ def transform_recovery(item: dict, db_session=None) -> dict:
     api_sleep_id = item.get("sleep_id")
     if api_sleep_id and db_session:
         from whoopdata.models.models import Sleep
+
         sleep_record = db_session.query(Sleep).filter(Sleep.whoop_id == api_sleep_id).first()
         if sleep_record:
             sleep_id = sleep_record.id
-    
+
     return {
         "user_id": item.get("user_id"),
         "cycle_id": item.get("cycle_id"),
@@ -48,6 +50,7 @@ def transform_recovery(item: dict, db_session=None) -> dict:
         "spo2_percentage": item.get("spo2_percentage"),
         "skin_temp_celsius": item.get("skin_temp_celsius"),
     }
+
 
 def transform_sleep(item: dict) -> dict:
     """
@@ -69,7 +72,6 @@ def transform_sleep(item: dict) -> dict:
         "sleep_performance_percentage": item.get("sleep_performance_percentage"),
         "sleep_consistency_percentage": item.get("sleep_consistency_percentage"),
         "sleep_efficiency_percentage": item.get("sleep_efficiency_percentage"),
-
         # Stage summary metrics (already flattened)
         "total_time_in_bed_time_milli": item.get("total_time_in_bed_time_milli"),
         "total_awake_time_milli": item.get("total_awake_time_milli"),
@@ -78,14 +80,12 @@ def transform_sleep(item: dict) -> dict:
         "total_rem_sleep_time_milli": item.get("total_rem_sleep_time_milli"),
         "sleep_cycle_count": item.get("sleep_cycle_count"),
         "disturbance_count": item.get("disturbance_count"),
-
         # Sleep needed metrics (already flattened)
         "baseline_sleep_needed_milli": item.get("baseline_sleep_needed_milli"),
         "need_from_sleep_debt_milli": item.get("need_from_sleep_debt_milli"),
         "need_from_recent_strain_milli": item.get("need_from_recent_strain_milli"),
         "need_from_recent_nap_milli": item.get("need_from_recent_nap_milli"),
     }
-
 
 
 def transform_workout(item: dict) -> dict:
@@ -112,7 +112,6 @@ def transform_workout(item: dict) -> dict:
         "distance_meter": item.get("distance_meter"),
         "altitude_gain_meter": item.get("altitude_gain_meter"),
         "altitude_change_meter": item.get("altitude_change_meter"),
-        
         # Zone durations are already converted to minutes by the API client
         "zone_zero_minutes": item.get("zone_zero_minutes", 0.0),
         "zone_one_minutes": item.get("zone_one_minutes", 0.0),
@@ -133,13 +132,20 @@ def transform_withings_weight(item: dict) -> dict:
         "grpid": item.get("grpid"),
         "deviceid": item.get("deviceid"),
         "created_at": datetime.now(),
-        "updated_at": item.get("datetime") or datetime.fromtimestamp(item.get("date", 0)) if item.get("date") else datetime.now(),
+        "updated_at": (
+            item.get("datetime") or datetime.fromtimestamp(item.get("date", 0))
+            if item.get("date")
+            else datetime.now()
+        ),
         "date": item.get("date"),
-        "datetime": item.get("datetime") or datetime.fromtimestamp(item.get("date", 0)) if item.get("date") else datetime.now(),
+        "datetime": (
+            item.get("datetime") or datetime.fromtimestamp(item.get("date", 0))
+            if item.get("date")
+            else datetime.now()
+        ),
         "timezone": item.get("timezone"),
         "comment": item.get("comment"),
         "category": item.get("category", 1),
-        
         # Extract measurements by type
         "weight_kg": item.get("actual_value") if item.get("measure_type") == 1 else None,
         "height_m": item.get("actual_value") if item.get("measure_type") == 4 else None,
@@ -163,12 +169,19 @@ def transform_withings_heart_rate(item: dict) -> dict:
         "grpid": item.get("grpid"),
         "deviceid": item.get("deviceid"),
         "created_at": datetime.now(),
-        "updated_at": item.get("datetime") or datetime.fromtimestamp(item.get("date", 0)) if item.get("date") else datetime.now(),
+        "updated_at": (
+            item.get("datetime") or datetime.fromtimestamp(item.get("date", 0))
+            if item.get("date")
+            else datetime.now()
+        ),
         "date": item.get("date"),
-        "datetime": item.get("datetime") or datetime.fromtimestamp(item.get("date", 0)) if item.get("date") else datetime.now(),
+        "datetime": (
+            item.get("datetime") or datetime.fromtimestamp(item.get("date", 0))
+            if item.get("date")
+            else datetime.now()
+        ),
         "timezone": item.get("timezone"),
         "category": item.get("category", 1),
-        
         # Extract measurements by type
         "diastolic_bp_mmhg": item.get("actual_value") if item.get("measure_type") == 9 else None,
         "systolic_bp_mmhg": item.get("actual_value") if item.get("measure_type") == 10 else None,

@@ -1,5 +1,13 @@
 from sqlalchemy.orm import Session
-from whoopdata.models.models import Recovery, Cycle, Sleep, Workout, WithingsWeight, WithingsHeartRate
+from whoopdata.models.models import (
+    Recovery,
+    Cycle,
+    Sleep,
+    Workout,
+    WithingsWeight,
+    WithingsHeartRate,
+)
+
 
 class DBLoader:
     """
@@ -59,10 +67,8 @@ class DBLoader:
             Workout: The created or updated Workout ORM object.
         """
         # Check if record already exists (avoid duplicates)
-        existing = self.db.query(Workout).filter(
-            Workout.whoop_id == data.get('whoop_id')
-        ).first()
-        
+        existing = self.db.query(Workout).filter(Workout.whoop_id == data.get("whoop_id")).first()
+
         if existing:
             # Update existing record
             for key, value in data.items():
@@ -90,10 +96,8 @@ class DBLoader:
             Sleep: The created or updated Sleep ORM object.
         """
         # Check if record already exists (avoid duplicates)
-        existing = self.db.query(Sleep).filter(
-            Sleep.whoop_id == data.get('whoop_id')
-        ).first()
-        
+        existing = self.db.query(Sleep).filter(Sleep.whoop_id == data.get("whoop_id")).first()
+
         if existing:
             # Update existing record
             for key, value in data.items():
@@ -113,19 +117,23 @@ class DBLoader:
     def load_withings_weight(self, data: dict) -> WithingsWeight:
         """
         Insert a Withings Weight record into the database.
-        
+
         Args:
             data (dict): Dictionary of Withings weight/body composition data.
-        
+
         Returns:
             WithingsWeight: The created WithingsWeight ORM object.
         """
         # Check if record already exists (avoid duplicates)
-        existing = self.db.query(WithingsWeight).filter(
-            WithingsWeight.grpid == data.get('grpid'),
-            WithingsWeight.user_id == data.get('user_id')
-        ).first()
-        
+        existing = (
+            self.db.query(WithingsWeight)
+            .filter(
+                WithingsWeight.grpid == data.get("grpid"),
+                WithingsWeight.user_id == data.get("user_id"),
+            )
+            .first()
+        )
+
         if existing:
             # Update existing record
             for key, value in data.items():
@@ -145,19 +153,23 @@ class DBLoader:
     def load_withings_heart_rate(self, data: dict) -> WithingsHeartRate:
         """
         Insert a Withings Heart Rate record into the database.
-        
+
         Args:
             data (dict): Dictionary of Withings heart rate/blood pressure data.
-        
+
         Returns:
             WithingsHeartRate: The created WithingsHeartRate ORM object.
         """
         # Check if record already exists (avoid duplicates)
-        existing = self.db.query(WithingsHeartRate).filter(
-            WithingsHeartRate.grpid == data.get('grpid'),
-            WithingsHeartRate.user_id == data.get('user_id')
-        ).first()
-        
+        existing = (
+            self.db.query(WithingsHeartRate)
+            .filter(
+                WithingsHeartRate.grpid == data.get("grpid"),
+                WithingsHeartRate.user_id == data.get("user_id"),
+            )
+            .first()
+        )
+
         if existing:
             # Update existing record
             for key, value in data.items():

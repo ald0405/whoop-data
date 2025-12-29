@@ -10,10 +10,13 @@ from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_err
 
 # For handling missing values
 from sklearn.impute import SimpleImputer
+
 # Configure matplotlib for headless operation before importing pyplot
 import matplotlib
-matplotlib.use('Agg', force=True)
+
+matplotlib.use("Agg", force=True)
 import matplotlib.pyplot as plt
+
 plt.ioff()  # Turn off interactive mode
 import seaborn as sns
 import os
@@ -93,9 +96,7 @@ y = df["score_sleep_performance_percentage"]
 
 df.info()
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 print(f"Training set size: {X_train.shape}")
 print(f"Testing set size: {X_test.shape}")
@@ -253,9 +254,7 @@ width = 0.35  # the width of the bars
 # Create the plot
 plt.figure(figsize=(14, 7))
 plt.bar(x - width / 2, comparison_df["Actual"], width, label="Actual", color="#32D9D5")
-plt.bar(
-    x + width / 2, comparison_df["Predicted"], width, label="Predicted", color="black"
-)
+plt.bar(x + width / 2, comparison_df["Predicted"], width, label="Predicted", color="black")
 
 # Add labels, title, and custom x-axis tick labels
 plt.xlabel("Sample Number", fontsize=14)

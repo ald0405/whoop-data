@@ -9,6 +9,10 @@ venv/
 env/
 .venv/
 
+# UV package manager
+uv.lock
+.python-version
+
 # SQLite database files
 db/
 *.db
