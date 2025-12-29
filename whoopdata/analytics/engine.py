@@ -10,8 +10,8 @@ from scipy.stats import pearsonr
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
-from .models import RecoveryPredictor
-from .data_prep import get_recovery_with_features, calculate_rolling_features
+from .models import RecoveryPredictor, SleepPredictor
+from .data_prep import get_recovery_with_features, get_sleep_quality_features, calculate_rolling_features
 
 
 class RecoveryFactorAnalyzer:
@@ -178,6 +178,532 @@ class RecoveryFactorAnalyzer:
             return f"This model explains {pct:.0f}% of your recovery variation with moderate accuracy"
         else:
             return f"This model explains {pct:.0f}% of recovery variation - other unmeasured factors may be important"
+
+
+class SleepQualityAnalyzer:
+    """Analyze how sleep factors affect next-day recovery."""
+    
+    def __init__(self, db: Session):
+        """Initialize analyzer with database session."""
+        self.db = db
+        self.predictor = None
+        self.feature_importance = None
+    
+    def analyze(self, days_back: int = 365) -> Dict:
+        """Analyze sleep quality factors with plain language explanations.
+        
+        Args:
+            days_back: Days of historical data to analyze
+            
+        Returns:
+            Dictionary with factors, explanations, and actionable insights
+        """
+        # Get recovery data which includes sleep features
+        df = get_recovery_with_features(self.db, days_back=days_back)
+        
+        if len(df) < 30:
+            return {
+                "error": "Insufficient data for sleep analysis (need at least 30 sleep records)"
+            }
+        
+        # Train model to get feature importance
+        from .data_prep import get_training_data
+        from sklearn.ensemble import RandomForestRegressor
+        
+        feature_cols = [
+            'sleep_hours',
+            'rem_sleep_hours', 
+            'slow_wave_sleep_hours',
+            'sleep_efficiency_percentage',
+            'bedtime_hour',
+            'day_of_week',
+            'respiratory_rate',
+            'sleep_debt_hours',
+            'sleep_deficit',
+            'disturbance_count',
+        ]
+        
+        # Filter to records with complete rolling features
+        df_with_history = df[df['has_rolling_features'] == True].copy()
+        
+        if len(df_with_history) == 0:
+            return {"error": "No records with sufficient history for sleep analysis"}
+        
+        # Remove rows with missing features - TARGET IS RECOVERY
+        df_clean = df_with_history[feature_cols + ['recovery_score']].dropna()
+        
+        if len(df_clean) < 30:
+            return {"error": f"Insufficient clean data. Only {len(df_clean)} records after removing missing values."}
+        
+        X_train, X_test, y_train, y_test, _, _ = get_training_data(
+            df_clean,
+            target_col='recovery_score',
+            feature_cols=feature_cols,
+            scale_features=False
+        )
+        
+        # Train RandomForest model
+        model = RandomForestRegressor(
+            n_estimators=200,
+            max_depth=15,
+            min_samples_split=5,
+            min_samples_leaf=2,
+            random_state=42,
+            n_jobs=-1
+        )
+        model.fit(X_train, y_train)
+        
+        # Calculate R² score
+        from sklearn.metrics import r2_score
+        y_pred = model.predict(X_test)
+        model_r2 = r2_score(y_test, y_pred)
+        
+        # Get feature importance
+        feature_importance = dict(zip(feature_cols, model.feature_importances_ * 100))
+        sorted_factors = sorted(feature_importance.items(), key=lambda x: x[1], reverse=True)
+        
+        # Generate explanations
+        factors = []
+        for feat, importance in sorted_factors:
+            factor_data = self._explain_factor(feat, importance, df_clean)
+            factors.append(factor_data)
+        
+        # Top lever explanation
+        top_factor = sorted_factors[0]
+        top_lever = self._generate_top_lever_explanation(top_factor[0], top_factor[1], df_clean)
+        
+        # Day of week insights
+        dow_insights = self._analyze_day_of_week_patterns(df_clean)
+        
+        # Bedtime insights
+        bedtime_insights = self._analyze_bedtime_patterns(df_clean)
+        
+        return {
+            "factors": factors,
+            "top_lever": top_lever,
+            "model_accuracy": float(model_r2),
+            "model_r2": float(model_r2),
+            "explanation": self._generate_overall_explanation(model_r2),
+            "day_of_week_insights": dow_insights,
+            "bedtime_insights": bedtime_insights,
+        }
+    
+    def _explain_factor(self, factor_name: str, importance: float, df: pd.DataFrame) -> Dict:
+        """Generate plain English explanation for a sleep quality factor."""
+        friendly_names = {
+            'total_sleep_hours': 'Sleep Duration',
+            'rem_sleep_hours': 'REM Sleep',
+            'slow_wave_sleep_hours': 'Deep Sleep',
+            'awake_time_hours': 'Time Awake',
+            'bedtime_hour': 'Bedtime',
+            'day_of_week': 'Day of Week',
+            'respiratory_rate': 'Respiratory Rate',
+            'prev_strain': 'Previous Day Strain',
+            'prev_recovery_score': 'Previous Day Recovery',
+            'sleep_debt_hours': 'Sleep Debt',
+            'sleep_deficit': 'Sleep Deficit',
+            'disturbance_count': 'Sleep Disturbances',
+            'bedtime_consistency_score': 'Bedtime Consistency',
+        }
+        
+        friendly = friendly_names.get(factor_name, factor_name)
+        
+        # Calculate correlation with RECOVERY not sleep efficiency
+        corr, _ = pearsonr(df[factor_name], df['recovery_score'])
+        direction = "positive" if corr > 0 else "negative"
+        
+        # Find actionable threshold (top 25% vs bottom 25% RECOVERY)
+        top_recovery = df.nlargest(int(len(df) * 0.25), 'recovery_score')
+        bottom_recovery = df.nsmallest(int(len(df) * 0.25), 'recovery_score')
+        
+        top_avg = top_recovery[factor_name].mean()
+        bottom_avg = bottom_recovery[factor_name].mean()
+        
+        # Generate explanation - explaining impact on RECOVERY
+        if factor_name == 'sleep_hours':
+            explanation = f"Sleep duration accounts for {importance:.1f}% of recovery. Your best recoveries average {top_avg:.1f} hours."
+            threshold = f">= {top_avg:.1f}h"
+        elif factor_name == 'sleep_efficiency_percentage':
+            explanation = f"Sleep efficiency accounts for {importance:.1f}% of recovery. Your best recoveries have {top_avg:.0f}% efficiency."
+            threshold = f">= {top_avg:.0f}%"
+        elif factor_name == 'bedtime_hour':
+            explanation = f"Bedtime accounts for {importance:.1f}% of recovery. Your best recoveries occur after going to bed around {top_avg:.0f}:00."
+            threshold = f"Around {int(top_avg):02d}:00"
+        elif factor_name == 'day_of_week':
+            explanation = f"Day of week accounts for {importance:.1f}% of recovery variation."
+            threshold = None
+        elif factor_name == 'sleep_debt_hours':
+            explanation = f"Sleep debt accounts for {importance:.1f}% of recovery. Less debt ({top_avg:.1f}h) = better recovery."
+            threshold = f"< {top_avg:.1f}h"
+        elif factor_name == 'disturbance_count':
+            explanation = f"Disturbances account for {importance:.1f}% of recovery. Fewer disturbances ({int(top_avg)}) = better recovery."
+            threshold = f"< {int(top_avg)}"
+        elif factor_name == 'bedtime_consistency_score':
+            explanation = f"Bedtime consistency accounts for {importance:.1f}% of recovery. Higher consistency ({top_avg:.0f}) improves recovery."
+            threshold = f"> {top_avg:.0f}"
+        elif factor_name == 'rem_sleep_hours' or factor_name == 'slow_wave_sleep_hours':
+            explanation = f"{friendly} accounts for {importance:.1f}% of recovery. Your best recoveries average {top_avg:.1f} hours."
+            threshold = f">= {top_avg:.1f}h"
+        else:
+            explanation = f"{friendly} accounts for {importance:.1f}% of your recovery variation (from sleep factors)."
+            threshold = None
+        
+        return {
+            "factor_name": friendly,
+            "importance_percentage": float(importance),
+            "explanation": explanation,
+            "direction": direction,
+            "actionable_threshold": threshold,
+            "top_quartile_avg": float(top_avg),
+            "bottom_quartile_avg": float(bottom_avg)
+        }
+    
+    def _generate_top_lever_explanation(self, factor_name: str, importance: float, df: pd.DataFrame) -> str:
+        """Generate explanation for the #1 sleep factor driving recovery."""
+        if factor_name == 'sleep_hours':
+            top_recovery = df.nlargest(int(len(df) * 0.25), 'recovery_score')
+            avg_hours = top_recovery[factor_name].mean()
+            return f"Sleep duration is your biggest recovery lever from sleep ({importance:.0f}%) - aim for {avg_hours:.1f}+ hours"
+        elif factor_name == 'sleep_efficiency_percentage':
+            top_recovery = df.nlargest(int(len(df) * 0.25), 'recovery_score')
+            avg_eff = top_recovery[factor_name].mean()
+            return f"Sleep efficiency is your biggest recovery lever from sleep ({importance:.0f}%) - target {avg_eff:.0f}%+"
+        elif factor_name == 'bedtime_hour':
+            top_recovery = df.nlargest(int(len(df) * 0.25), 'recovery_score')
+            avg_bedtime = top_recovery[factor_name].mean()
+            return f"Bedtime is your biggest recovery lever from sleep ({importance:.0f}%) - aim for {int(avg_bedtime):02d}:00"
+        elif factor_name == 'bedtime_consistency_score':
+            return f"Bedtime consistency is your biggest recovery lever from sleep ({importance:.0f}%) - stick to a regular sleep schedule"
+        else:
+            return f"{factor_name.replace('_', ' ').title()} is your biggest recovery driver from sleep at {importance:.0f}%"
+    
+    def _generate_overall_explanation(self, r2: float) -> str:
+        """Generate overall model explanation."""
+        pct = r2 * 100
+        if r2 >= 0.5:
+            return f"Sleep factors explain {pct:.0f}% of your recovery variation with good accuracy"
+        elif r2 >= 0.3:
+            return f"Sleep factors explain {pct:.0f}% of your recovery variation with moderate accuracy"
+        else:
+            return f"Sleep factors explain {pct:.0f}% of recovery variation - other factors like strain may be more important"
+    
+    def _analyze_day_of_week_patterns(self, df: pd.DataFrame) -> Dict:
+        """Analyze sleep quality by day of week."""
+        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        
+        dow_data = []
+        for dow in range(7):
+            dow_records = df[df['day_of_week'] == dow]
+            if len(dow_records) > 0:
+                avg_efficiency = dow_records['sleep_efficiency_percentage'].mean()
+                dow_data.append({
+                    "day": day_names[dow],
+                    "avg_efficiency": float(avg_efficiency),
+                    "count": len(dow_records)
+                })
+        
+        # Find best and worst days
+        if dow_data:
+            best_day = max(dow_data, key=lambda x: x['avg_efficiency'])
+            worst_day = min(dow_data, key=lambda x: x['avg_efficiency'])
+            
+            return {
+                "by_day": dow_data,
+                "best_day": best_day['day'],
+                "best_efficiency": best_day['avg_efficiency'],
+                "worst_day": worst_day['day'],
+                "worst_efficiency": worst_day['avg_efficiency'],
+                "insight": f"Best sleep on {best_day['day']} ({best_day['avg_efficiency']:.1f}%), worst on {worst_day['day']} ({worst_day['avg_efficiency']:.1f}%)"
+            }
+        
+        return {"by_day": [], "insight": "Insufficient data for day-of-week analysis"}
+    
+    def _analyze_bedtime_patterns(self, df: pd.DataFrame) -> Dict:
+        """Analyze sleep quality by bedtime."""
+        # Group by bedtime hour
+        bedtime_data = []
+        for hour in range(20, 28):  # 8pm to 4am (next day)
+            display_hour = hour if hour < 24 else hour - 24
+            hour_records = df[df['bedtime_hour'] == display_hour]
+            if len(hour_records) >= 3:  # Need at least 3 samples
+                avg_efficiency = hour_records['sleep_efficiency_percentage'].mean()
+                bedtime_data.append({
+                    "hour": display_hour,
+                    "display_time": f"{display_hour:02d}:00",
+                    "avg_efficiency": float(avg_efficiency),
+                    "count": len(hour_records)
+                })
+        
+        if bedtime_data:
+            best_time = max(bedtime_data, key=lambda x: x['avg_efficiency'])
+            return {
+                "by_hour": bedtime_data,
+                "optimal_bedtime": best_time['display_time'],
+                "optimal_efficiency": best_time['avg_efficiency'],
+                "insight": f"Optimal bedtime: {best_time['display_time']} ({best_time['avg_efficiency']:.1f}% efficiency)"
+            }
+        
+        return {"by_hour": [], "insight": "Insufficient data for bedtime analysis"}
+
+
+class RecoveryDeepDiveAnalyzer:
+    """Deep dive analysis of recovery factors including workout types, timing, and HR zones."""
+    
+    def __init__(self, db: Session):
+        """Initialize analyzer."""
+        self.db = db
+    
+    def analyze(self, days_back: int = 365) -> Dict:
+        """Perform comprehensive recovery analysis.
+        
+        Args:
+            days_back: Days of historical data
+            
+        Returns:
+            Dictionary with recovery insights by sport, time-of-day, HR zones, and strain patterns
+        """
+        df = get_recovery_with_features(self.db, days_back=days_back)
+        
+        if len(df) < 30:
+            return {"error": "Insufficient data for recovery deep dive"}
+        
+        results = {
+            "by_sport": self._analyze_by_sport(df),
+            "by_time_of_day": self._analyze_by_time_of_day(df),
+            "by_hr_zones": self._analyze_by_hr_zones(df),
+            "strain_patterns": self._analyze_strain_patterns(df),
+            "day_of_week_recovery": self._analyze_day_of_week_recovery(df),
+            "timestamp": datetime.now()
+        }
+        
+        return results
+    
+    def _analyze_by_sport(self, df: pd.DataFrame) -> Dict:
+        """Analyze recovery by workout sport type."""
+        if 'sport_id' not in df.columns:
+            return {"error": "No workout data available"}
+        
+        # Filter to records with workouts
+        workout_df = df[df['sport_id'] > 0].copy()
+        
+        if len(workout_df) < 10:
+            return {"error": "Insufficient workout data"}
+        
+        # Analyze recovery by sport
+        sport_stats = workout_df.groupby('sport_id').agg({
+            'recovery_score': ['mean', 'std', 'count'],
+            'workout_strain': 'mean',
+            'high_intensity_pct': 'mean'
+        }).reset_index()
+        
+        sport_stats.columns = ['sport_id', 'avg_recovery', 'recovery_std', 'count', 'avg_strain', 'avg_high_intensity_pct']
+        
+        # Filter sports with at least 5 occurrences
+        sport_stats = sport_stats[sport_stats['count'] >= 5]
+        
+        if len(sport_stats) == 0:
+            return {"error": "Insufficient data per sport"}
+        
+        # Sort by average recovery
+        sport_stats = sport_stats.sort_values('avg_recovery', ascending=False)
+        
+        sports_list = []
+        for _, row in sport_stats.iterrows():
+            sports_list.append({
+                "sport_id": int(row['sport_id']),
+                "avg_recovery": float(row['avg_recovery']),
+                "recovery_std": float(row['recovery_std']),
+                "count": int(row['count']),
+                "avg_strain": float(row['avg_strain']),
+                "avg_high_intensity_pct": float(row['avg_high_intensity_pct'])
+            })
+        
+        # Generate insights
+        best_sport = sports_list[0]
+        worst_sport = sports_list[-1]
+        
+        insight = f"Sport {best_sport['sport_id']} yields best recovery ({best_sport['avg_recovery']:.0f}%), while sport {worst_sport['sport_id']} yields lowest ({worst_sport['avg_recovery']:.0f}%)"
+        
+        return {
+            "sports": sports_list,
+            "best_sport_id": best_sport['sport_id'],
+            "worst_sport_id": worst_sport['sport_id'],
+            "insight": insight
+        }
+    
+    def _analyze_by_time_of_day(self, df: pd.DataFrame) -> Dict:
+        """Analyze recovery by workout time of day."""
+        if 'workout_start_hour' not in df.columns:
+            return {"error": "No workout timing data available"}
+        
+        # Filter to records with workouts
+        workout_df = df[df['sport_id'] > 0].copy()
+        
+        if len(workout_df) < 10:
+            return {"error": "Insufficient workout data"}
+        
+        # Analyze by time period
+        time_periods = [
+            ('Morning', 'workout_is_morning'),
+            ('Afternoon', 'workout_is_afternoon'),
+            ('Evening', 'workout_is_evening')
+        ]
+        
+        time_stats = []
+        for period_name, period_col in time_periods:
+            if period_col in workout_df.columns:
+                period_data = workout_df[workout_df[period_col] == True]
+                if len(period_data) >= 5:
+                    avg_recovery = period_data['recovery_score'].mean()
+                    count = len(period_data)
+                    time_stats.append({
+                        "period": period_name,
+                        "avg_recovery": float(avg_recovery),
+                        "count": int(count)
+                    })
+        
+        if not time_stats:
+            return {"error": "Insufficient data per time period"}
+        
+        # Sort by recovery
+        time_stats.sort(key=lambda x: x['avg_recovery'], reverse=True)
+        
+        best_time = time_stats[0]
+        worst_time = time_stats[-1]
+        
+        insight = f"{best_time['period']} workouts yield best recovery ({best_time['avg_recovery']:.0f}%), {worst_time['period']} workouts yield lowest ({worst_time['avg_recovery']:.0f}%)"
+        
+        return {
+            "by_period": time_stats,
+            "best_time": best_time['period'],
+            "worst_time": worst_time['period'],
+            "insight": insight
+        }
+    
+    def _analyze_by_hr_zones(self, df: pd.DataFrame) -> Dict:
+        """Analyze recovery impact of HR zone distribution."""
+        if 'high_intensity_pct' not in df.columns:
+            return {"error": "No HR zone data available"}
+        
+        # Filter to records with workouts
+        workout_df = df[df['sport_id'] > 0].copy()
+        
+        if len(workout_df) < 10:
+            return {"error": "Insufficient workout data"}
+        
+        # Categorize by high intensity percentage
+        workout_df['intensity_category'] = pd.cut(
+            workout_df['high_intensity_pct'],
+            bins=[-1, 10, 30, 100],
+            labels=['Low', 'Moderate', 'High']
+        )
+        
+        intensity_stats = workout_df.groupby('intensity_category', observed=True).agg({
+            'recovery_score': ['mean', 'count'],
+            'high_intensity_pct': 'mean'
+        }).reset_index()
+        
+        intensity_stats.columns = ['intensity', 'avg_recovery', 'count', 'avg_high_intensity']
+        
+        intensity_list = []
+        for _, row in intensity_stats.iterrows():
+            if row['count'] >= 3:
+                intensity_list.append({
+                    "intensity_level": str(row['intensity']),
+                    "avg_recovery": float(row['avg_recovery']),
+                    "count": int(row['count']),
+                    "avg_high_intensity_pct": float(row['avg_high_intensity'])
+                })
+        
+        if not intensity_list:
+            return {"error": "Insufficient data per intensity level"}
+        
+        # Find optimal intensity
+        best_intensity = max(intensity_list, key=lambda x: x['avg_recovery'])
+        
+        insight = f"{best_intensity['intensity_level']} intensity workouts yield best recovery ({best_intensity['avg_recovery']:.0f}%)"
+        
+        return {
+            "by_intensity": intensity_list,
+            "optimal_intensity": best_intensity['intensity_level'],
+            "insight": insight
+        }
+    
+    def _analyze_strain_patterns(self, df: pd.DataFrame) -> Dict:
+        """Analyze multi-day strain accumulation patterns."""
+        if 'strain_3d_sum' not in df.columns:
+            return {"error": "No strain pattern data available"}
+        
+        # Categorize by 3-day cumulative strain
+        df['strain_load'] = pd.cut(
+            df['strain_3d_sum'],
+            bins=[-1, 20, 35, 100],
+            labels=['Light', 'Moderate', 'Heavy']
+        )
+        
+        strain_stats = df.groupby('strain_load', observed=True).agg({
+            'recovery_score': ['mean', 'count'],
+            'strain_3d_sum': 'mean'
+        }).reset_index()
+        
+        strain_stats.columns = ['load', 'avg_recovery', 'count', 'avg_strain']
+        
+        strain_list = []
+        for _, row in strain_stats.iterrows():
+            if row['count'] >= 5:
+                strain_list.append({
+                    "load_level": str(row['load']),
+                    "avg_recovery": float(row['avg_recovery']),
+                    "count": int(row['count']),
+                    "avg_3d_strain": float(row['avg_strain'])
+                })
+        
+        if not strain_list:
+            return {"error": "Insufficient data per load level"}
+        
+        # Find optimal load
+        best_load = max(strain_list, key=lambda x: x['avg_recovery'])
+        
+        insight = f"{best_load['load_level']} 3-day load yields best recovery ({best_load['avg_recovery']:.0f}%)"
+        
+        return {
+            "by_load": strain_list,
+            "optimal_load": best_load['load_level'],
+            "insight": insight
+        }
+    
+    def _analyze_day_of_week_recovery(self, df: pd.DataFrame) -> Dict:
+        """Analyze recovery by day of week."""
+        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        
+        dow_data = []
+        for dow in range(7):
+            dow_records = df[df['day_of_week'] == dow]
+            if len(dow_records) > 0:
+                avg_recovery = dow_records['recovery_score'].mean()
+                avg_strain = dow_records['strain'].mean()
+                dow_data.append({
+                    "day": day_names[dow],
+                    "avg_recovery": float(avg_recovery),
+                    "avg_strain": float(avg_strain),
+                    "count": len(dow_records)
+                })
+        
+        # Find best and worst days
+        if dow_data:
+            best_day = max(dow_data, key=lambda x: x['avg_recovery'])
+            worst_day = min(dow_data, key=lambda x: x['avg_recovery'])
+            
+            return {
+                "by_day": dow_data,
+                "best_day": best_day['day'],
+                "best_recovery": best_day['avg_recovery'],
+                "worst_day": worst_day['day'],
+                "worst_recovery": worst_day['avg_recovery'],
+                "insight": f"Best recovery on {best_day['day']} ({best_day['avg_recovery']:.0f}%), worst on {worst_day['day']} ({worst_day['avg_recovery']:.0f}%)"
+            }
+        
+        return {"by_day": [], "insight": "Insufficient data for day-of-week analysis"}
 
 
 class CorrelationAnalyzer:

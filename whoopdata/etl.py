@@ -71,8 +71,11 @@ def whoop_etl_run(whoop_endpoint, transformer, loader_fn, start_date=None, end_d
                 # Convert pandas Series to dict
                 item_dict = row.to_dict()
                 
-                # Apply transformer
-                data = transformer(item_dict)
+                # Apply transformer (pass db session for recovery to map sleep_id)
+                if whoop_endpoint == "recovery":
+                    data = transformer(item_dict, db_session=db)
+                else:
+                    data = transformer(item_dict)
                 
                 # Load into database
                 loader_fn(data)

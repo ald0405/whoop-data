@@ -8,8 +8,9 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from typing import Dict, Tuple, Optional
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import r2_score, mean_absolute_error
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+from sklearn.model_selection import cross_val_score
 import xgboost as xgb
 
 # Try to import SHAP for explainability (optional dependency)
@@ -173,7 +174,7 @@ class RecoveryPredictor:
 
 
 class SleepPredictor:
-    """Predict sleep performance from sleep metrics using XGBoost."""
+    """Predict sleep efficiency from comprehensive sleep metrics using XGBoost."""
     
     def __init__(self, model_path: Optional[str] = None):
         """Initialize sleep predictor.
@@ -182,10 +183,21 @@ class SleepPredictor:
             model_path: Path to saved model (if loading existing)
         """
         self.model = None
+        # Expanded feature set with temporal and contextual factors
         self.feature_names = [
             'total_sleep_hours',
             'rem_sleep_hours',
+            'slow_wave_sleep_hours',
             'awake_time_hours',
+            'bedtime_hour',
+            'day_of_week',
+            'respiratory_rate',
+            'prev_strain',
+            'prev_recovery_score',
+            'sleep_debt_hours',
+            'sleep_deficit',
+            'disturbance_count',
+            'bedtime_consistency_score',
         ]
         self.model_accuracy = None
         self.mae = None
@@ -194,19 +206,22 @@ class SleepPredictor:
             self.load(model_path)
     
     def train(self, X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray):
-        """Train the sleep prediction model.
+        """Train the sleep efficiency prediction model.
         
         Args:
             X_train: Training features
-            y_train: Training targets (sleep performance %)
+            y_train: Training targets (sleep efficiency %)
             X_test: Test features
             y_test: Test targets
         """
         self.model = xgb.XGBRegressor(
             objective='reg:squarederror',
-            n_estimators=100,
-            learning_rate=0.1,
-            max_depth=6,
+            n_estimators=150,
+            learning_rate=0.08,
+            max_depth=7,
+            min_child_weight=3,
+            subsample=0.8,
+            colsample_bytree=0.8,
             random_state=42,
             n_jobs=-1
         )
@@ -219,23 +234,23 @@ class SleepPredictor:
         self.mae = mean_absolute_error(y_test, y_pred)
     
     def predict(self, features: Dict[str, float]) -> Tuple[float, Tuple[float, float], Dict[str, float]]:
-        """Predict sleep performance with confidence interval.
+        """Predict sleep efficiency with confidence interval.
         
         Args:
             features: Dictionary of feature values
             
         Returns:
-            Tuple of (predicted_score, confidence_interval, feature_contributions)
+            Tuple of (predicted_efficiency, confidence_interval, feature_contributions)
         """
         if self.model is None:
             raise ValueError("Model not trained. Call train() first.")
         
         X = np.array([[features.get(feat, 0) for feat in self.feature_names]])
-        predicted_performance = float(self.model.predict(X)[0])
+        predicted_efficiency = float(self.model.predict(X)[0])
         
         # Simple confidence interval based on MAE
-        confidence_lower = max(0, predicted_performance - (self.mae * 1.96))
-        confidence_upper = min(100, predicted_performance + (self.mae * 1.96))
+        confidence_lower = max(0, predicted_efficiency - (self.mae * 1.96))
+        confidence_upper = min(100, predicted_efficiency + (self.mae * 1.96))
         
         # Feature importance
         feature_importance = self.model.feature_importances_
@@ -244,7 +259,7 @@ class SleepPredictor:
             for feat, importance in zip(self.feature_names, feature_importance)
         }
         
-        return predicted_performance, (confidence_lower, confidence_upper), contributions
+        return predicted_efficiency, (confidence_lower, confidence_upper), contributions
     
     def get_feature_importance(self) -> Dict[str, float]:
         """Get feature importance percentages."""
@@ -260,17 +275,27 @@ class SleepPredictor:
     def explain_prediction(self, features: Dict[str, float]) -> str:
         """Generate plain English explanation."""
         contributions = self.get_feature_importance()
-        top_factors = sorted(contributions.items(), key=lambda x: x[1], reverse=True)
+        top_factors = sorted(contributions.items(), key=lambda x: x[1], reverse=True)[:3]  # Top 3
         
         explanation_parts = []
         for feat, contrib in top_factors:
             friendly_names = {
-                'total_sleep_hours': 'Total sleep',
+                'total_sleep_hours': 'Sleep duration',
                 'rem_sleep_hours': 'REM sleep',
-                'awake_time_hours': 'Awake time (lower is better)'
+                'slow_wave_sleep_hours': 'Deep sleep',
+                'awake_time_hours': 'Time awake',
+                'bedtime_hour': 'Bedtime',
+                'day_of_week': 'Day of week',
+                'respiratory_rate': 'Respiratory rate',
+                'prev_strain': 'Previous day strain',
+                'prev_recovery_score': 'Previous recovery',
+                'sleep_debt_hours': 'Sleep debt',
+                'sleep_deficit': 'Sleep deficit',
+                'disturbance_count': 'Disturbances',
+                'bedtime_consistency_score': 'Bedtime consistency'
             }
             friendly = friendly_names.get(feat, feat)
-            explanation_parts.append(f"{friendly} +{contrib:.0f}%")
+            explanation_parts.append(f"{friendly} ({contrib:.0f}%)")
         
         return ", ".join(explanation_parts)
     

@@ -376,6 +376,74 @@
                     </div>
                 </div>
             </section>
+            
+            <!-- Sleep Quality Factors -->
+            <section class="charts-section">
+                <h2 class="section-title">😴 What Drives Your Sleep Quality</h2>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Sleep Efficiency Factors</h3>
+                        <div id="sleep-factor-list" class="factor-list"></div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Sleep Model Performance</h3>
+                        <div id="sleep-model-info" style="padding: 20px;">
+                            <div style="font-size: 3em; text-align: center; color: var(--color-success); margin-bottom: 10px;" id="sleep-model-accuracy">--</div>
+                            <div style="text-align: center; color: var(--text-secondary);" id="sleep-model-explanation">Loading sleep model performance...</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Sleep Patterns -->
+            <section class="charts-section">
+                <h2 class="section-title">🌙 Sleep Patterns & Timing</h2>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Sleep Efficiency by Day of Week</h3>
+                        <div class="chart-container">
+                            <canvas id="sleepDayOfWeekChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Bedtime vs Sleep Efficiency</h3>
+                        <div class="chart-container">
+                            <canvas id="sleepBedtimeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Recovery Deep Dive -->
+            <section class="charts-section">
+                <h2 class="section-title">💪 Recovery Deep Dive</h2>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Recovery by Sport/Activity</h3>
+                        <div class="chart-container">
+                            <canvas id="recoverySportChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Recovery by Workout Time</h3>
+                        <div class="chart-container">
+                            <canvas id="recoveryTimeChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Recovery by Workout Intensity</h3>
+                        <div class="chart-container">
+                            <canvas id="recoveryIntensityChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Recovery by Day of Week</h3>
+                        <div class="chart-container">
+                            <canvas id="recoveryDayOfWeekChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
     </div>
     
@@ -395,6 +463,12 @@
                 
                 const data = await response.json();
                 renderAnalytics(data);
+                
+                // Load sleep quality data
+                loadSleepQuality();
+                
+                // Load recovery deep dive data
+                loadRecoveryDeepDive();
                 
                 document.getElementById('loading-state').style.display = 'none';
                 document.getElementById('analytics-content').style.display = 'block';
@@ -545,6 +619,464 @@
             if (direction === 'up') return '#50fa7b';
             if (direction === 'down') return '#ff6b6b';
             return '#ffb86c';
+        }
+        
+        // Load sleep quality analytics
+        async function loadSleepQuality() {
+            try {
+                const response = await fetch('/analytics/sleep/factors');
+                if (!response.ok) {
+                    console.error('Failed to load sleep quality data');
+                    return;
+                }
+                
+                const data = await response.json();
+                renderSleepQuality(data);
+            } catch (error) {
+                console.error('Sleep quality error:', error);
+            }
+        }
+        
+        function renderSleepQuality(data) {
+            // Sleep Factor Importance
+            const sleepFactorList = document.getElementById('sleep-factor-list');
+            data.factors.slice(0, 7).forEach(factor => {
+                const item = document.createElement('div');
+                item.className = 'factor-item';
+                item.innerHTML = `
+                    <div class="factor-label">${factor.factor_name}</div>
+                    <div class="factor-bar">
+                        <div class="factor-fill" style="width: ${factor.importance_percentage}%">
+                            ${factor.importance_percentage.toFixed(1)}%
+                        </div>
+                    </div>
+                    <div class="factor-threshold">${factor.actionable_threshold || ''}</div>
+                `;
+                item.title = factor.explanation;
+                sleepFactorList.appendChild(item);
+            });
+            
+            // Sleep Model Performance
+            const accuracyPct = (data.model_r2 * 100).toFixed(0);
+            document.getElementById('sleep-model-accuracy').textContent = `${accuracyPct}%`;
+            document.getElementById('sleep-model-explanation').textContent = data.explanation;
+            
+            // Day of Week Chart
+            renderDayOfWeekChart(data.day_of_week_insights.by_day);
+            
+            // Bedtime Chart
+            renderBedtimeChart(data.bedtime_insights.by_hour);
+        }
+        
+        function renderDayOfWeekChart(patterns) {
+            const ctx = document.getElementById('sleepDayOfWeekChart').getContext('2d');
+            
+            const days = patterns.map(p => p.day);
+            const values = patterns.map(p => p.avg_efficiency);
+            const counts = patterns.map(p => p.count);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: days,
+                    datasets: [{
+                        label: 'Sleep Efficiency %',
+                        data: values,
+                        backgroundColor: '#bd93f9',
+                        borderColor: '#bd93f9',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            borderColor: '#44475a',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    return [
+                                        `Efficiency: ${context.parsed.y.toFixed(1)}%`,
+                                        `Nights: ${counts[idx]}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        y: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            beginAtZero: false,
+                            min: Math.min(...values) - 5,
+                            max: Math.max(...values) + 5
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderBedtimeChart(patterns) {
+            const ctx = document.getElementById('sleepBedtimeChart').getContext('2d');
+            
+            const data = patterns.map(p => ({
+                x: parseInt(p.display_time.split(':')[0]),
+                y: p.avg_efficiency
+            }));
+            
+            new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Bedtime Hour',
+                        data: data,
+                        backgroundColor: '#50fa7b',
+                        borderColor: '#50fa7b',
+                        pointRadius: 8,
+                        pointHoverRadius: 12
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            borderColor: '#44475a',
+                            borderWidth: 1,
+                            callbacks: {
+                                title: function(context) {
+                                    const hour = context[0].parsed.x;
+                                    const displayHour = hour > 12 ? hour - 12 : hour;
+                                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                                    return `Bedtime: ${displayHour}:00 ${ampm}`;
+                                },
+                                label: function(context) {
+                                    return `Efficiency: ${context.parsed.y.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            title: {
+                                display: true,
+                                text: 'Bedtime Hour (24-hour format)',
+                                color: '#a6adc8'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return `${value}:00`;
+                                }
+                            }
+                        },
+                        y: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            title: {
+                                display: true,
+                                text: 'Sleep Efficiency %',
+                                color: '#a6adc8'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Load recovery deep dive analytics
+        async function loadRecoveryDeepDive() {
+            try {
+                const response = await fetch('/analytics/recovery/deep-dive');
+                if (!response.ok) {
+                    console.error('Failed to load recovery deep dive data');
+                    return;
+                }
+                
+                const data = await response.json();
+                renderRecoveryDeepDive(data);
+            } catch (error) {
+                console.error('Recovery deep dive error:', error);
+            }
+        }
+        
+        function renderRecoveryDeepDive(data) {
+            // Sport chart
+            if (data.by_sport && !data.by_sport.error) {
+                renderSportChart(data.by_sport);
+            } else {
+                showChartError('recoverySportChart', data.by_sport?.error || 'No data available');
+            }
+            
+            // Time of day chart
+            if (data.by_time_of_day && !data.by_time_of_day.error) {
+                renderTimeOfDayChart(data.by_time_of_day);
+            } else {
+                showChartError('recoveryTimeChart', data.by_time_of_day?.error || 'No data available');
+            }
+            
+            // Intensity chart
+            if (data.by_hr_zones && !data.by_hr_zones.error) {
+                renderIntensityChart(data.by_hr_zones);
+            } else {
+                showChartError('recoveryIntensityChart', data.by_hr_zones?.error || 'No data available');
+            }
+            
+            // Day of week recovery chart
+            if (data.day_of_week_recovery && !data.day_of_week_recovery.error) {
+                renderRecoveryDayOfWeekChart(data.day_of_week_recovery);
+            } else {
+                showChartError('recoveryDayOfWeekChart', data.day_of_week_recovery?.error || 'No data available');
+            }
+        }
+        
+        function renderSportChart(sportData) {
+            const ctx = document.getElementById('recoverySportChart').getContext('2d');
+            
+            const labels = sportData.sports.map(s => `Sport ${s.sport_id}`);
+            const values = sportData.sports.map(s => s.avg_recovery);
+            const counts = sportData.sports.map(s => s.count);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Avg Recovery %',
+                        data: values,
+                        backgroundColor: '#50fa7b',
+                        borderColor: '#50fa7b',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            borderColor: '#44475a',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    return [
+                                        `Avg Recovery: ${context.parsed.y.toFixed(0)}%`,
+                                        `Sessions: ${counts[idx]}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        y: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            beginAtZero: false,
+                            min: Math.min(...values) - 5,
+                            max: Math.max(...values) + 5
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderTimeOfDayChart(timeData) {
+            const ctx = document.getElementById('recoveryTimeChart').getContext('2d');
+            
+            const labels = timeData.by_period.map(p => p.period);
+            const values = timeData.by_period.map(p => p.avg_recovery);
+            const counts = timeData.by_period.map(p => p.count);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Avg Recovery %',
+                        data: values,
+                        backgroundColor: '#ffb86c',
+                        borderColor: '#ffb86c',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            borderColor: '#44475a',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    return [
+                                        `Avg Recovery: ${context.parsed.y.toFixed(0)}%`,
+                                        `Workouts: ${counts[idx]}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        y: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            beginAtZero: false,
+                            min: Math.min(...values) - 5,
+                            max: Math.max(...values) + 5
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderIntensityChart(intensityData) {
+            const ctx = document.getElementById('recoveryIntensityChart').getContext('2d');
+            
+            const labels = intensityData.by_intensity.map(i => i.intensity_level);
+            const values = intensityData.by_intensity.map(i => i.avg_recovery);
+            const counts = intensityData.by_intensity.map(i => i.count);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Avg Recovery %',
+                        data: values,
+                        backgroundColor: '#ff79c6',
+                        borderColor: '#ff79c6',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            borderColor: '#44475a',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    return [
+                                        `Avg Recovery: ${context.parsed.y.toFixed(0)}%`,
+                                        `Workouts: ${counts[idx]}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        y: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            beginAtZero: false,
+                            min: Math.min(...values) - 5,
+                            max: Math.max(...values) + 5
+                        }
+                    }
+                }
+            });
+        }
+        
+        function showChartError(canvasId, message) {
+            const canvas = document.getElementById(canvasId);
+            const container = canvas.parentElement;
+            container.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); text-align: center; padding: 40px;">
+                    <div>
+                        <div style="font-size: 2em; margin-bottom: 10px;">📊</div>
+                        <div>${message}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderRecoveryDayOfWeekChart(dowData) {
+            const ctx = document.getElementById('recoveryDayOfWeekChart').getContext('2d');
+            
+            const labels = dowData.by_day.map(d => d.day);
+            const values = dowData.by_day.map(d => d.avg_recovery);
+            const counts = dowData.by_day.map(d => d.count);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Avg Recovery %',
+                        data: values,
+                        backgroundColor: '#8be9fd',
+                        borderColor: '#8be9fd',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            borderColor: '#44475a',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    return [
+                                        `Avg Recovery: ${context.parsed.y.toFixed(0)}%`,
+                                        `Days: ${counts[idx]}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        y: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            beginAtZero: false,
+                            min: Math.min(...values) - 5,
+                            max: Math.max(...values) + 5
+                        }
+                    }
+                }
+            });
         }
         
         // Load analytics on page load

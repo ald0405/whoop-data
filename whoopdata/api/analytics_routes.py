@@ -9,6 +9,7 @@ from typing import Optional
 from datetime import datetime
 
 from whoopdata.database.database import get_db
+from whoopdata.analytics.results_loader import results_loader
 from whoopdata.schemas.analytics import (
     FactorImportanceResponse,
     CorrelationAnalysisResponse,
@@ -27,6 +28,7 @@ from whoopdata.analytics.engine import (
     TimeSeriesAnalyzer,
 )
 from whoopdata.analytics.models import RecoveryPredictor, SleepPredictor
+from whoopdata.analytics.model_manager import model_manager
 from whoopdata.analytics.data_prep import get_recovery_with_features, get_sleep_with_features, get_training_data
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -39,8 +41,8 @@ async def analyze_recovery_factors(
 ):
     """Analyze what factors influence recovery most.
     
-    Returns ranked factors with importance percentages and plain English explanations.
-    Trains a RandomForest model to determine feature importance.
+    Returns pre-computed ranked factors with importance percentages.
+    Run the analytics pipeline (option 6) to compute/refresh results.
     
     Example response includes:
     - Ranked factors (e.g., Sleep Duration: 32%, HRV: 24%)
@@ -48,18 +50,63 @@ async def analyze_recovery_factors(
     - Overall model accuracy (R² score)
     """
     try:
-        analyzer = RecoveryFactorAnalyzer(db)
-        result = analyzer.analyze(days_back=days_back)
+        result = results_loader.load_result("factor_importance", days_back=days_back)
         
-        if "error" in result:
-            raise HTTPException(status_code=400, detail=result["error"])
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Analytics not yet computed. Run the analytics pipeline first (option 6 in CLI)."
+            )
         
+        # Remove metadata before returning
+        result.pop("_computed_at", None)
         return FactorImportanceResponse(**result)
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error analyzing recovery factors: {str(e)}"
+            detail=f"Error loading recovery factors: {str(e)}"
+        )
+
+
+@router.get("/sleep/factors")
+async def analyze_sleep_quality_factors(
+    days_back: int = Query(365, description="Days of historical data to analyze"),
+    db: Session = Depends(get_db)
+):
+    """Analyze what factors influence sleep quality (efficiency) most.
+    
+    Returns pre-computed ranked factors with importance percentages.
+    Run the analytics pipeline (option 6) to compute/refresh results.
+    
+    Includes:
+    - Ranked factors (e.g., Bedtime: 28%, Day of Week: 15%)
+    - Actionable thresholds (optimal bedtime, etc.)
+    - Day-of-week sleep patterns
+    - Bedtime analysis showing optimal sleep window
+    - Overall model accuracy (R² score)
+    """
+    try:
+        result = results_loader.load_result("sleep_quality_factors", days_back=days_back)
+        
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Sleep quality analytics not yet computed. Run the analytics pipeline first (option 6 in CLI)."
+            )
+        
+        # Remove metadata before returning
+        result.pop("_computed_at", None)
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error loading sleep quality factors: {str(e)}"
         )
 
 
@@ -71,25 +118,31 @@ async def analyze_correlations(
 ):
     """Analyze correlations between health metrics.
     
-    Returns statistically significant correlations (p < 0.05) with plain English
+    Returns pre-computed statistically significant correlations with plain English
     explanations and real examples from your data.
     
     Example: "Strong correlation (0.72) between sleep quality and recovery -
     your best sleep nights consistently lead to better recovery"
     """
     try:
-        analyzer = CorrelationAnalyzer(db)
-        result = analyzer.analyze(days_back=days_back, significance_threshold=significance_threshold)
+        result = results_loader.load_result("correlations", days_back=days_back)
         
-        if "error" in result:
-            raise HTTPException(status_code=400, detail=result["error"])
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Analytics not yet computed. Run the analytics pipeline first (option 6 in CLI)."
+            )
         
+        # Remove metadata
+        result.pop("_computed_at", None)
         return CorrelationAnalysisResponse(**result)
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error analyzing correlations: {str(e)}"
+            detail=f"Error loading correlations: {str(e)}"
         )
 
 
@@ -98,7 +151,7 @@ async def predict_recovery(
     request: RecoveryPredictionRequest,
     db: Session = Depends(get_db)
 ):
-    """Predict recovery score from input metrics.
+    """Predict recovery score from input metrics using pre-trained model.
     
     Provide sleep hours, HRV, strain, etc. and get predicted recovery score
     with confidence interval and explanation.
@@ -107,37 +160,23 @@ async def predict_recovery(
     Sleep duration +25%, low strain +15%, high HRV +10%"
     """
     try:
-        # Get training data
-        df = get_recovery_with_features(db, days_back=365)
+        # Load pre-trained model
+        predictor = model_manager.recovery_predictor
         
-        if len(df) < 50:
+        if predictor is None:
             raise HTTPException(
-                status_code=400,
-                detail="Insufficient data to train prediction model (need 50+ records)"
+                status_code=404,
+                detail="Recovery model not trained. Run the analytics pipeline first (option 6 in CLI)."
             )
         
-        feature_cols = [
-            'hrv_rmssd_milli',
-            'resting_heart_rate',
-            'sleep_hours',
-            'sleep_efficiency_percentage',
-            'rem_sleep_hours',
-            'slow_wave_sleep_hours',
-            'strain',
-            'sleep_quality_score',
-        ]
+        # Get median values from data for defaults
+        df = get_recovery_with_features(db, days_back=365)
         
-        df_clean = df[feature_cols + ['recovery_score']].dropna()
-        X_train, X_test, y_train, y_test, _, _ = get_training_data(
-            df_clean,
-            target_col='recovery_score',
-            feature_cols=feature_cols,
-            scale_features=False
-        )
-        
-        # Train predictor
-        predictor = RecoveryPredictor()
-        predictor.train(X_train, y_train, X_test, y_test)
+        if len(df) < 10:
+            raise HTTPException(
+                status_code=400,
+                detail="Insufficient data for prediction defaults"
+            )
         
         # Make prediction
         features = {
@@ -190,34 +229,20 @@ async def predict_sleep_performance(
     request: SleepPredictionRequest,
     db: Session = Depends(get_db)
 ):
-    """Predict sleep performance from sleep metrics.
+    """Predict sleep performance from sleep metrics using pre-trained model.
     
     Provide total sleep hours, REM, and awake time to get predicted
     sleep performance score with explanation.
     """
     try:
-        # Get training data
-        df = get_sleep_with_features(db, days_back=365)
+        # Load pre-trained model
+        predictor = model_manager.sleep_predictor
         
-        if len(df) < 30:
+        if predictor is None:
             raise HTTPException(
-                status_code=400,
-                detail="Insufficient sleep data for prediction"
+                status_code=404,
+                detail="Sleep model not trained. Run the analytics pipeline first (option 6 in CLI)."
             )
-        
-        feature_cols = ['total_sleep_hours', 'rem_sleep_hours', 'awake_time_hours']
-        df_clean = df[feature_cols + ['sleep_performance_percentage']].dropna()
-        
-        X_train, X_test, y_train, y_test, _, _ = get_training_data(
-            df_clean,
-            target_col='sleep_performance_percentage',
-            feature_cols=feature_cols,
-            scale_features=False
-        )
-        
-        # Train predictor
-        predictor = SleepPredictor()
-        predictor.train(X_train, y_train, X_test, y_test)
         
         # Make prediction
         features = {
@@ -252,7 +277,7 @@ async def get_weekly_insights(
 ):
     """Get automated weekly insights and recommendations.
     
-    Returns 3-5 actionable insights about your health data including:
+    Returns pre-computed 3-5 actionable insights about your health data including:
     - Recovery trends
     - Sleep patterns
     - Strain analysis
@@ -262,15 +287,24 @@ async def get_weekly_insights(
     Each insight includes category (success/alert/opportunity) and priority.
     """
     try:
-        generator = InsightGenerator(db)
-        result = generator.generate_weekly_insights(weeks=weeks)
+        result = results_loader.load_result("insights")
         
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Insights not yet computed. Run the analytics pipeline first (option 6 in CLI)."
+            )
+        
+        # Remove metadata
+        result.pop("_computed_at", None)
         return InsightResponse(**result)
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error generating insights: {str(e)}"
+            detail=f"Error loading insights: {str(e)}"
         )
 
 
@@ -284,7 +318,7 @@ async def analyze_metric_pattern(
     
     Supported metrics: recovery, hrv, rhr, sleep
     
-    Returns:
+    Returns pre-computed:
     - Trend direction (up/down/stable)
     - Trend percentage
     - Data points with annotations
@@ -300,11 +334,22 @@ async def analyze_metric_pattern(
                 detail=f"Invalid metric. Must be one of: {', '.join(valid_metrics)}"
             )
         
-        analyzer = TimeSeriesAnalyzer(db)
-        result = analyzer.analyze_metric(metric.lower(), days=days)
+        # Load trends result
+        trends_result = results_loader.load_result("trends")
         
-        if "error" in result:
-            raise HTTPException(status_code=400, detail=result["error"])
+        if trends_result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Trends not yet computed. Run the analytics pipeline first (option 6 in CLI)."
+            )
+        
+        # Extract specific metric
+        result = trends_result.get(metric.lower())
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Trend for {metric} not found in computed results."
+            )
         
         return PatternDetectionResponse(**result)
         
@@ -313,7 +358,161 @@ async def analyze_metric_pattern(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error analyzing metric pattern: {str(e)}"
+            detail=f"Error loading metric pattern: {str(e)}"
+        )
+
+
+@router.get("/recovery/deep-dive")
+async def get_recovery_deep_dive(
+    days_back: int = Query(365, description="Days of historical data to analyze"),
+    db: Session = Depends(get_db)
+):
+    """Get comprehensive recovery deep dive analysis.
+    
+    Returns pre-computed analysis including:
+    - Recovery by sport/activity type
+    - Recovery by workout time of day
+    - Impact of HR zone distribution
+    - Multi-day strain patterns
+    - Day-of-week recovery patterns
+    
+    Run the analytics pipeline (option 6) to compute/refresh results.
+    """
+    try:
+        result = results_loader.load_result("recovery_deep_dive", days_back=days_back)
+        
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Recovery deep dive not yet computed. Run the analytics pipeline first (option 6 in CLI)."
+            )
+        
+        # Remove metadata before returning
+        result.pop("_computed_at", None)
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error loading recovery deep dive: {str(e)}"
+        )
+
+
+@router.get("/recovery/by-sport")
+async def get_recovery_by_sport(
+    days_back: int = Query(365, description="Days of historical data to analyze"),
+    db: Session = Depends(get_db)
+):
+    """Get recovery analysis by workout sport/activity type.
+    
+    Returns which sports/activities lead to best/worst recovery.
+    """
+    try:
+        result = results_loader.load_result("recovery_deep_dive", days_back=days_back)
+        
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Recovery deep dive not yet computed. Run the analytics pipeline first (option 6 in CLI)."
+            )
+        
+        return result.get("by_sport", {"error": "Sport data not available"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error loading sport recovery data: {str(e)}"
+        )
+
+
+@router.get("/recovery/by-time-of-day")
+async def get_recovery_by_time_of_day(
+    days_back: int = Query(365, description="Days of historical data to analyze"),
+    db: Session = Depends(get_db)
+):
+    """Get recovery analysis by workout time of day.
+    
+    Returns whether morning, afternoon, or evening workouts yield best recovery.
+    """
+    try:
+        result = results_loader.load_result("recovery_deep_dive", days_back=days_back)
+        
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Recovery deep dive not yet computed. Run the analytics pipeline first (option 6 in CLI)."
+            )
+        
+        return result.get("by_time_of_day", {"error": "Time-of-day data not available"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error loading time-of-day recovery data: {str(e)}"
+        )
+
+
+@router.get("/recovery/by-hr-zones")
+async def get_recovery_by_hr_zones(
+    days_back: int = Query(365, description="Days of historical data to analyze"),
+    db: Session = Depends(get_db)
+):
+    """Get recovery analysis by HR zone distribution (intensity).
+    
+    Returns optimal workout intensity for recovery.
+    """
+    try:
+        result = results_loader.load_result("recovery_deep_dive", days_back=days_back)
+        
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Recovery deep dive not yet computed. Run the analytics pipeline first (option 6 in CLI)."
+            )
+        
+        return result.get("by_hr_zones", {"error": "HR zone data not available"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error loading HR zone recovery data: {str(e)}"
+        )
+
+
+@router.get("/recovery/strain-patterns")
+async def get_strain_patterns(
+    days_back: int = Query(365, description="Days of historical data to analyze"),
+    db: Session = Depends(get_db)
+):
+    """Get analysis of multi-day strain accumulation patterns.
+    
+    Returns optimal 3-day strain load for recovery.
+    """
+    try:
+        result = results_loader.load_result("recovery_deep_dive", days_back=days_back)
+        
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Recovery deep dive not yet computed. Run the analytics pipeline first (option 6 in CLI)."
+            )
+        
+        return result.get("strain_patterns", {"error": "Strain pattern data not available"})
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error loading strain pattern data: {str(e)}"
         )
 
 
@@ -324,7 +523,7 @@ async def get_analytics_summary(
 ):
     """Get comprehensive analytics summary for dashboard.
     
-    Single endpoint that returns:
+    Single pre-computed endpoint that returns:
     - Factor importance analysis
     - Top correlations (5-7 most significant)
     - Weekly insights
@@ -334,47 +533,22 @@ async def get_analytics_summary(
     Designed for dashboard consumption - all data needed in one call.
     """
     try:
-        # Factor importance
-        factor_analyzer = RecoveryFactorAnalyzer(db)
-        factor_result = factor_analyzer.analyze(days_back=days_back)
+        result = results_loader.load_result("summary", days_back=days_back)
         
-        if "error" in factor_result:
-            # Return minimal response if not enough data
-            raise HTTPException(status_code=400, detail=factor_result["error"])
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Analytics summary not yet computed. Run the analytics pipeline first (option 6 in CLI)."
+            )
         
-        factor_importance = FactorImportanceResponse(**factor_result)
-        
-        # Correlations (top 7)
-        corr_analyzer = CorrelationAnalyzer(db)
-        corr_result = corr_analyzer.analyze(days_back=days_back)
-        top_correlations = corr_result.get("correlations", [])[:7]
-        
-        # Weekly insights
-        insight_generator = InsightGenerator(db)
-        insights_result = insight_generator.generate_weekly_insights(weeks=1)
-        weekly_insights = InsightResponse(**insights_result)
-        
-        # Trends
-        trend_analyzer = TimeSeriesAnalyzer(db)
-        recovery_trend_result = trend_analyzer.analyze_metric('recovery', days=30)
-        hrv_trend_result = trend_analyzer.analyze_metric('hrv', days=30)
-        
-        recovery_trend = PatternDetectionResponse(**recovery_trend_result)
-        hrv_trend = PatternDetectionResponse(**hrv_trend_result)
-        
-        return AnalyticsSummaryResponse(
-            factor_importance=factor_importance,
-            top_correlations=top_correlations,
-            weekly_insights=weekly_insights,
-            recovery_trend=recovery_trend,
-            hrv_trend=hrv_trend,
-            timestamp=datetime.now()
-        )
+        # Remove metadata
+        result.pop("_computed_at", None)
+        return AnalyticsSummaryResponse(**result)
         
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error generating analytics summary: {str(e)}"
+            detail=f"Error loading analytics summary: {str(e)}"
         )
