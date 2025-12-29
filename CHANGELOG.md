@@ -5,6 +5,33 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2025-12-29
+
+### 🧹 Chore - Repository Cleanup
+
+#### Removed Files
+- **Temporary Fix Scripts** (4 files)
+  - `cleanup_duplicates.py` - One-time script for v1.1.0 duplicate cleanup (issue resolved with upsert logic)
+  - `fix_sleep_analytics.py` - One-time script for v1.3.0 analytics circular logic fix (issue resolved)
+  - `fix_sleep_id_mapping.py` - Migration script for v1.2.1 sleep_id foreign key mapping (migration complete)
+  - `implement_analytics_enhancements.sh` - Empty stub script from analytics development (never used)
+
+- **Obsolete Planning Documents** (3 files)
+  - `ANALYTICS_SUMMARY.md` - PR summary for v1.3.0 (feature complete, documented in CHANGELOG)
+  - `Implement Upsert ETL and Fix Withings Data Loading.md` - Planning doc for v1.1.1 (feature complete)
+  - `CREATE_PR.md` - Single-use PR creation guide (specific to old restructure/whoop branch)
+
+#### Rationale
+- Temporary scripts completed their purpose and fixes are now part of the codebase
+- Planning documents were working docs for completed features now documented in CHANGELOG
+- Files cluttered the root directory and made navigation harder
+- All content preserved in git history for reference
+
+#### Files Kept
+- Migration guides (`MIGRATION_UV.md`, `MIGRATION_v1.2.1.md`) for historical reference
+- Active workflow documentation (`PR_WORKFLOW.md`, `TESTING_GUIDE.md`)
+- Core documentation (`README.md`, `CHANGELOG.md`)
+
 ## [1.4.0] - 2025-12-29
 
 ### 🔄 Changed - UV Package Management Migration
