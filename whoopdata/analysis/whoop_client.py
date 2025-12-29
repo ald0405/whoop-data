@@ -427,17 +427,43 @@ class Whoop:
         
         return df
 
-    def make_paginated_request(self, data_endpoint: str, transform_for_db: bool = True):
+    def make_paginated_request(
+        self, 
+        data_endpoint: str, 
+        transform_for_db: bool = True,
+        start: str = None,
+        end: str = None
+    ):
+        """Make paginated request to WHOOP API with optional date filtering.
+        
+        Args:
+            data_endpoint: WHOOP API endpoint URL
+            transform_for_db: Whether to transform data for database compatibility
+            start: Start date in ISO 8601 format (e.g. "2022-04-24T11:25:44.774Z")
+            end: End date in ISO 8601 format (e.g. "2022-04-24T11:25:44.774Z")
+        """
         if not self.access_token:
             raise Exception("Authenticate before making API requests")
         headers = {"Authorization": f"Bearer {self.access_token}"}
         self.logger.info(f"Getting data from {data_endpoint}")
-        print(f"Getting data from {data_endpoint}")
+        
+        # Log date filtering if used
+        if start or end:
+            date_info = f" (from {start or 'beginning'} to {end or 'now'})"
+            print(f"📅 Getting data from {data_endpoint}{date_info}")
+        else:
+            print(f"Getting data from {data_endpoint}")
 
         self.data_endpoint = data_endpoint
 
         response_data = list()
         params = {}
+        
+        # Add date filters if provided
+        if start:
+            params['start'] = start
+        if end:
+            params['end'] = end
         while True:
             raw_response = requests.get(
                 self.data_endpoint, headers=headers, params=params
