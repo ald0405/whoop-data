@@ -44,6 +44,12 @@ async def homepage(request: Request):
     """Homepage with dashboard overview"""
     return templates.TemplateResponse("index.html", {"request": request})
 
+# Analytics dashboard route
+@app.get("/analytics")
+async def analytics_page(request: Request):
+    """Analytics and insights dashboard"""
+    return templates.TemplateResponse("analytics.html", {"request": request})
+
 # Include API routers
 app.include_router(recovery_router)
 app.include_router(workout_router)
