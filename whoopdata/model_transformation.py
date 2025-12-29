@@ -8,10 +8,14 @@ def parse_dt(dt_str):
     """
     return datetime.fromisoformat(dt_str.replace("Z", "+00:00")) if dt_str else None
 
-def transform_recovery(item: dict) -> dict:
+def transform_recovery(item: dict, db_session=None) -> dict:
     """
     Transform recovery data for database insertion.
     Note: Fields are now already flattened by the API client.
+    
+    Args:
+        item: Recovery data dict from API
+        db_session: Optional SQLAlchemy session to map sleep_id from whoop_id to database id
     """
     if isinstance(item, str):
         try:
@@ -20,10 +24,19 @@ def transform_recovery(item: dict) -> dict:
             item = {}  # Assign empty dict to prevent AttributeError
             pass
 
+    # Map sleep_id from WHOOP UUID to database integer ID
+    sleep_id = None
+    api_sleep_id = item.get("sleep_id")
+    if api_sleep_id and db_session:
+        from whoopdata.models.models import Sleep
+        sleep_record = db_session.query(Sleep).filter(Sleep.whoop_id == api_sleep_id).first()
+        if sleep_record:
+            sleep_id = sleep_record.id
+    
     return {
         "user_id": item.get("user_id"),
         "cycle_id": item.get("cycle_id"),
-        "sleep_id": item.get("sleep_id"),
+        "sleep_id": sleep_id,  # Use mapped database ID instead of API UUID
         "created_at": parse_dt(item.get("created_at")),
         "updated_at": parse_dt(item.get("updated_at")),
         "score_state": item.get("score_state"),

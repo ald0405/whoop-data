@@ -190,6 +190,24 @@ def start_fastapi_server():
     
     return True
 
+def run_analytics_pipeline():
+    """Run the ML analytics pipeline"""
+    console.print("\n" + "="*60)
+    console.print("🤖 [bold cyan]Running Analytics Pipeline[/bold cyan]")
+    console.print("="*60)
+    
+    try:
+        from whoopdata.pipelines.analytics_pipeline import run_analytics_pipeline
+        
+        run_analytics_pipeline(days_back=365)
+        return True
+        
+    except Exception as e:
+        console.print(f"❌ [bold red]Analytics pipeline failed: {str(e)}[/bold red]")
+        import traceback
+        console.print(traceback.format_exc())
+        return False
+
 def main():
     """Main application launcher"""
     
@@ -211,9 +229,10 @@ def main():
     console.print("3. Skip data loading and just start server")
     console.print("4. Only run data pipeline - incremental load (no server)")
     console.print("5. Only run data pipeline - full load (no server)")
+    console.print("6. Run analytics pipeline (train ML models + compute insights)")
     
     try:
-        choice = input("\nEnter choice (1-5) [default: 1]: ").strip() or "1"
+        choice = input("\nEnter choice (1-6) [default: 1]: ").strip() or "1"
         
         if choice == "1":
             # Complete pipeline - incremental
@@ -273,8 +292,20 @@ def main():
             run_data_pipeline(incremental=False)
             console.print("\n✅ [bold green]Data pipeline complete! Use choice 3 to start server later.[/bold green]")
             
+        elif choice == "6":
+            # Analytics pipeline
+            if not check_dependencies():
+                return 1
+            
+            success = run_analytics_pipeline()
+            if success:
+                console.print("\n✅ [bold green]Analytics pipeline complete! ML models trained and insights computed.[/bold green]")
+                console.print("💡 Use choice 3 to start server and access analytics via /analytics/* endpoints")
+            else:
+                console.print("\n❌ [bold red]Analytics pipeline failed. See errors above.[/bold red]")
+            
         else:
-            console.print("❌ Invalid choice. Please run again with 1-5.")
+            console.print("❌ Invalid choice. Please run again with 1-6.")
             return 1
             
     except KeyboardInterrupt:

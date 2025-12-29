@@ -42,11 +42,34 @@
             margin: 0 auto;
         }
         
-        h1 {
-            text-align: center;
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 30px;
+        }
+        
+        h1 {
             font-weight: 600;
             font-size: 2em;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+        
+        .nav-links a:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
         }
         
         .info-cards {
@@ -156,7 +179,13 @@
 </head>
 <body>
     <div class="container">
-        <h1>🏃 Set Me Up For The Day</h1>
+        <div class="header">
+            <h1>🏃 Set Me Up For The Day</h1>
+            <nav class="nav-links">
+                <a href="/">Home</a>
+                <a href="/analytics">📊 Analytics</a>
+            </nav>
+        </div>
         
         <div class="info-cards">
             <div class="card" id="weather-card">

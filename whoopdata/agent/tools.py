@@ -553,6 +553,200 @@ async def get_transport_status_tool() -> str:
         return f"Error retrieving transport status: {str(e)}"
 
 
+# Analytics Tools
+@tool("analyze_recovery_factors", description="Analyze what factors influence your recovery most - shows ranked importance with actionable thresholds")
+async def analyze_recovery_factors_tool(days_back: int = 365) -> str:
+    """Analyze what factors drive recovery with ML-powered feature importance.
+    
+    Args:
+        days_back: Days of historical data to analyze (default: 365)
+        
+    Returns:
+        JSON with ranked factors, importance %, plain English explanations, and actionable thresholds
+        
+    Example: "Sleep duration accounts for 32% of your recovery - aim for 8+ hours"
+    """
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:  # Longer timeout for ML training
+            url = f"{settings.HEALTH_API_BASE_URL}/analytics/recovery/factors"
+            params = {"days_back": days_back}
+            response = await client.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return json.dumps(data, indent=2)
+            else:
+                return f"Error analyzing recovery factors: HTTP {response.status_code} - {response.text}"
+    except Exception as e:
+        return f"Error analyzing recovery factors: {str(e)}"
+
+
+@tool("analyze_correlations", description="Analyze how health metrics correlate with each other - reveals relationships between sleep, recovery, HRV, strain")
+async def analyze_correlations_tool(days_back: int = 365) -> str:
+    """Analyze correlations between health metrics with statistical significance.
+    
+    Args:
+        days_back: Days of historical data (default: 365)
+        
+    Returns:
+        JSON with significant correlations (p<0.05), strength ratings, and real examples from your data
+        
+    Example: "Strong correlation (0.72) between sleep quality and recovery"
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            url = f"{settings.HEALTH_API_BASE_URL}/analytics/correlations"
+            params = {"days_back": days_back}
+            response = await client.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return json.dumps(data, indent=2)
+            else:
+                return f"Error analyzing correlations: HTTP {response.status_code} - {response.text}"
+    except Exception as e:
+        return f"Error analyzing correlations: {str(e)}"
+
+
+@tool("predict_recovery", description="Predict recovery score from sleep/HRV/strain inputs - get expected recovery with confidence interval")
+async def predict_recovery_tool(
+    sleep_hours: float,
+    sleep_efficiency: float = None,
+    strain: float = None,
+    hrv: float = None,
+    rhr: float = None
+) -> str:
+    """Predict recovery score from input health metrics.
+    
+    Args:
+        sleep_hours: Hours of sleep (required)
+        sleep_efficiency: Sleep efficiency % (optional)
+        strain: Strain score (optional)
+        hrv: HRV in milliseconds (optional)
+        rhr: Resting heart rate (optional)
+        
+    Returns:
+        JSON with predicted recovery, confidence interval, category (Green/Yellow/Red), and explanation
+        
+    Example: "Based on 8 hours sleep, expect 68% recovery (±5%) - Green category"
+    """
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            url = f"{settings.HEALTH_API_BASE_URL}/analytics/predict/recovery"
+            payload = {"sleep_hours": sleep_hours}
+            if sleep_efficiency is not None:
+                payload["sleep_efficiency"] = sleep_efficiency
+            if strain is not None:
+                payload["strain"] = strain
+            if hrv is not None:
+                payload["hrv"] = hrv
+            if rhr is not None:
+                payload["rhr"] = rhr
+            
+            response = await client.post(url, json=payload)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return json.dumps(data, indent=2)
+            else:
+                return f"Error predicting recovery: HTTP {response.status_code} - {response.text}"
+    except Exception as e:
+        return f"Error predicting recovery: {str(e)}"
+
+
+@tool("predict_sleep_performance", description="Predict sleep performance score from sleep metrics - see expected sleep score")
+async def predict_sleep_performance_tool(
+    total_sleep_hours: float,
+    rem_sleep_hours: float,
+    awake_time_hours: float
+) -> str:
+    """Predict sleep performance score from sleep metrics.
+    
+    Args:
+        total_sleep_hours: Total sleep time in hours
+        rem_sleep_hours: REM sleep time in hours
+        awake_time_hours: Time awake in hours
+        
+    Returns:
+        JSON with predicted sleep performance %, confidence interval, and explanation
+    """
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            url = f"{settings.HEALTH_API_BASE_URL}/analytics/predict/sleep"
+            payload = {
+                "total_sleep_hours": total_sleep_hours,
+                "rem_sleep_hours": rem_sleep_hours,
+                "awake_time_hours": awake_time_hours
+            }
+            response = await client.post(url, json=payload)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return json.dumps(data, indent=2)
+            else:
+                return f"Error predicting sleep: HTTP {response.status_code} - {response.text}"
+    except Exception as e:
+        return f"Error predicting sleep: {str(e)}"
+
+
+@tool("get_weekly_insights", description="Get automated weekly health insights - actionable recommendations and trends")
+async def get_weekly_insights_tool(weeks: int = 1) -> str:
+    """Get automated weekly insights with priority-ranked recommendations.
+    
+    Args:
+        weeks: Number of weeks to analyze (1-12, default: 1)
+        
+    Returns:
+        JSON with 3-5 actionable insights, categories (success/alert/opportunity), and weekly summary
+        
+    Example insights:
+    - "📈 Recovery up 12% - keep it up!"
+    - "💤 Your best recoveries: 8+ hours sleep with 87%+ efficiency"
+    - "⚠️ High strain week - schedule recovery days"
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            url = f"{settings.HEALTH_API_BASE_URL}/analytics/insights/weekly"
+            params = {"weeks": weeks}
+            response = await client.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return json.dumps(data, indent=2)
+            else:
+                return f"Error getting insights: HTTP {response.status_code} - {response.text}"
+    except Exception as e:
+        return f"Error getting insights: {str(e)}"
+
+
+@tool("detect_patterns", description="Detect trends and patterns in a specific metric - shows if recovery/HRV/RHR/sleep is trending up/down")
+async def detect_patterns_tool(metric: str, days: int = 30) -> str:
+    """Analyze trends for a specific health metric.
+    
+    Args:
+        metric: Metric to analyze - 'recovery', 'hrv', 'rhr', or 'sleep'
+        days: Days to analyze (7-365, default: 30)
+        
+    Returns:
+        JSON with trend direction, trend %, data points, anomalies, and plain English description
+        
+    Example: "HRV trending up 8% over past 30 days - sign of improving fitness"
+    """
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            url = f"{settings.HEALTH_API_BASE_URL}/analytics/patterns/{metric}"
+            params = {"days": days}
+            response = await client.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return json.dumps(data, indent=2)
+            else:
+                return f"Error detecting patterns: HTTP {response.status_code} - {response.text}"
+    except Exception as e:
+        return f"Error detecting patterns: {str(e)}"
+
+
 # Configure matplotlib globally before creating the tool
 import matplotlib
 matplotlib.use('Agg', force=True)
@@ -631,6 +825,14 @@ AVAILABLE_TOOLS = [
     
     # Summary Tools
     get_withings_summary_tool,
+    
+    # Analytics Tools
+    analyze_recovery_factors_tool,
+    analyze_correlations_tool,
+    predict_recovery_tool,
+    predict_sleep_performance_tool,
+    get_weekly_insights_tool,
+    detect_patterns_tool,
     
     # Weather Tools
     get_weather_tool,

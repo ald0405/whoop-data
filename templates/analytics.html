@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics & Insights - Health Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #1e1e2e;
+            --bg-card: #313244;
+            --text-primary: #f1f1f1;
+            --text-secondary: #a6adc8;
+            --color-success: #50fa7b;
+            --color-alert: #ff6b6b;
+            --color-opportunity: #ffb86c;
+            --color-primary: #8be9fd;
+            --color-accent: #bd93f9;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2em;
+            font-weight: 600;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+        
+        .nav-links a:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+        
+        .nav-links a.active {
+            background: var(--color-primary);
+            color: var(--bg-primary);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 1.2em;
+            color: var(--text-secondary);
+        }
+        
+        .error {
+            background: rgba(255, 107, 107, 0.2);
+            color: var(--color-alert);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border-left: 4px solid var(--color-alert);
+        }
+        
+        /* Insights Panel */
+        .insights-section {
+            margin-bottom: 30px;
+        }
+        
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        
+        .insight-card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid var(--color-primary);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .insight-card.success {
+            border-left-color: var(--color-success);
+        }
+        
+        .insight-card.alert {
+            border-left-color: var(--color-alert);
+        }
+        
+        .insight-card.opportunity {
+            border-left-color: var(--color-opportunity);
+        }
+        
+        .insight-emoji {
+            font-size: 1.8em;
+            line-height: 1;
+        }
+        
+        .insight-text {
+            flex: 1;
+            font-size: 0.95em;
+        }
+        
+        /* Charts Grid */
+        .charts-section {
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            font-size: 1.4em;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        
+        .chart-card {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .chart-card h3 {
+            color: var(--text-secondary);
+            font-size: 1em;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        
+        .chart-container.small {
+            height: 200px;
+        }
+        
+        /* Top Lever Callout */
+        .top-lever {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+            color: var(--bg-primary);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 6px 12px rgba(139, 233, 253, 0.3);
+        }
+        
+        .top-lever h2 {
+            font-size: 1.3em;
+            margin-bottom: 10px;
+        }
+        
+        .top-lever p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+        
+        /* Factor Importance List */
+        .factor-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .factor-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .factor-bar {
+            flex: 1;
+            height: 32px;
+            background: var(--bg-primary);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .factor-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-weight: 600;
+            font-size: 0.9em;
+            color: var(--bg-primary);
+        }
+        
+        .factor-label {
+            min-width: 150px;
+            font-size: 0.9em;
+            color: var(--text-secondary);
+        }
+        
+        .factor-threshold {
+            min-width: 100px;
+            font-size: 0.85em;
+            color: var(--color-success);
+            text-align: right;
+        }
+        
+        /* Correlation Matrix */
+        .correlation-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .correlation-item {
+            background: var(--bg-primary);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid var(--color-primary);
+        }
+        
+        .correlation-metrics {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+        
+        .correlation-strength {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            margin-left: 10px;
+        }
+        
+        .correlation-strength.strong {
+            background: var(--color-success);
+            color: var(--bg-primary);
+        }
+        
+        .correlation-strength.moderate {
+            background: var(--color-opportunity);
+            color: var(--bg-primary);
+        }
+        
+        .correlation-strength.weak {
+            background: var(--text-secondary);
+            color: var(--bg-primary);
+        }
+        
+        .correlation-explanation {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        
+        .correlation-example {
+            font-size: 0.85em;
+            color: var(--color-accent);
+            font-style: italic;
+        }
+        
+        @media (max-width: 1200px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Analytics & Insights</h1>
+            <nav class="nav-links">
+                <a href="/">Home</a>
+                <a href="/dashboard">Dashboard</a>
+                <a href="/analytics" class="active">Analytics</a>
+            </nav>
+        </div>
+        
+        <div id="loading-state" class="loading">
+            🔄 Loading analytics data...
+        </div>
+        
+        <div id="error-state" class="error" style="display: none;"></div>
+        
+        <div id="analytics-content" style="display: none;">
+            <!-- Top Lever -->
+            <div id="top-lever" class="top-lever"></div>
+            
+            <!-- Weekly Insights -->
+            <section class="insights-section">
+                <h2 class="section-title">💡 Weekly Insights</h2>
+                <div id="insights-grid" class="insights-grid"></div>
+            </section>
+            
+            <!-- Factor Importance -->
+            <section class="charts-section">
+                <h2 class="section-title">🎯 What Drives Your Recovery</h2>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Factor Importance</h3>
+                        <div id="factor-list" class="factor-list"></div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Model Performance</h3>
+                        <div id="model-info" style="padding: 20px;">
+                            <div style="font-size: 3em; text-align: center; color: var(--color-success); margin-bottom: 10px;" id="model-accuracy">--</div>
+                            <div style="text-align: center; color: var(--text-secondary);" id="model-explanation">Loading model performance...</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Correlations -->
+            <section class="charts-section">
+                <h2 class="section-title">🔗 Metric Relationships</h2>
+                <div class="charts-grid">
+                    <div class="chart-card" style="grid-column: 1 / -1;">
+                        <h3>Significant Correlations (p < 0.05)</h3>
+                        <div id="correlation-list" class="correlation-list"></div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Trends -->
+            <section class="charts-section">
+                <h2 class="section-title">📈 30-Day Trends</h2>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3 id="recovery-trend-title">Recovery Trend</h3>
+                        <div class="chart-container small">
+                            <canvas id="recoveryTrendChart"></canvas>
+                        </div>
+                        <div id="recovery-trend-desc" style="margin-top: 12px; font-size: 0.9em; color: var(--text-secondary);"></div>
+                    </div>
+                    <div class="chart-card">
+                        <h3 id="hrv-trend-title">HRV Trend</h3>
+                        <div class="chart-container small">
+                            <canvas id="hrvTrendChart"></canvas>
+                        </div>
+                        <div id="hrv-trend-desc" style="margin-top: 12px; font-size: 0.9em; color: var(--text-secondary);"></div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Sleep Quality Factors -->
+            <section class="charts-section">
+                <h2 class="section-title">😴 What Drives Your Sleep Quality</h2>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Sleep Efficiency Factors</h3>
+                        <div id="sleep-factor-list" class="factor-list"></div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Sleep Model Performance</h3>
+                        <div id="sleep-model-info" style="padding: 20px;">
+                            <div style="font-size: 3em; text-align: center; color: var(--color-success); margin-bottom: 10px;" id="sleep-model-accuracy">--</div>
+                            <div style="text-align: center; color: var(--text-secondary);" id="sleep-model-explanation">Loading sleep model performance...</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Sleep Patterns -->
+            <section class="charts-section">
+                <h2 class="section-title">🌙 Sleep Patterns & Timing</h2>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Sleep Efficiency by Day of Week</h3>
+                        <div class="chart-container">
+                            <canvas id="sleepDayOfWeekChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Bedtime vs Sleep Efficiency</h3>
+                        <div class="chart-container">
+                            <canvas id="sleepBedtimeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Recovery Deep Dive -->
+            <section class="charts-section">
+                <h2 class="section-title">💪 Recovery Deep Dive</h2>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Recovery by Sport/Activity</h3>
+                        <div class="chart-container">
+                            <canvas id="recoverySportChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Recovery by Workout Time</h3>
+                        <div class="chart-container">
+                            <canvas id="recoveryTimeChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Recovery by Workout Intensity</h3>
+                        <div class="chart-container">
+                            <canvas id="recoveryIntensityChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Recovery by Day of Week</h3>
+                        <div class="chart-container">
+                            <canvas id="recoveryDayOfWeekChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+    
+    <script>
+        // Chart.js defaults
+        Chart.defaults.color = '#a6adc8';
+        Chart.defaults.borderColor = 'rgba(68, 71, 90, 0.3)';
+        
+        // Fetch and render analytics
+        async function loadAnalytics() {
+            try {
+                const response = await fetch('/analytics/summary');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                renderAnalytics(data);
+                
+                // Load sleep quality data
+                loadSleepQuality();
+                
+                // Load recovery deep dive data
+                loadRecoveryDeepDive();
+                
+                document.getElementById('loading-state').style.display = 'none';
+                document.getElementById('analytics-content').style.display = 'block';
+            } catch (error) {
+                document.getElementById('loading-state').style.display = 'none';
+                document.getElementById('error-state').style.display = 'block';
+                document.getElementById('error-state').textContent = `Error loading analytics: ${error.message}`;
+                console.error('Analytics error:', error);
+            }
+        }
+        
+        function renderAnalytics(data) {
+            // Top Lever
+            const topLever = document.getElementById('top-lever');
+            topLever.innerHTML = `
+                <h2>🎯 Your Top Lever</h2>
+                <p>${data.factor_importance.top_lever}</p>
+            `;
+            
+            // Weekly Insights
+            const insightsGrid = document.getElementById('insights-grid');
+            data.weekly_insights.insights.forEach(insight => {
+                const card = document.createElement('div');
+                card.className = `insight-card ${insight.category}`;
+                card.innerHTML = `
+                    <div class="insight-emoji">${insight.emoji}</div>
+                    <div class="insight-text">${insight.insight_text}</div>
+                `;
+                insightsGrid.appendChild(card);
+            });
+            
+            // Factor Importance
+            const factorList = document.getElementById('factor-list');
+            data.factor_importance.factors.slice(0, 7).forEach(factor => {
+                const item = document.createElement('div');
+                item.className = 'factor-item';
+                item.innerHTML = `
+                    <div class="factor-label">${factor.factor_name}</div>
+                    <div class="factor-bar">
+                        <div class="factor-fill" style="width: ${factor.importance_percentage}%">
+                            ${factor.importance_percentage.toFixed(1)}%
+                        </div>
+                    </div>
+                    <div class="factor-threshold">${factor.actionable_threshold || ''}</div>
+                `;
+                item.title = factor.explanation;
+                factorList.appendChild(item);
+            });
+            
+            // Model Performance
+            const accuracyPct = (data.factor_importance.model_accuracy * 100).toFixed(0);
+            document.getElementById('model-accuracy').textContent = `${accuracyPct}%`;
+            document.getElementById('model-explanation').textContent = data.factor_importance.explanation;
+            
+            // Correlations
+            const corrList = document.getElementById('correlation-list');
+            data.top_correlations.forEach(corr => {
+                const item = document.createElement('div');
+                item.className = 'correlation-item';
+                item.innerHTML = `
+                    <div class="correlation-metrics">
+                        ${corr.metric_1} ↔ ${corr.metric_2}
+                        <span class="correlation-strength ${corr.significance}">${corr.significance}</span>
+                        <span style="color: var(--text-secondary); margin-left: 10px;">r = ${corr.correlation.toFixed(2)}</span>
+                    </div>
+                    <div class="correlation-explanation">${corr.explanation}</div>
+                    ${corr.example ? `<div class="correlation-example">💡 ${corr.example}</div>` : ''}
+                `;
+                corrList.appendChild(item);
+            });
+            
+            // Recovery Trend Chart
+            renderTrendChart('recoveryTrendChart', data.recovery_trend, '#8be9fd');
+            document.getElementById('recovery-trend-desc').textContent = data.recovery_trend.trend_description;
+            document.getElementById('recovery-trend-title').innerHTML = 
+                `Recovery Trend <span style="color: ${getTrendColor(data.recovery_trend.trend_direction)}">${getTrendArrow(data.recovery_trend.trend_direction)} ${Math.abs(data.recovery_trend.trend_percentage).toFixed(1)}%</span>`;
+            
+            // HRV Trend Chart
+            renderTrendChart('hrvTrendChart', data.hrv_trend, '#ff79c6');
+            document.getElementById('hrv-trend-desc').textContent = data.hrv_trend.trend_description;
+            document.getElementById('hrv-trend-title').innerHTML = 
+                `HRV Trend <span style="color: ${getTrendColor(data.hrv_trend.trend_direction)}">${getTrendArrow(data.hrv_trend.trend_direction)} ${Math.abs(data.hrv_trend.trend_percentage).toFixed(1)}%</span>`;
+        }
+        
+        function renderTrendChart(canvasId, trendData, color) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            
+            const labels = trendData.data_points.slice(-14).map(p => {
+                const date = new Date(p.date);
+                return `${date.getMonth() + 1}/${date.getDate()}`;
+            });
+            
+            const values = trendData.data_points.slice(-14).map(p => p.value);
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        borderColor: color,
+                        backgroundColor: `${color}33`,
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            borderColor: '#44475a',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return `Value: ${context.parsed.y.toFixed(1)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { maxTicksLimit: 7 }
+                        },
+                        y: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function getTrendArrow(direction) {
+            if (direction === 'up') return '↑';
+            if (direction === 'down') return '↓';
+            return '→';
+        }
+        
+        function getTrendColor(direction) {
+            if (direction === 'up') return '#50fa7b';
+            if (direction === 'down') return '#ff6b6b';
+            return '#ffb86c';
+        }
+        
+        // Load sleep quality analytics
+        async function loadSleepQuality() {
+            try {
+                const response = await fetch('/analytics/sleep/factors');
+                if (!response.ok) {
+                    console.error('Failed to load sleep quality data');
+                    return;
+                }
+                
+                const data = await response.json();
+                renderSleepQuality(data);
+            } catch (error) {
+                console.error('Sleep quality error:', error);
+            }
+        }
+        
+        function renderSleepQuality(data) {
+            // Sleep Factor Importance
+            const sleepFactorList = document.getElementById('sleep-factor-list');
+            data.factors.slice(0, 7).forEach(factor => {
+                const item = document.createElement('div');
+                item.className = 'factor-item';
+                item.innerHTML = `
+                    <div class="factor-label">${factor.factor_name}</div>
+                    <div class="factor-bar">
+                        <div class="factor-fill" style="width: ${factor.importance_percentage}%">
+                            ${factor.importance_percentage.toFixed(1)}%
+                        </div>
+                    </div>
+                    <div class="factor-threshold">${factor.actionable_threshold || ''}</div>
+                `;
+                item.title = factor.explanation;
+                sleepFactorList.appendChild(item);
+            });
+            
+            // Sleep Model Performance
+            const accuracyPct = (data.model_r2 * 100).toFixed(0);
+            document.getElementById('sleep-model-accuracy').textContent = `${accuracyPct}%`;
+            document.getElementById('sleep-model-explanation').textContent = data.explanation;
+            
+            // Day of Week Chart
+            renderDayOfWeekChart(data.day_of_week_insights.by_day);
+            
+            // Bedtime Chart
+            renderBedtimeChart(data.bedtime_insights.by_hour);
+        }
+        
+        function renderDayOfWeekChart(patterns) {
+            const ctx = document.getElementById('sleepDayOfWeekChart').getContext('2d');
+            
+            const days = patterns.map(p => p.day);
+            const values = patterns.map(p => p.avg_efficiency);
+            const counts = patterns.map(p => p.count);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: days,
+                    datasets: [{
+                        label: 'Sleep Efficiency %',
+                        data: values,
+                        backgroundColor: '#bd93f9',
+                        borderColor: '#bd93f9',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            borderColor: '#44475a',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    return [
+                                        `Efficiency: ${context.parsed.y.toFixed(1)}%`,
+                                        `Nights: ${counts[idx]}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        y: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            beginAtZero: false,
+                            min: Math.min(...values) - 5,
+                            max: Math.max(...values) + 5
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderBedtimeChart(patterns) {
+            const ctx = document.getElementById('sleepBedtimeChart').getContext('2d');
+            
+            const data = patterns.map(p => ({
+                x: parseInt(p.display_time.split(':')[0]),
+                y: p.avg_efficiency
+            }));
+            
+            new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Bedtime Hour',
+                        data: data,
+                        backgroundColor: '#50fa7b',
+                        borderColor: '#50fa7b',
+                        pointRadius: 8,
+                        pointHoverRadius: 12
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            borderColor: '#44475a',
+                            borderWidth: 1,
+                            callbacks: {
+                                title: function(context) {
+                                    const hour = context[0].parsed.x;
+                                    const displayHour = hour > 12 ? hour - 12 : hour;
+                                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                                    return `Bedtime: ${displayHour}:00 ${ampm}`;
+                                },
+                                label: function(context) {
+                                    return `Efficiency: ${context.parsed.y.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            title: {
+                                display: true,
+                                text: 'Bedtime Hour (24-hour format)',
+                                color: '#a6adc8'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return `${value}:00`;
+                                }
+                            }
+                        },
+                        y: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            title: {
+                                display: true,
+                                text: 'Sleep Efficiency %',
+                                color: '#a6adc8'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Load recovery deep dive analytics
+        async function loadRecoveryDeepDive() {
+            try {
+                const response = await fetch('/analytics/recovery/deep-dive');
+                if (!response.ok) {
+                    console.error('Failed to load recovery deep dive data');
+                    return;
+                }
+                
+                const data = await response.json();
+                renderRecoveryDeepDive(data);
+            } catch (error) {
+                console.error('Recovery deep dive error:', error);
+            }
+        }
+        
+        function renderRecoveryDeepDive(data) {
+            // Sport chart
+            if (data.by_sport && !data.by_sport.error) {
+                renderSportChart(data.by_sport);
+            } else {
+                showChartError('recoverySportChart', data.by_sport?.error || 'No data available');
+            }
+            
+            // Time of day chart
+            if (data.by_time_of_day && !data.by_time_of_day.error) {
+                renderTimeOfDayChart(data.by_time_of_day);
+            } else {
+                showChartError('recoveryTimeChart', data.by_time_of_day?.error || 'No data available');
+            }
+            
+            // Intensity chart
+            if (data.by_hr_zones && !data.by_hr_zones.error) {
+                renderIntensityChart(data.by_hr_zones);
+            } else {
+                showChartError('recoveryIntensityChart', data.by_hr_zones?.error || 'No data available');
+            }
+            
+            // Day of week recovery chart
+            if (data.day_of_week_recovery && !data.day_of_week_recovery.error) {
+                renderRecoveryDayOfWeekChart(data.day_of_week_recovery);
+            } else {
+                showChartError('recoveryDayOfWeekChart', data.day_of_week_recovery?.error || 'No data available');
+            }
+        }
+        
+        function renderSportChart(sportData) {
+            const ctx = document.getElementById('recoverySportChart').getContext('2d');
+            
+            const labels = sportData.sports.map(s => `Sport ${s.sport_id}`);
+            const values = sportData.sports.map(s => s.avg_recovery);
+            const counts = sportData.sports.map(s => s.count);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Avg Recovery %',
+                        data: values,
+                        backgroundColor: '#50fa7b',
+                        borderColor: '#50fa7b',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            borderColor: '#44475a',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    return [
+                                        `Avg Recovery: ${context.parsed.y.toFixed(0)}%`,
+                                        `Sessions: ${counts[idx]}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        y: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            beginAtZero: false,
+                            min: Math.min(...values) - 5,
+                            max: Math.max(...values) + 5
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderTimeOfDayChart(timeData) {
+            const ctx = document.getElementById('recoveryTimeChart').getContext('2d');
+            
+            const labels = timeData.by_period.map(p => p.period);
+            const values = timeData.by_period.map(p => p.avg_recovery);
+            const counts = timeData.by_period.map(p => p.count);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Avg Recovery %',
+                        data: values,
+                        backgroundColor: '#ffb86c',
+                        borderColor: '#ffb86c',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            borderColor: '#44475a',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    return [
+                                        `Avg Recovery: ${context.parsed.y.toFixed(0)}%`,
+                                        `Workouts: ${counts[idx]}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        y: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            beginAtZero: false,
+                            min: Math.min(...values) - 5,
+                            max: Math.max(...values) + 5
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderIntensityChart(intensityData) {
+            const ctx = document.getElementById('recoveryIntensityChart').getContext('2d');
+            
+            const labels = intensityData.by_intensity.map(i => i.intensity_level);
+            const values = intensityData.by_intensity.map(i => i.avg_recovery);
+            const counts = intensityData.by_intensity.map(i => i.count);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Avg Recovery %',
+                        data: values,
+                        backgroundColor: '#ff79c6',
+                        borderColor: '#ff79c6',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            borderColor: '#44475a',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    return [
+                                        `Avg Recovery: ${context.parsed.y.toFixed(0)}%`,
+                                        `Workouts: ${counts[idx]}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        y: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            beginAtZero: false,
+                            min: Math.min(...values) - 5,
+                            max: Math.max(...values) + 5
+                        }
+                    }
+                }
+            });
+        }
+        
+        function showChartError(canvasId, message) {
+            const canvas = document.getElementById(canvasId);
+            const container = canvas.parentElement;
+            container.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); text-align: center; padding: 40px;">
+                    <div>
+                        <div style="font-size: 2em; margin-bottom: 10px;">📊</div>
+                        <div>${message}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderRecoveryDayOfWeekChart(dowData) {
+            const ctx = document.getElementById('recoveryDayOfWeekChart').getContext('2d');
+            
+            const labels = dowData.by_day.map(d => d.day);
+            const values = dowData.by_day.map(d => d.avg_recovery);
+            const counts = dowData.by_day.map(d => d.count);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Avg Recovery %',
+                        data: values,
+                        backgroundColor: '#8be9fd',
+                        borderColor: '#8be9fd',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            borderColor: '#44475a',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    return [
+                                        `Avg Recovery: ${context.parsed.y.toFixed(0)}%`,
+                                        `Days: ${counts[idx]}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false }
+                        },
+                        y: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            beginAtZero: false,
+                            min: Math.min(...values) - 5,
+                            max: Math.max(...values) + 5
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Load analytics on page load
+        loadAnalytics();
+    </script>
+</body>
+</html>
