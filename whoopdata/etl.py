@@ -35,9 +35,16 @@ db = SessionLocal()
 loader = DBLoader(db)
 
 
-def whoop_etl_run(whoop_endpoint, transformer, loader_fn):
+def whoop_etl_run(whoop_endpoint, transformer, loader_fn, start_date=None, end_date=None):
     """
     Generic Extract-Transform-Load function for WHOOP API data.
+    
+    Args:
+        whoop_endpoint: Name of WHOOP endpoint (recovery, workout, sleep)
+        transformer: Transform function for the data
+        loader_fn: Database loader function
+        start_date: Start date in ISO 8601 format (e.g. "2022-04-24T11:25:44.774Z")
+        end_date: End date in ISO 8601 format (e.g. "2022-04-24T11:25:44.774Z")
     """
     console.print(f"🔄 [bold blue]Starting WHOOP {whoop_endpoint} ETL...[/bold blue]")
     
@@ -48,7 +55,9 @@ def whoop_etl_run(whoop_endpoint, transformer, loader_fn):
         # Get data as DataFrame (already transformed for database compatibility)
         df = whoop.make_paginated_request(
             whoop.get_endpoint_url(endpoint_name=whoop_endpoint),
-            transform_for_db=True
+            transform_for_db=True,
+            start=start_date,
+            end=end_date
         )
         
         console.print(f"📊 Processing {len(df)} {whoop_endpoint} records...")
@@ -81,13 +90,15 @@ def whoop_etl_run(whoop_endpoint, transformer, loader_fn):
         return 0, 1
 
 
-def withings_etl_run(data_type="weight", limit=None):
+def withings_etl_run(data_type="weight", limit=None, startdate=None, enddate=None):
     """
     Extract-Transform-Load function for Withings data.
     
     Args:
         data_type: "weight" or "heart_rate"
         limit: Maximum number of records to process (None for all)
+        startdate: Start date as unix timestamp (seconds since epoch)
+        enddate: End date as unix timestamp (seconds since epoch)
     """
     console.print(f"🏥 [bold blue]Starting Withings {data_type} ETL...[/bold blue]")
     
@@ -100,7 +111,7 @@ def withings_etl_run(data_type="weight", limit=None):
         
         if data_type == "weight":
             # Get body measurements
-            response = client.get_body_measurements()
+            response = client.get_body_measurements(startdate=startdate, enddate=enddate)
             df = client.transform_to_dataframe(response)
             
             if limit:
@@ -173,7 +184,7 @@ def withings_etl_run(data_type="weight", limit=None):
         
         elif data_type == "heart_rate":
             # Get heart rate measurements
-            response = client.get_heart_measurements()
+            response = client.get_heart_measurements(startdate=startdate, enddate=enddate)
             df = client.transform_to_dataframe(response)
             
             if limit:
@@ -233,11 +244,37 @@ def withings_etl_run(data_type="weight", limit=None):
         return 0, 1
 
 
-def run_complete_etl():
-    """Run the complete ETL pipeline for both WHOOP and Withings"""
+def run_complete_etl(incremental=True):
+    """Run the complete ETL pipeline for both WHOOP and Withings.
     
-    console.print(Panel.fit("🚀 [bold]Complete Health Data ETL Pipeline[/bold] 🚀", 
-                           style="bold magenta"))
+    Args:
+        incremental: If True, use incremental loading (fetch only recent data).
+                    If False, do full load (fetch all historical data).
+    """
+    from whoopdata.etl_incremental import (
+        get_fetch_windows_for_all_types,
+        format_datetime_for_whoop,
+        format_datetime_for_withings
+    )
+    
+    mode_str = "Incremental" if incremental else "Full Load"
+    console.print(Panel.fit(
+        f"🚀 [bold]Complete Health Data ETL Pipeline[/bold] 🚀\n"
+        f"Mode: [cyan]{mode_str}[/cyan]", 
+        style="bold magenta"
+    ))
+    
+    # Calculate fetch windows
+    windows = get_fetch_windows_for_all_types(db, incremental=incremental)
+    
+    # Log date windows
+    if incremental:
+        console.print("\n📅 [bold]Fetch Windows:[/bold]")
+        for data_type, (start, end) in windows.items():
+            if start:
+                console.print(f"   • {data_type}: {start.date()} to {end.date()}")
+            else:
+                console.print(f"   • {data_type}: Full load (empty database)")
     
     results = {}
     
@@ -247,26 +284,35 @@ def run_complete_etl():
     console.print("="*60)
     
     # Recovery
+    recovery_start, recovery_end = windows.get('recovery', (None, None))
     success, errors = whoop_etl_run(
         whoop_endpoint="recovery",
         transformer=transform_recovery,
-        loader_fn=loader.load_recovery
+        loader_fn=loader.load_recovery,
+        start_date=format_datetime_for_whoop(recovery_start) if recovery_start else None,
+        end_date=format_datetime_for_whoop(recovery_end) if recovery_end else None
     )
     results["whoop_recovery"] = {"success": success, "errors": errors}
     
     # Workout  
+    workout_start, workout_end = windows.get('workout', (None, None))
     success, errors = whoop_etl_run(
         whoop_endpoint="workout",
         transformer=transform_workout,
-        loader_fn=loader.load_workout
+        loader_fn=loader.load_workout,
+        start_date=format_datetime_for_whoop(workout_start) if workout_start else None,
+        end_date=format_datetime_for_whoop(workout_end) if workout_end else None
     )
     results["whoop_workout"] = {"success": success, "errors": errors}
     
     # Sleep
+    sleep_start, sleep_end = windows.get('sleep', (None, None))
     success, errors = whoop_etl_run(
         whoop_endpoint="sleep",
         transformer=transform_sleep,
-        loader_fn=loader.load_sleep
+        loader_fn=loader.load_sleep,
+        start_date=format_datetime_for_whoop(sleep_start) if sleep_start else None,
+        end_date=format_datetime_for_whoop(sleep_end) if sleep_end else None
     )
     results["whoop_sleep"] = {"success": success, "errors": errors}
     
@@ -276,11 +322,21 @@ def run_complete_etl():
     console.print("="*60)
     
     # Weight/Body Composition
-    success, errors = withings_etl_run(data_type="weight")
+    weight_start, weight_end = windows.get('withings_weight', (None, None))
+    success, errors = withings_etl_run(
+        data_type="weight",
+        startdate=format_datetime_for_withings(weight_start) if weight_start else None,
+        enddate=format_datetime_for_withings(weight_end) if weight_end else None
+    )
     results["withings_weight"] = {"success": success, "errors": errors}
     
     # Heart Rate/Blood Pressure
-    success, errors = withings_etl_run(data_type="heart_rate")
+    heart_start, heart_end = windows.get('withings_heart_rate', (None, None))
+    success, errors = withings_etl_run(
+        data_type="heart_rate",
+        startdate=format_datetime_for_withings(heart_start) if heart_start else None,
+        enddate=format_datetime_for_withings(heart_end) if heart_end else None
+    )
     results["withings_heart_rate"] = {"success": success, "errors": errors}
     
     # Summary

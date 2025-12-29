@@ -68,10 +68,16 @@ def ensure_database_tables():
         console.print(f"❌ [bold red]Failed to create database tables: {str(e)}[/bold red]")
         return False
 
-def run_data_pipeline():
-    """Run the complete ETL pipeline"""
+def run_data_pipeline(incremental=True):
+    """Run the complete ETL pipeline
+    
+    Args:
+        incremental: If True, use incremental loading (fetch only recent data).
+                    If False, do full load (fetch all historical data).
+    """
+    mode_str = "Incremental Load" if incremental else "Full Load"
     console.print("\n" + "="*60)
-    console.print("📊 [bold cyan]Running Data Pipeline[/bold cyan]")
+    console.print(f"📊 [bold cyan]Running Data Pipeline ({mode_str})[/bold cyan]")
     console.print("="*60)
     
     # First ensure database tables exist
@@ -90,7 +96,7 @@ def run_data_pipeline():
         ) as progress:
             
             task = progress.add_task("Loading health data from APIs...", total=None)
-            results = run_complete_etl()
+            results = run_complete_etl(incremental=incremental)
             progress.update(task, completed=True)
         
         # Count total records
@@ -200,20 +206,22 @@ def main():
     
     # Check if we should run data pipeline
     console.print("\n🤔 [bold]What would you like to do?[/bold]")
-    console.print("1. Run complete pipeline (load data + start server)")
-    console.print("2. Skip data loading and just start server")
-    console.print("3. Only run data pipeline (no server)")
+    console.print("1. Run complete pipeline - incremental load (load data + start server) [recommended]")
+    console.print("2. Run complete pipeline - full load (load all historical data + start server)")
+    console.print("3. Skip data loading and just start server")
+    console.print("4. Only run data pipeline - incremental load (no server)")
+    console.print("5. Only run data pipeline - full load (no server)")
     
     try:
-        choice = input("\nEnter choice (1-3) [default: 1]: ").strip() or "1"
+        choice = input("\nEnter choice (1-5) [default: 1]: ").strip() or "1"
         
         if choice == "1":
-            # Complete pipeline
+            # Complete pipeline - incremental
             if not check_dependencies():
                 return 1
             
-            # Run data pipeline
-            data_success = run_data_pipeline()
+            # Run data pipeline with incremental loading
+            data_success = run_data_pipeline(incremental=True)
             
             if not data_success:
                 console.print("⚠️ [bold yellow]Data pipeline had issues, but continuing with server...[/bold yellow]")
@@ -225,6 +233,23 @@ def main():
             start_fastapi_server()
             
         elif choice == "2":
+            # Complete pipeline - full load
+            if not check_dependencies():
+                return 1
+            
+            # Run data pipeline with full loading
+            data_success = run_data_pipeline(incremental=False)
+            
+            if not data_success:
+                console.print("⚠️ [bold yellow]Data pipeline had issues, but continuing with server...[/bold yellow]")
+            
+            # Show endpoints
+            show_available_endpoints()
+            
+            # Start server
+            start_fastapi_server()
+            
+        elif choice == "3":
             # Just start server
             if not check_dependencies():
                 return 1
@@ -232,16 +257,24 @@ def main():
             show_available_endpoints()
             start_fastapi_server()
             
-        elif choice == "3":
-            # Only data pipeline
+        elif choice == "4":
+            # Only data pipeline - incremental
             if not check_dependencies():
                 return 1
                 
-            run_data_pipeline()
-            console.print("\n✅ [bold green]Data pipeline complete! Use choice 2 to start server later.[/bold green]")
+            run_data_pipeline(incremental=True)
+            console.print("\n✅ [bold green]Data pipeline complete! Use choice 3 to start server later.[/bold green]")
+            
+        elif choice == "5":
+            # Only data pipeline - full load
+            if not check_dependencies():
+                return 1
+                
+            run_data_pipeline(incremental=False)
+            console.print("\n✅ [bold green]Data pipeline complete! Use choice 3 to start server later.[/bold green]")
             
         else:
-            console.print("❌ Invalid choice. Please run again with 1, 2, or 3.")
+            console.print("❌ Invalid choice. Please run again with 1-5.")
             return 1
             
     except KeyboardInterrupt:
