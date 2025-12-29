@@ -152,17 +152,30 @@ def withings_etl_run(data_type="weight", limit=None, startdate=None, enddate=Non
                             base_record['visceral_fat'] = actual_value
                     
                     # Transform for database
+                    dt_value = base_record.get("datetime")
+                    date_value = base_record.get("date")
+                    
+                    # Ensure proper types: date must be Integer (UNIX timestamp), datetime must be DateTime
+                    if isinstance(dt_value, datetime):
+                        # Convert datetime to timestamp for 'date' field if needed
+                        if not date_value:
+                            date_value = int(dt_value.timestamp())
+                    elif isinstance(date_value, int):
+                        # Convert timestamp to datetime for 'datetime' field if needed
+                        if not dt_value:
+                            dt_value = datetime.fromtimestamp(date_value)
+                    
                     data = {
                         "user_id": "default_user",
-                        "grpid": base_record.get("grpid"),
-                        "deviceid": base_record.get("deviceid"),
+                        "grpid": int(base_record.get("grpid")) if base_record.get("grpid") is not None else None,
+                        "deviceid": str(base_record.get("deviceid")) if base_record.get("deviceid") is not None else None,
                         "created_at": datetime.now(),
-                        "updated_at": base_record.get("datetime"),
-                        "date": base_record.get("date"),
-                        "datetime": base_record.get("datetime"),
+                        "updated_at": dt_value,
+                        "date": date_value,
+                        "datetime": dt_value,
                         "timezone": base_record.get("timezone"),
                         "comment": base_record.get("comment"),
-                        "category": base_record.get("category", 1),
+                        "category": int(base_record.get("category", 1)),
                         "weight_kg": base_record.get("weight_kg"),
                         "height_m": base_record.get("height_m"),
                         "fat_free_mass_kg": base_record.get("fat_free_mass_kg"),
@@ -213,16 +226,29 @@ def withings_etl_run(data_type="weight", limit=None, startdate=None, enddate=Non
                             base_record['heart_rate_bpm'] = actual_value
                     
                     # Transform for database
+                    dt_value = base_record.get("datetime")
+                    date_value = base_record.get("date")
+                    
+                    # Ensure proper types: date must be Integer (UNIX timestamp), datetime must be DateTime
+                    if isinstance(dt_value, datetime):
+                        # Convert datetime to timestamp for 'date' field if needed
+                        if not date_value:
+                            date_value = int(dt_value.timestamp())
+                    elif isinstance(date_value, int):
+                        # Convert timestamp to datetime for 'datetime' field if needed
+                        if not dt_value:
+                            dt_value = datetime.fromtimestamp(date_value)
+                    
                     data = {
                         "user_id": "default_user",
-                        "grpid": base_record.get("grpid"),
-                        "deviceid": base_record.get("deviceid"),
+                        "grpid": int(base_record.get("grpid")) if base_record.get("grpid") is not None else None,
+                        "deviceid": str(base_record.get("deviceid")) if base_record.get("deviceid") is not None else None,
                         "created_at": datetime.now(),
-                        "updated_at": base_record.get("datetime"),
-                        "date": base_record.get("date"),
-                        "datetime": base_record.get("datetime"),
+                        "updated_at": dt_value,
+                        "date": date_value,
+                        "datetime": dt_value,
                         "timezone": base_record.get("timezone"),
-                        "category": base_record.get("category", 1),
+                        "category": int(base_record.get("category", 1)),
                         "heart_rate_bpm": base_record.get("heart_rate_bpm"),
                         "systolic_bp_mmhg": base_record.get("systolic_bp_mmhg"),
                         "diastolic_bp_mmhg": base_record.get("diastolic_bp_mmhg"),

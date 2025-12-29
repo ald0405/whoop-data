@@ -50,35 +50,65 @@ class DBLoader:
 
     def load_workout(self, data: dict) -> Workout:
         """
-        Insert a Workout record into the database.
+        Insert or update a Workout record in the database (upsert based on whoop_id).
 
         Args:
             data (dict): Dictionary of workout data.
 
         Returns:
-            Workout: The created Workout ORM object.
+            Workout: The created or updated Workout ORM object.
         """
-        workout = Workout(**data)
-        self.db.add(workout)
-        self.db.commit()
-        self.db.refresh(workout)
-        return workout
+        # Check if record already exists (avoid duplicates)
+        existing = self.db.query(Workout).filter(
+            Workout.whoop_id == data.get('whoop_id')
+        ).first()
+        
+        if existing:
+            # Update existing record
+            for key, value in data.items():
+                if value is not None:  # Only update non-None values
+                    setattr(existing, key, value)
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
+        else:
+            # Create new record
+            workout = Workout(**data)
+            self.db.add(workout)
+            self.db.commit()
+            self.db.refresh(workout)
+            return workout
 
     def load_sleep(self, data: dict) -> Sleep:
         """
-        Insert a Sleep record into the database.
+        Insert or update a Sleep record in the database (upsert based on whoop_id).
 
         Args:
             data (dict): Dictionary of sleep data.
 
         Returns:
-            Sleep: The created Sleep ORM object.
+            Sleep: The created or updated Sleep ORM object.
         """
-        sleep = Sleep(**data)
-        self.db.add(sleep)
-        self.db.commit()
-        self.db.refresh(sleep)
-        return sleep
+        # Check if record already exists (avoid duplicates)
+        existing = self.db.query(Sleep).filter(
+            Sleep.whoop_id == data.get('whoop_id')
+        ).first()
+        
+        if existing:
+            # Update existing record
+            for key, value in data.items():
+                if value is not None:  # Only update non-None values
+                    setattr(existing, key, value)
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
+        else:
+            # Create new record
+            sleep = Sleep(**data)
+            self.db.add(sleep)
+            self.db.commit()
+            self.db.refresh(sleep)
+            return sleep
 
     def load_withings_weight(self, data: dict) -> WithingsWeight:
         """

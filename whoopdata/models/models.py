@@ -28,7 +28,8 @@ from sqlalchemy.orm import relationship
 class Sleep(Base):
     __tablename__ = 'sleep'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    whoop_id = Column(String, unique=True, nullable=False)  # WHOOP API string ID
     user_id = Column(String, nullable=False)
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
@@ -96,7 +97,8 @@ class Recovery(Base):
 class Workout(Base):
     __tablename__ = 'workout'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    whoop_id = Column(String, unique=True, nullable=False)  # WHOOP API string ID
     user_id = Column(String, nullable=False)
     cycle_id = Column(Integer, ForeignKey("cycles.id"))
     created_at = Column(DateTime)
