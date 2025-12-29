@@ -1,4 +1,4 @@
-.PHONY: help install dev sync run server etl chat analytics test format lint typecheck clean verify
+.PHONY: help install dev sync run server etl chat analytics langgraph-dev test format lint typecheck clean verify
 
 # Default target
 help:
@@ -16,6 +16,7 @@ help:
 	@echo "  make etl-full    - Run ETL pipeline (full load)"
 	@echo "  make chat        - Start chat interface"
 	@echo "  make analytics   - Run analytics pipeline"
+	@echo "  make langgraph-dev - Start LangGraph dev server (with LangSmith Studio)"
 	@echo ""
 	@echo "Development:"
 	@echo "  make test        - Run tests with pytest"
@@ -67,6 +68,12 @@ chat:
 analytics:
 	@echo "🤖 Running analytics pipeline..."
 	uv run python -c "from whoopdata.pipelines.analytics_pipeline import run_analytics_pipeline; run_analytics_pipeline(days_back=365)"
+
+langgraph-dev:
+	@echo "🎨 Starting LangGraph dev server with LangSmith Studio..."
+	@echo "📍 API: http://127.0.0.1:2024"
+	@echo "🎨 Studio: https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024"
+	uv run langgraph dev --allow-blocking
 
 # Development targets
 test:

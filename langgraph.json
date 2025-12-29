@@ -8,5 +8,10 @@
       "config_schema": "whoopdata.agent.schemas:HealthContextSchema"
     }
   },
-  "env": ".env"
+  "env": ".env",
+  "allowed_origins": [
+    "https://smith.langchain.com",
+    "http://localhost:*",
+    "http://127.0.0.1:*"
+  ]
 }
