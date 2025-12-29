@@ -7,7 +7,7 @@ packages = ["whoopdata"]
 
 [project]
 name = "whoop-data"
-version = "1.4.1"
+version = "1.4.2"
 description = "WHOOP and Withings Health Data Integration Platform"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -58,8 +58,8 @@ dependencies = [
     # LangChain ecosystem
     "langchain==0.3.17",
     "langchain-openai==0.2.14",
-    "langgraph==0.2.62",
-    "langsmith==0.2.10",
+    "langgraph>=0.2.62",
+    "langsmith>=0.2.10",
     "langchain-experimental==0.3.4",
     "langchain-core>=0.3.33,<0.4.0",
     "langchain-text-splitters==0.3.4",
@@ -73,7 +73,7 @@ dependencies = [
     "Jinja2==3.1.5",
     # CLI utilities
     "rich",
-    "langgraph-cli>=0.4.11",
+    "langgraph-cli[inmem]>=0.4.11",
 ]
 
 [project.optional-dependencies]
