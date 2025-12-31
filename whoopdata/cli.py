@@ -212,6 +212,23 @@ def run_analytics_pipeline():
         return False
 
 
+def withings_auth_main():
+    """Force Withings re-authentication from the command line."""
+    try:
+        from whoopdata.clients.withings_client import WithingsClient
+        from rich.console import Console
+
+        console = Console()
+        console.print("\n🔐 [bold cyan]Withings Re-Authentication[/bold cyan]")
+        client = WithingsClient()
+        client.authenticate(force_reauth=True)
+        ok = client.validate_token()
+        console.print("✅ Token valid" if ok else "❌ Token validation failed")
+        return 0 if ok else 1
+    except Exception as e:
+        print(f"❌ Re-authentication failed: {e}")
+        return 1
+
 def main():
     """Main application launcher"""
 

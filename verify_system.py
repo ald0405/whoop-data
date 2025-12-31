@@ -222,6 +222,52 @@ def test_agent():
         return False
 
 
+def test_withings_health():
+    """Validate Withings token and data recency."""
+    print("\n" + "=" * 60)
+    print("🏥 Testing Withings Health")
+    print("=" * 60)
+
+    try:
+        import os
+        from datetime import datetime, timedelta
+        from whoopdata.clients.withings_client import WithingsClient
+        from whoopdata.database.database import SessionLocal
+        from whoopdata.models.models import WithingsWeight
+
+        # Token presence and validity
+        tokens_file = ".withings_tokens.json"
+        exists = os.path.exists(tokens_file)
+        print(f"    Token file present: {'✅' if exists else '❌'} ({tokens_file})")
+
+        client = WithingsClient()
+        valid = client.validate_token()
+        print(f"    Token valid via API call: {'✅' if valid else '❌'}")
+
+        # Data recency (weight as proxy)
+        db = SessionLocal()
+        rec = (
+            db.query(WithingsWeight)
+            .filter(WithingsWeight.datetime.isnot(None))
+            .order_by(WithingsWeight.datetime.desc())
+            .first()
+        )
+        db.close()
+
+        if rec and rec.datetime:
+            age_days = (datetime.utcnow() - rec.datetime).days
+            print(f"    Latest Withings record: {rec.datetime.isoformat()} (age: {age_days}d)")
+            fresh = age_days <= 7
+        else:
+            print("    No Withings weight records found")
+            fresh = False
+
+        return valid and fresh
+
+    except Exception as e:
+        print(f"{check_mark(False)} Withings health failed: {e}")
+        return False
+
 def test_api_routes():
     """Test that API routes are defined"""
     print("\n" + "=" * 60)
@@ -285,6 +331,7 @@ def main():
         "Imports": test_imports(),
         "Environment": test_environment(),
         "Database": test_database(),
+        "Withings Health": test_withings_health(),
         "API Routes": test_api_routes(),
         "Agent": test_agent(),
     }
