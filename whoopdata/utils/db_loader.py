@@ -79,7 +79,7 @@ class DBLoader:
     def load_workout(self, data: dict) -> Workout:
         """
         Insert or update a Workout record in the database (upsert).
-        Uses id (from WHOOP API v1_id) as the unique identifier to prevent duplicates.
+        Uses whoop_id (WHOOP API string ID) as the unique identifier to prevent duplicates.
 
         Args:
             data (dict): Dictionary of workout data.
@@ -87,11 +87,14 @@ class DBLoader:
         Returns:
             Workout: The created or updated Workout ORM object.
         """
-        # Check if record already exists (avoid duplicates)
-        # Note: data['id'] comes from WHOOP API v1_id field
+        # Check if record already exists (avoid duplicates) using whoop_id
         existing = None
-        if data.get("id"):
-            existing = self.db.query(Workout).filter(Workout.id == data.get("id")).first()
+        if data.get("whoop_id"):
+            existing = (
+                self.db.query(Workout)
+                .filter(Workout.whoop_id == data.get("whoop_id"))
+                .first()
+            )
 
         if existing:
             # Update existing record
@@ -112,7 +115,7 @@ class DBLoader:
     def load_sleep(self, data: dict) -> Sleep:
         """
         Insert or update a Sleep record in the database (upsert).
-        Uses id (from WHOOP API v1_id) as the unique identifier to prevent duplicates.
+        Uses whoop_id (WHOOP API string ID) as the unique identifier to prevent duplicates.
 
         Args:
             data (dict): Dictionary of sleep data.
@@ -120,11 +123,14 @@ class DBLoader:
         Returns:
             Sleep: The created or updated Sleep ORM object.
         """
-        # Check if record already exists (avoid duplicates)
-        # Note: data['id'] comes from WHOOP API v1_id field
+        # Check if record already exists (avoid duplicates) using whoop_id
         existing = None
-        if data.get("id"):
-            existing = self.db.query(Sleep).filter(Sleep.id == data.get("id")).first()
+        if data.get("whoop_id"):
+            existing = (
+                self.db.query(Sleep)
+                .filter(Sleep.whoop_id == data.get("whoop_id"))
+                .first()
+            )
 
         if existing:
             # Update existing record

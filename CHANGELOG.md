@@ -5,6 +5,17 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.5] - 2025-12-31
+
+### 🐛 Fixed
+- **WHOOP Upsert Keys**: Sleep and Workout records now upsert by `whoop_id` (unique API identifier) instead of database primary key `id`, preventing unique constraint violations on incremental ETL runs
+- **ETL Transaction Handling**: Added session rollback on per-record failures in WHOOP and Withings ETL loops to prevent session poisoning and allow subsequent records to process successfully
+
+### 🔧 Technical Details
+- Modified `DBLoader.upsert_sleep()` and `DBLoader.upsert_workout()` to use `whoop_id` as the unique constraint
+- Added `session.rollback()` in exception handlers for WHOOP (`extract_data.py`) and Withings (`withings_data.py`) ETL loops
+- Ensures incremental data loads can run repeatedly without errors
+
 ## [1.4.4] - 2025-12-31
 
 ### 🐛 Fixed

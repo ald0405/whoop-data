@@ -89,6 +89,11 @@ def whoop_etl_run(whoop_endpoint, transformer, loader_fn, start_date=None, end_d
                 success_count += 1
 
             except Exception as e:
+                # Roll back failed transaction so subsequent inserts can proceed
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
                 console.print(f"❌ Error processing record {index}: {str(e)}")
                 error_count += 1
 
@@ -219,6 +224,10 @@ def withings_etl_run(data_type="weight", limit=None, startdate=None, enddate=Non
                     success_count += 1
 
                 except Exception as e:
+                    try:
+                        db.rollback()
+                    except Exception:
+                        pass
                     console.print(f"❌ Error processing weight group {grpid}: {str(e)}")
                     error_count += 1
 
@@ -294,6 +303,10 @@ def withings_etl_run(data_type="weight", limit=None, startdate=None, enddate=Non
                     success_count += 1
 
                 except Exception as e:
+                    try:
+                        db.rollback()
+                    except Exception:
+                        pass
                     console.print(f"❌ Error processing heart rate group {grpid}: {str(e)}")
                     error_count += 1
 
