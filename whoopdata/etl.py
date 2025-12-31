@@ -122,14 +122,17 @@ def withings_etl_run(data_type="weight", limit=None, startdate=None, enddate=Non
         error_count = 0
 
         if data_type == "weight":
-            # Get body measurements
-            response = client.get_body_measurements(startdate=startdate, enddate=enddate)
+            # Prefer delta sync using lastupdate when available
+            response = client.get_measurements(
+                meastypes="1,4,5,6,8", category=1, lastupdate=startdate
+            )
             df = client.transform_to_dataframe(response)
 
             if limit:
                 df = df.head(limit)
 
             console.print(f"📊 Processing {len(df)} weight/body composition records...")
+            latest_api_dt = None
 
             # Group by measurement group ID to combine measurements
             grouped = df.groupby("grpid")
@@ -176,6 +179,10 @@ def withings_etl_run(data_type="weight", limit=None, startdate=None, enddate=Non
                         # Convert timestamp to datetime for 'datetime' field if needed
                         if not dt_value:
                             dt_value = datetime.fromtimestamp(date_value)
+
+                    # Track newest datetime from API
+                    if dt_value and (latest_api_dt is None or dt_value > latest_api_dt):
+                        latest_api_dt = dt_value
 
                     data = {
                         "user_id": "default_user",
@@ -289,6 +296,32 @@ def withings_etl_run(data_type="weight", limit=None, startdate=None, enddate=Non
                 except Exception as e:
                     console.print(f"❌ Error processing heart rate group {grpid}: {str(e)}")
                     error_count += 1
+
+        # Log recency diagnostic
+        try:
+            from whoopdata.models.models import WithingsWeight, WithingsHeartRate
+            latest_db_dt = None
+            if data_type == "weight":
+                rec = (
+                    db.query(WithingsWeight)
+                    .filter(WithingsWeight.datetime.isnot(None))
+                    .order_by(WithingsWeight.datetime.desc())
+                    .first()
+                )
+                latest_db_dt = rec.datetime if rec else None
+            else:
+                rec = (
+                    db.query(WithingsHeartRate)
+                    .filter(WithingsHeartRate.datetime.isnot(None))
+                    .order_by(WithingsHeartRate.datetime.desc())
+                    .first()
+                )
+                latest_db_dt = rec.datetime if rec else None
+            console.print(
+                f"🕒 Withings {data_type} recency — API newest: {latest_api_dt}, DB newest: {latest_db_dt}"
+            )
+        except Exception:
+            pass
 
         console.print(
             f"✅ [bold green]Withings {data_type}: {success_count} successful, {error_count} errors[/bold green]"

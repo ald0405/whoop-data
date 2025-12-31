@@ -108,6 +108,8 @@ class WithingsClient:
                 "refresh_token": self.refresh_token,
                 "user_id": self.user_id,
                 "expires_at": self.token_expires_at.isoformat() if self.token_expires_at else None,
+                "updated_at": datetime.now().isoformat(),
+                "token_issuer": "withings",
             }
             with open(self.token_file, "w") as f:
                 json.dump(token_data, f)
@@ -117,12 +119,14 @@ class WithingsClient:
             self.logger.warning(f"Failed to save tokens: {e}")
 
     def _is_token_valid(self):
-        """Check if the current access token is valid and not expired"""
+        """Check if the current access token is valid and not expired.
+        Treat missing/unknown expiry as invalid so we reauth/refresh.
+        """
         if not self.access_token:
             return False
-        if self.token_expires_at and datetime.now() >= self.token_expires_at:
+        if not self.token_expires_at:
             return False
-        return True
+        return datetime.now() < self.token_expires_at
 
     def _refresh_access_token(self):
         """Refresh the access token using the refresh token"""
@@ -160,17 +164,19 @@ class WithingsClient:
             self.logger.warning(f"Failed to refresh token: {e}")
         return False
 
-    def authenticate(self):
-        """Authenticate using OAuth 2.0 authorization code flow"""
+    def authenticate(self, force_reauth: bool = False):
+        """Authenticate using OAuth 2.0 authorization code flow.
+        If force_reauth is True, bypass cache and run full OAuth.
+        """
         # First, try to load existing tokens
-        if self._load_tokens():
+        if not force_reauth and self._load_tokens():
             if self._is_token_valid():
                 print("✅ Using existing Withings access token")
                 return
             elif self.refresh_token and self._refresh_access_token():
                 return
             else:
-                print("⚠️ Existing tokens expired, need new authorization")
+                print("⚠️ Existing tokens invalid/expired, starting new authorization")
 
         # If no valid tokens, proceed with OAuth flow
         self._authenticate_authorization_code()
@@ -240,17 +246,28 @@ class WithingsClient:
                                 b"<html><body><h1>Authorization failed!</h1><p>State parameter mismatch</p></body></html>"
                             )
 
-        # Start callback server
-        server = HTTPServer(("localhost", port), CallbackHandler)
+        # Start callback server (bind explicitly to loopback)
+        # Try desired port, then increment a few times if unavailable
+        server = None
+        for try_port in [port] + [port + i for i in range(1, 6)]:
+            try:
+                server = HTTPServer(("127.0.0.1", try_port), CallbackHandler)
+                port = try_port
+                break
+            except OSError:
+                continue
+        if server is None:
+            raise Exception("Unable to bind local callback server on 127.0.0.1")
         server_thread = threading.Thread(target=server.serve_forever)
         server_thread.daemon = True
         server_thread.start()
 
-        # Create authorization URL
+        # Create authorization URL (update redirect to actual bound port)
+        actual_redirect = f"http://127.0.0.1:{port}/callback"
         auth_params = {
             "response_type": "code",
             "client_id": self.client_id,
-            "redirect_uri": self.callback_url,
+            "redirect_uri": actual_redirect,
             "scope": "user.metrics",
             "state": state,
         }
@@ -260,7 +277,12 @@ class WithingsClient:
         print(f"\n🌐 Please visit this URL to authorize the Withings application:")
         print(f"🔗 {auth_url}")
         print("🌐 Opening browser...")
-        webbrowser.open(auth_url)
+        try:
+            opened = webbrowser.open(auth_url)
+            if not opened:
+                print("⚠️ Could not open browser automatically. Copy the URL above into your browser.")
+        except Exception:
+            print("⚠️ Could not open browser automatically. Copy the URL above into your browser.")
 
         # Wait for authorization
         timeout = 300
@@ -473,3 +495,12 @@ class WithingsClient:
     def get_raw_response(self, meastypes: str = "1,4,5,6,8"):
         """Get raw JSON response (for debugging)"""
         return self.get_measurements(meastypes=meastypes)
+
+    def validate_token(self) -> bool:
+        """Perform a minimal authenticated request to validate token."""
+        try:
+            # Use a lightweight call
+            resp = self.get_measurements(meastypes="1", category=1)
+            return isinstance(resp, dict) and resp.get("status") == 0
+        except Exception:
+            return False

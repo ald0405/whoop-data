@@ -58,6 +58,45 @@ app.include_router(recovery_router)
 app.include_router(workout_router)
 app.include_router(sleep_router)
 app.include_router(withings_router)
+
+# Lightweight auth/status endpoint for Withings
+from whoopdata.clients.withings_client import WithingsClient
+from whoopdata.database.database import SessionLocal
+from whoopdata.models.models import WithingsWeight, WithingsHeartRate
+from fastapi import HTTPException
+
+@app.get("/auth/withings/status")
+async def withings_status():
+    try:
+        client = WithingsClient()
+        token_ok = False
+        try:
+            token_ok = client.validate_token()
+        except Exception:
+            token_ok = False
+
+        db = SessionLocal()
+        latest_weight = (
+            db.query(WithingsWeight)
+            .filter(WithingsWeight.datetime.isnot(None))
+            .order_by(WithingsWeight.datetime.desc())
+            .first()
+        )
+        latest_hr = (
+            db.query(WithingsHeartRate)
+            .filter(WithingsHeartRate.datetime.isnot(None))
+            .order_by(WithingsHeartRate.datetime.desc())
+            .first()
+        )
+        db.close()
+
+        return {
+            "token_valid": token_ok,
+            "latest_weight_datetime": latest_weight.datetime.isoformat() if latest_weight and latest_weight.datetime else None,
+            "latest_heart_datetime": latest_hr.datetime.isoformat() if latest_hr and latest_hr.datetime else None,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 app.include_router(weather_router)
 app.include_router(transport_router)
 app.include_router(dashboard_router)
