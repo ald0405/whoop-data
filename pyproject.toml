@@ -7,7 +7,7 @@ packages = ["whoopdata"]
 
 [project]
 name = "whoop-data"
-version = "1.4.2"
+version = "1.4.4"
 description = "WHOOP and Withings Health Data Integration Platform"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -88,6 +88,7 @@ dev = [
 [project.scripts]
 whoop-start = "whoopdata.cli:main"
 whoop-etl = "whoopdata.etl:run_complete_etl"
+whoop-withings-auth = "whoopdata.cli:withings_auth_main"
 
 [project.urls]
 Homepage = "https://github.com/ald0405/whoop-data"
