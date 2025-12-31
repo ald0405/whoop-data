@@ -130,6 +130,17 @@ python start_health_chat.py
 
 ---
 
+## Withings Health Check (Quick)
+
+- Force re-auth and validate token:
+  ```bash
+  uv run whoop-withings-auth
+  ```
+- Verify API is reachable and data is recent:
+  ```bash
+  curl http://localhost:8000/auth/withings/status
+  ```
+
 ## Detailed Testing
 
 ### Test 1: Virtual Environment Check

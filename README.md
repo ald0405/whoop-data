@@ -195,6 +195,19 @@ uv run python chat_app.py
 - **Alternative Docs**: http://localhost:8000/redoc
 - **Sample Endpoint**: http://localhost:8000/recovery/latest
 
+## 🔧 Withings Troubleshooting (Quick)
+
+- Ensure these are set in `.env` and registered in Withings dashboard:
+  - `WITHINGS_CLIENT_ID`, `WITHINGS_CLIENT_SECRET`, `WITHINGS_CALLBACK_URL`
+- Force re-auth if browser doesn't open or data is stale:
+  - `uv run whoop-withings-auth` (or `whoop-withings-auth` after uv sync)
+- If browser didn't open:
+  - Copy the printed authorization URL into your browser
+- If callback fails:
+  - The app binds to `127.0.0.1` and will try ports 8766..8771; ensure your redirect URI allows the chosen port
+- Check status:
+  - `curl http://localhost:8000/auth/withings/status`
+
 ## 📊 Data Pipeline Details
 
 ### What Gets Loaded
