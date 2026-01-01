@@ -88,6 +88,28 @@ def transform_sleep(item: dict) -> dict:
     }
 
 
+def transform_cycle(item: dict) -> dict:
+    """
+    Transform cycle data for database insertion.
+    Note: Cycles represent physiological days (sleep-to-sleep).
+    Fields are now already flattened by the API client.
+    """
+    return {
+        "user_id": item.get("user_id"),
+        "created_at": parse_dt(item.get("created_at")),
+        "updated_at": parse_dt(item.get("updated_at")),
+        "start": parse_dt(item.get("start")),
+        "end": parse_dt(item.get("end")),
+        "timezone_offset": item.get("timezone_offset"),
+        "score_state": item.get("score_state"),
+        # These fields are now already flattened
+        "strain": item.get("strain"),
+        "kilojoule": item.get("kilojoule"),
+        "average_heart_rate": item.get("average_heart_rate"),
+        "max_heart_rate": item.get("max_heart_rate"),
+    }
+
+
 def transform_workout(item: dict) -> dict:
     """
     Transform workout data for database insertion.

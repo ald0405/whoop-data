@@ -7,23 +7,37 @@ This document outlines experimental features in the WHOOP Data Platform that are
 The advanced analytics engine provides ML-based insights and predictions, but some features are still experimental.
 
 ### What Works Well
+✅ **Cycle Data Loading** - Physiological days (sleep-to-sleep) with daily strain and energy expenditure  
+✅ **Sport Name Mapping** - Workouts now show "Tennis" instead of "sport_id: 34"  
+✅ **Workout-Recovery Linking** - Workouts connected to next-day recovery via cycles  
 ✅ **Recovery Factor Analysis** - Identifies which factors (HRV, sleep duration, etc.) most impact your recovery  
 ✅ **Sleep Impact on Recovery** - Shows how sleep quality affects next-day recovery  
 ✅ **Correlation Analysis** - Finds relationships between health metrics  
 ✅ **Trend Detection** - Tracks 30-day trends in recovery, HRV, and other metrics  
-✅ **Weekly Insights** - Generates actionable recommendations based on your data  
+✅ **Weekly Insights Generator** - Automatically generates personalized, actionable health insights
 
 ### Known Limitations
 
-#### 1. Workout-Based Analytics (Limited Data)
-The following features may show "Insufficient data" messages:
-- **Recovery by Sport/Activity** - Requires cycle data from WHOOP API
-- **Recovery by Workout Time** - Needs workout timing linked through cycles
-- **Recovery by Workout Intensity** - Depends on HR zone data from cycles
+#### 1. Workout-Based Analytics Endpoints (Coming Soon)
+The following API endpoints are planned but not yet implemented:
+- `GET /analytics/recovery/by-sport` - Recovery analysis by sport type
+- `GET /analytics/recovery/by-timing` - Recovery by workout time of day
+- `GET /analytics/recovery/by-intensity` - Recovery by workout intensity
 
-**Why**: Workouts are linked to recovery through cycles in the WHOOP data model. If cycle data hasn't been synced, workout-based analytics will be limited.
+**Status**: ✅ Data infrastructure is complete (cycles are loading)
+**Next**: API endpoints will be added in a future release
+**Workaround**: Use the analytics data prep functions directly:
+```python
+from whoopdata.analytics.data_prep import get_workouts_with_recovery
+from whoopdata.database.database import SessionLocal
 
-**Fix**: Ensure cycle data is synced by running the full ETL process with cycle endpoints enabled.
+db = SessionLocal()
+df = get_workouts_with_recovery(db, days_back=365)
+
+# Analyze recovery by sport
+recovery_by_sport = df.groupby('sport_name')['recovery_score'].mean()
+print(recovery_by_sport.sort_values(ascending=False))
+```
 
 #### 2. Sleep Quality Model Interpretation
 The sleep quality analyzer predicts **recovery score** from sleep factors. Some metrics may show high importance percentages. This can occur when:
@@ -46,8 +60,8 @@ With limited data (< 100 records), models may show very high R² scores (> 0.95)
 For best results, the analytics engine requires:
 - ✅ Minimum 30 days of recovery data
 - ✅ Minimum 50 recovery records for factor analysis
-- ⚠️ Cycle data for workout-based analytics (may be missing)
-- ✅ Consistent data collection (sleep, recovery, workouts)
+- ✅ Cycle data (automatically loaded via ETL pipeline)
+- ✅ Consistent data collection (sleep, recovery, workouts, cycles)
 
 ### Future Improvements
 

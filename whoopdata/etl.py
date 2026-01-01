@@ -20,6 +20,7 @@ from whoopdata.utils import DBLoader
 from whoopdata.model_transformation import (
     transform_sleep,
     transform_recovery,
+    transform_cycle,
     transform_workout,
     transform_withings_weight,
     transform_withings_heart_rate,
@@ -419,6 +420,17 @@ def run_complete_etl(incremental=True):
         end_date=format_datetime_for_whoop(sleep_end) if sleep_end else None,
     )
     results["whoop_sleep"] = {"success": success, "errors": errors}
+
+    # Cycle (physiological days - sleep-to-sleep)
+    cycle_start, cycle_end = windows.get("cycle", (None, None))
+    success, errors = whoop_etl_run(
+        whoop_endpoint="strain",  # Note: 'strain' endpoint maps to cycles
+        transformer=transform_cycle,
+        loader_fn=loader.load_cycle,
+        start_date=format_datetime_for_whoop(cycle_start) if cycle_start else None,
+        end_date=format_datetime_for_whoop(cycle_end) if cycle_end else None,
+    )
+    results["whoop_cycle"] = {"success": success, "errors": errors}
 
     # Withings Data
     console.print("\n" + "=" * 60)

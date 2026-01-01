@@ -5,6 +5,108 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-01-01
+
+### ✨ Added - Cycle Data Loading & Sport-Specific Analysis
+
+This release unlocks **workout-based analytics** by adding cycle data loading from the WHOOP API. Cycles represent "physiological days" (sleep-to-sleep periods) and are the key link between workouts and recovery outcomes.
+
+#### Core Features
+- **Cycle Data Loading** - ETL pipeline now loads cycle data (daily strain, energy expenditure, heart rate)
+  - Cycles automatically load via incremental and full ETL
+  - Proper upsert logic prevents duplicates (user_id + start time)
+  - Integrated with existing recovery and workout data
+
+- **Sport Name Mapping** - 100+ WHOOP sports now display as readable names
+  - Workouts show "Tennis" instead of "sport_id: 34"
+  - Automatic `sport_name` and `sport_category` computed fields
+  - Categories: Cardio, Strength, Team Sport, Racquet Sport, Mind-Body, Recovery
+
+- **Workout-Recovery Linking** - New data prep function connects workouts to next-day recovery
+  - `get_workouts_with_recovery()` joins workouts → cycles → recoveries
+  - Enables analysis of sport/timing/intensity impact on recovery
+  - Foundation for future sport-specific analytics endpoints
+
+#### Technical Implementation
+- Added `transform_cycle()` function for cycle data transformation
+- Updated `load_cycle()` with upsert logic (user_id + start time as unique key)
+- Added cycle support to incremental ETL loading (etl_incremental.py)
+- Integrated cycle loading into `run_complete_etl()` using WHOOP 'strain' endpoint
+- Added `_transform_cycle_fields()` to WHOOP API client for data normalization
+- Created comprehensive sport ID mapping (whoopdata/utils/sport_mapping.py)
+
+#### What's Now Possible
+
+**For Users:**
+```bash
+# Cycles load automatically with ETL
+make etl  # or make run
+
+# View workouts with sport names
+curl http://localhost:8000/workouts/types/tennis
+# Response includes: "sport_name": "Tennis", "sport_category": "Racquet Sport"
+```
+
+**For Analysts:**
+```python
+from whoopdata.analytics.data_prep import get_workouts_with_recovery
+from whoopdata.database.database import SessionLocal
+
+db = SessionLocal()
+df = get_workouts_with_recovery(db, days_back=365)
+
+# Analyze recovery by sport
+recovery_by_sport = df.groupby('sport_name')['recovery_score'].mean()
+print(recovery_by_sport.sort_values(ascending=False))
+
+# Analyze by timing
+morning_recovery = df[df['workout_is_morning']]['recovery_score'].mean()
+evening_recovery = df[df['workout_is_evening']]['recovery_score'].mean()
+```
+
+### 🔧 Fixed
+- **OAuth Scopes** - Added `read:cycles` scope to WHOOP authentication
+  - Required to access cycle/strain endpoint data
+  - Users must delete `.whoop_tokens.json` and re-authenticate after upgrading
+
+### 📚 Documentation
+- Added WHOOP troubleshooting section for 401 authorization errors
+- Updated EXPERIMENTAL_FEATURES.md - moved cycles to "What Works Well"
+- Documented cycle data in pipeline overview
+- Added token deletion instructions for scope updates
+- Included Python examples for workout-recovery analysis
+
+### ⚠️ Breaking Changes
+- **Token Re-authentication Required** after upgrade:
+  ```bash
+  rm .whoop_tokens.json
+  make run  # Will prompt for re-authentication with new scopes
+  ```
+
+### 🔄 Migration Notes
+
+After upgrading to 1.5.0:
+1. Delete old WHOOP token: `rm .whoop_tokens.json`
+2. Run ETL to authenticate and load cycles: `make run` (choose option 1 or 4)
+3. Browser will open for OAuth re-authorization
+4. Cycles will load automatically on future ETL runs
+
+### 📊 Data Model Changes
+- Cycles table now populates (was previously empty)
+- Workouts and recoveries now properly linked via `cycle_id`
+- Enables workout → cycle → recovery joins for analysis
+
+### 🎯 Future Enhancements (Coming Soon)
+The data infrastructure is complete. Future releases will add:
+- `GET /analytics/recovery/by-sport` - Recovery analysis by sport type
+- `GET /analytics/recovery/by-timing` - Recovery by workout time of day  
+- `GET /analytics/recovery/by-intensity` - Recovery by workout intensity
+
+For now, use `get_workouts_with_recovery()` data prep function directly.
+
+### 🙏 Credits
+Co-Authored-By: Warp <agent@warp.dev>
+
 ## [1.4.5] - 2025-12-31
 
 ### 🐛 Fixed

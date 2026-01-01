@@ -195,6 +195,16 @@ uv run python chat_app.py
 - **Alternative Docs**: http://localhost:8000/redoc
 - **Sample Endpoint**: http://localhost:8000/recovery/latest
 
+## 🔧 WHOOP Troubleshooting (Quick)
+
+- **401 Authorization errors** (especially for cycle/strain data):
+  - Delete old token: `rm .whoop_tokens.json`
+  - Next ETL run will re-authenticate with updated scopes (including `read:cycles`)
+  - This is needed after upgrading to versions with new API scopes
+- **Token refresh issues**:
+  - WHOOP tokens expire - the system will automatically re-authenticate when needed
+  - Browser popup will open for OAuth flow
+
 ## 🔧 Withings Troubleshooting (Quick)
 
 - Ensure these are set in `.env` and registered in Withings dashboard:
@@ -216,6 +226,7 @@ When you run `python run_app.py`, the system loads:
 
 **WHOOP Data:**
 - 📊 **Recovery scores** (HRV, RHR, sleep quality)
+- 🔄 **Cycles** (physiological days, daily strain, energy expenditure)
 - 🏋️ **Workout data** (strain, heart rate zones, sports)
 - 😴 **Sleep tracking** (stages, efficiency, duration)
 

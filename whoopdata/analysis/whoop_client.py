@@ -172,7 +172,7 @@ class Whoop:
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
-            "scope": "read:recovery read:sleep read:workout read:profile read:body_measurement",
+            "scope": "read:recovery read:cycles read:sleep read:workout read:profile read:body_measurement",
         }
 
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -277,7 +277,7 @@ class Whoop:
         server_thread.start()
 
         # Create authorization URL - use the exact same callback_url format for both auth and token exchange
-        auth_url = f"https://api.prod.whoop.com/oauth/oauth2/auth?response_type=code&client_id={self.client_id}&redirect_uri={urllib.parse.quote(callback_url, safe='')}&scope=read:recovery%20read:sleep%20read:workout%20read:profile%20read:body_measurement&state={state}"
+        auth_url = f"https://api.prod.whoop.com/oauth/oauth2/auth?response_type=code&client_id={self.client_id}&redirect_uri={urllib.parse.quote(callback_url, safe='')}&scope=read:recovery%20read:cycles%20read:sleep%20read:workout%20read:profile%20read:body_measurement&state={state}"
 
         print(f"\nPlease visit this URL to authorize the application: {auth_url}")
         print("Opening browser...")
@@ -366,6 +366,8 @@ class Whoop:
             df = self._transform_sleep_fields(df)
         elif "workout" in endpoint_type.lower():
             df = self._transform_workout_fields(df)
+        elif "cycle" in endpoint_type.lower() or "strain" in endpoint_type.lower():
+            df = self._transform_cycle_fields(df)
 
         print(f"✅ Transformation complete. Available fields: {list(df.columns)}")
         return df
@@ -404,6 +406,17 @@ class Whoop:
             "score.sleep_needed.need_from_sleep_debt_milli": "need_from_sleep_debt_milli",
             "score.sleep_needed.need_from_recent_strain_milli": "need_from_recent_strain_milli",
             "score.sleep_needed.need_from_recent_nap_milli": "need_from_recent_nap_milli",
+        }
+        return df.rename(columns=rename_map)
+
+    def _transform_cycle_fields(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Transform cycle data fields to match database schema"""
+        rename_map = {
+            # Main score fields for cycles
+            "score.strain": "strain",
+            "score.kilojoule": "kilojoule",
+            "score.average_heart_rate": "average_heart_rate",
+            "score.max_heart_rate": "max_heart_rate",
         }
         return df.rename(columns=rename_map)
 
