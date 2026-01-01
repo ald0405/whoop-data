@@ -62,19 +62,42 @@ class DBLoader:
 
     def load_cycle(self, data: dict) -> Cycle:
         """
-        Insert a Cycle record into the database.
+        Insert or update a Cycle record in the database (upsert).
+        Uses user_id + start time as the unique identifier to prevent duplicates.
 
         Args:
             data (dict): Dictionary of cycle data.
 
         Returns:
-            Cycle: The created Cycle ORM object.
+            Cycle: The created or updated Cycle ORM object.
         """
-        cycle = Cycle(**data)
-        self.db.add(cycle)
-        self.db.commit()
-        self.db.refresh(cycle)
-        return cycle
+        # Check if record already exists (avoid duplicates)
+        existing = None
+        if data.get("user_id") and data.get("start"):
+            existing = (
+                self.db.query(Cycle)
+                .filter(
+                    Cycle.user_id == data.get("user_id"),
+                    Cycle.start == data.get("start")
+                )
+                .first()
+            )
+
+        if existing:
+            # Update existing record
+            for key, value in data.items():
+                if value is not None:  # Only update non-None values
+                    setattr(existing, key, value)
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
+        else:
+            # Create new record
+            cycle = Cycle(**data)
+            self.db.add(cycle)
+            self.db.commit()
+            self.db.refresh(cycle)
+            return cycle
 
     def load_workout(self, data: dict) -> Workout:
         """

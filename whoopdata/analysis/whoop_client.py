@@ -366,6 +366,8 @@ class Whoop:
             df = self._transform_sleep_fields(df)
         elif "workout" in endpoint_type.lower():
             df = self._transform_workout_fields(df)
+        elif "cycle" in endpoint_type.lower() or "strain" in endpoint_type.lower():
+            df = self._transform_cycle_fields(df)
 
         print(f"✅ Transformation complete. Available fields: {list(df.columns)}")
         return df
@@ -404,6 +406,17 @@ class Whoop:
             "score.sleep_needed.need_from_sleep_debt_milli": "need_from_sleep_debt_milli",
             "score.sleep_needed.need_from_recent_strain_milli": "need_from_recent_strain_milli",
             "score.sleep_needed.need_from_recent_nap_milli": "need_from_recent_nap_milli",
+        }
+        return df.rename(columns=rename_map)
+
+    def _transform_cycle_fields(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Transform cycle data fields to match database schema"""
+        rename_map = {
+            # Main score fields for cycles
+            "score.strain": "strain",
+            "score.kilojoule": "kilojoule",
+            "score.average_heart_rate": "average_heart_rate",
+            "score.max_heart_rate": "max_heart_rate",
         }
         return df.rename(columns=rename_map)
 
