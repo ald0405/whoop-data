@@ -650,3 +650,155 @@ def calculate_rolling_features(
     df[f"{metric_col}_trend"] = df[metric_col] - df[f"{metric_col}_rolling_7d"]
 
     return df
+
+
+def get_workouts_with_recovery(
+    db: Session, limit: Optional[int] = None, days_back: Optional[int] = 365
+) -> pd.DataFrame:
+    """Get workout data with next-day recovery outcomes for sport-specific analysis.
+
+    This function enables analysis like:
+    - Which sports correlate with better/worse recovery?
+    - Does workout timing (morning vs evening) affect recovery?
+    - How does workout intensity impact next-day recovery?
+
+    Features included:
+    - Workout details (sport, strain, duration, heart rate zones)
+    - Workout timing (hour of day, morning/afternoon/evening)
+    - Next-day recovery score and metrics
+    - Cycle-level daily strain
+
+    Args:
+        db: Database session
+        limit: Maximum number of records (None for all)
+        days_back: Only include data from last N days
+
+    Returns:
+        DataFrame with workouts and their recovery outcomes
+    """
+    from whoopdata.utils.sport_mapping import get_sport_name, get_sport_category
+
+    date_threshold = datetime.now() - timedelta(days=days_back) if days_back else None
+
+    # Query workouts with cycle and recovery data
+    # We want: Workout -> Cycle -> Next Cycle's Recovery
+    query = (
+        db.query(
+            Workout.id.label("workout_id"),
+            Workout.created_at.label("workout_date"),
+            Workout.start.label("workout_start"),
+            Workout.end.label("workout_end"),
+            Workout.sport_id,
+            Workout.strain.label("workout_strain"),
+            Workout.average_heart_rate.label("workout_avg_hr"),
+            Workout.max_heart_rate.label("workout_max_hr"),
+            Workout.kilojoule.label("workout_kilojoule"),
+            Workout.distance_meter,
+            Workout.zone_zero_minutes,
+            Workout.zone_one_minutes,
+            Workout.zone_two_minutes,
+            Workout.zone_three_minutes,
+            Workout.zone_four_minutes,
+            Workout.zone_five_minutes,
+            # Cycle data (the day of the workout)
+            Cycle.id.label("cycle_id"),
+            Cycle.start.label("cycle_start"),
+            Cycle.end.label("cycle_end"),
+            Cycle.strain.label("daily_strain"),  # Total strain for the day
+            Cycle.kilojoule.label("daily_kilojoule"),
+        )
+        .join(Cycle, Workout.cycle_id == Cycle.id)
+    )
+
+    if date_threshold:
+        query = query.filter(Workout.created_at >= date_threshold)
+
+    query = query.filter(
+        Workout.sport_id.isnot(None), Workout.strain.isnot(None)
+    )  # Valid workouts only
+    query = query.order_by(Workout.created_at.desc())
+
+    if limit:
+        query = query.limit(limit)
+
+    # Convert to DataFrame
+    df = pd.read_sql(query.statement, db.bind)
+
+    if len(df) == 0:
+        return df  # Return empty DataFrame
+
+    # Add sport names and categories
+    df["sport_name"] = df["sport_id"].apply(get_sport_name)
+    df["sport_category"] = df["sport_id"].apply(get_sport_category)
+
+    # Calculate workout duration
+    df["workout_duration_minutes"] = (
+        pd.to_datetime(df["workout_end"]) - pd.to_datetime(df["workout_start"])
+    ).dt.total_seconds() / 60
+
+    # Calculate total zone time and percentages
+    df["total_zone_minutes"] = sum(df[f"zone_{i}_minutes"] for i in range(6))
+
+    for zone in range(6):
+        df[f"zone_{zone}_pct"] = (
+            df[f"zone_{zone}_minutes"] / df["total_zone_minutes"] * 100
+        ).fillna(0)
+
+    # High intensity percentage (zones 4-5)
+    df["high_intensity_pct"] = df["zone_four_pct"] + df["zone_five_pct"]
+
+    # Workout timing features
+    df["workout_hour"] = pd.to_datetime(df["workout_start"]).dt.hour
+    df["workout_day_of_week"] = pd.to_datetime(df["workout_start"]).dt.dayofweek
+    df["workout_is_weekend"] = df["workout_day_of_week"] >= 5
+    df["workout_is_morning"] = (df["workout_hour"] >= 5) & (df["workout_hour"] < 12)
+    df["workout_is_afternoon"] = (df["workout_hour"] >= 12) & (df["workout_hour"] < 18)
+    df["workout_is_evening"] = (df["workout_hour"] >= 18) & (df["workout_hour"] < 22)
+
+    # Now join with next-day recovery
+    # We need to find the recovery from the NEXT cycle after this workout's cycle
+    # This is complex, so we'll do it by finding recoveries where created_at > workout date
+    
+    # For each workout, find the next recovery (within 48 hours)
+    recoveries_query = db.query(
+        Recovery.cycle_id,
+        Recovery.created_at.label("recovery_date"),
+        Recovery.recovery_score,
+        Recovery.hrv_rmssd_milli.label("recovery_hrv"),
+        Recovery.resting_heart_rate.label("recovery_rhr"),
+        Recovery.spo2_percentage,
+        Recovery.user_calibrating,
+    )
+
+    recoveries_df = pd.read_sql(recoveries_query.statement, db.bind)
+
+    # Sort both dataframes
+    df = df.sort_values("workout_date").reset_index(drop=True)
+    recoveries_df = recoveries_df.sort_values("recovery_date").reset_index(drop=True)
+
+    # For each workout, find next recovery (merge_asof)
+    df_with_recovery = pd.merge_asof(
+        df,
+        recoveries_df,
+        left_on="workout_date",
+        right_on="recovery_date",
+        direction="forward",
+        tolerance=pd.Timedelta("48 hours"),  # Recovery must be within 48h
+    )
+
+    # Calculate time to recovery
+    df_with_recovery["hours_to_recovery"] = (
+        pd.to_datetime(df_with_recovery["recovery_date"])
+        - pd.to_datetime(df_with_recovery["workout_date"])
+    ).dt.total_seconds() / 3600
+
+    # Only keep workouts that have a next-day recovery (within 12-36 hours is typical)
+    df_with_recovery = df_with_recovery[
+        (df_with_recovery["hours_to_recovery"] >= 12)
+        & (df_with_recovery["hours_to_recovery"] <= 36)
+    ].copy()
+
+    # Drop rows with missing recovery data
+    df_with_recovery = df_with_recovery.dropna(subset=["recovery_score"])
+
+    return df_with_recovery
