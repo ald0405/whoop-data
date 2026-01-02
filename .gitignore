@@ -28,6 +28,13 @@ data/
 *.log
 logs/
 
+# Machine learning models
+models/
+*.pkl
+*.joblib
+*.h5
+*.model
+
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
