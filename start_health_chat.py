@@ -42,7 +42,7 @@ def start_api_server():
             sys.executable,
             "-m",
             "uvicorn",
-            "app:app",
+            "main:app",
             "--host",
             "0.0.0.0",
             "--port",
