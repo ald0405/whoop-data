@@ -4,36 +4,22 @@ from langchain_core.messages import HumanMessage
 from langgraph.graph import END, START, StateGraph
 from .schemas import HealthAgentState, HealthContextSchema, AgentConfig
 from .nodes import supervisor_node, tools_node
+from . import settings
 
 
 def should_continue(state: HealthAgentState) -> str:
-    """Decide whether to continue to tools or end the conversation with loop prevention."""
+    """Decide whether to continue to tools or end the conversation."""
     messages = state.get("messages", [])
 
     if not messages:
         return END
 
-    # Count iterations (supervisor -> tools cycles)
-    iteration_count = 0
-    tool_call_count = 0
-
-    for message in messages:
-        if hasattr(message, "tool_calls") and message.tool_calls:
-            iteration_count += 1
-            tool_call_count += len(message.tool_calls)
-
-    # MAX 3 iterations to prevent infinite loops
-    MAX_ITERATIONS = 3
-    MAX_TOOL_CALLS = 5
-
-    if iteration_count >= MAX_ITERATIONS:
-        print(f"⚠️  Stopping agent after {iteration_count} iterations to prevent infinite loop")
-        return END
-
-    if tool_call_count >= MAX_TOOL_CALLS:
-        print(
-            f"⚠️  Stopping agent after {tool_call_count} tool calls to prevent excessive API usage"
-        )
+    # Count tool executions to prevent infinite loops
+    tool_execution_count = sum(1 for msg in messages if hasattr(msg, "tool_calls") and msg.tool_calls)
+    
+    # Hard limit: if we've done 5 tool execution cycles, force stop
+    if tool_execution_count >= 5:
+        print(f"⚠️  Reached 5 tool execution cycles, forcing stop to prevent loop")
         return END
 
     last_message = messages[-1]

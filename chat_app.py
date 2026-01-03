@@ -13,6 +13,8 @@ import uuid
 from datetime import datetime
 from typing import List, Tuple
 import logging
+import json
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -57,6 +59,67 @@ async def chat_with_agent(
             final_message = result["messages"][-1]
             if hasattr(final_message, "content") and final_message.content:
                 agent_response = final_message.content
+                
+                # Check if response contains image data from Python tool
+                # Look for tool messages that might contain JSON with images
+                logger.info(f"Processing {len(result['messages'])} messages for images")
+                for i, msg in enumerate(result["messages"]):
+                    msg_type = type(msg).__name__
+                    logger.info(f"Message {i}: type={msg_type}")
+                    
+                    if hasattr(msg, "content") and isinstance(msg.content, str):
+                        content_preview = msg.content[:100] if len(msg.content) > 100 else msg.content
+                        logger.info(f"  Content preview: {content_preview}")
+                        
+                        # Try to parse as JSON to extract images
+                        try:
+                            if '{' in msg.content and '"images"' in msg.content:
+                                data = json.loads(msg.content)
+                                if "images" in data and data["images"]:
+                                    logger.info(f"  Found {len(data['images'])} images!")
+                                    # Embed images in the response
+                                    for img in data["images"]:
+                                        img_html = f'<img src="data:image/png;base64,{img["data"]}" style="max-width: 600px; border-radius: 8px; margin: 10px 0;"/>'
+                                        agent_response += f"\n\n{img_html}"
+                                        logger.info(f"  Added image: {img['filename']}")
+                        except (json.JSONDecodeError, KeyError) as e:
+                            logger.debug(f"  Not JSON or no images: {e}")
+                
+                # Convert markdown image syntax to HTML for Gradio
+                # Pattern: ![alt text](data:image/png;base64,...)
+                markdown_image_pattern = r'!\[([^\]]*)\]\((data:image/[^;]+;base64,[^)]+)\)'
+                
+                def replace_markdown_image(match):
+                    alt_text = match.group(1)
+                    data_url = match.group(2)
+                    return f'<img src="{data_url}" alt="{alt_text}" style="max-width: 600px; border-radius: 8px; margin: 10px 0;"/>'
+                
+                agent_response = re.sub(markdown_image_pattern, replace_markdown_image, agent_response)
+                logger.info(f"Converted markdown images to HTML")
+                
+                # Extract and display Python code from tool calls
+                python_code_found = False
+                for i, msg in enumerate(result["messages"]):
+                    if hasattr(msg, "tool_calls") and msg.tool_calls:
+                        for tool_call in msg.tool_calls:
+                            # Handle both dict and object formats
+                            tool_name = tool_call.get("name") if isinstance(tool_call, dict) else getattr(tool_call, "name", None)
+                            
+                            if tool_name == "python_interpreter":
+                                # Try multiple ways to get the code
+                                code = None
+                                if isinstance(tool_call, dict):
+                                    code = tool_call.get("args", {}).get("query", "")
+                                else:
+                                    code = getattr(tool_call, "args", {}).get("query", "")
+                                
+                                if code and not python_code_found:
+                                    logger.info(f"Found Python code ({len(code)} chars)")
+                                    # Add code block before the response
+                                    code_block = f"\n\n**Generated Python Code:**\n```python\n{code}\n```\n\n"
+                                    agent_response = code_block + agent_response
+                                    python_code_found = True
+                                    break
             else:
                 agent_response = "I processed your request, but didn't generate a response. Please try rephrasing your question."
         else:

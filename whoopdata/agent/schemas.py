@@ -37,7 +37,7 @@ class AgentConfig:
     """Configuration for LangGraph agent."""
 
     thread_id: str
-    recursion_limit: int = 10
+    recursion_limit: int = 25  # LangGraph recursion limit (higher to avoid premature stops)
 
     def to_dict(self) -> Dict:
         """Convert to LangGraph config format."""
