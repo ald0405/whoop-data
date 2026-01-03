@@ -859,13 +859,19 @@ async def detect_patterns_tool(metric: str, days: int = 30) -> str:
 
 # Configure matplotlib globally before creating the tool
 import matplotlib
+import base64
+import os
+import glob
+from pathlib import Path
 
 matplotlib.use("Agg", force=True)
 
-# Standard Python REPL tool with matplotlib pre-configured
-python_repl_tool = PythonREPLTool(
-    name="python_interpreter",
-    description="""Execute Python code to perform data analysis, create visualizations, and statistical computations.
+
+class PythonREPLWithImages(PythonREPLTool):
+    """Enhanced Python REPL that captures generated plot images."""
+    
+    name: str = "python_interpreter"
+    description: str = """Execute Python code to perform data analysis, create visualizations, and statistical computations.
     
     Use this tool to:
     - Analyze health data with pandas and numpy
@@ -890,7 +896,7 @@ python_repl_tool = PythonREPLTool(
     For plotting:
     - Create your plot as normal with plt.figure(), plt.plot(), etc.
     - Use plt.savefig('filename.png') to save plots
-    - Or return plot data as needed
+    - Images will be automatically captured and displayed
     
     Example:
     ```python
@@ -909,8 +915,50 @@ python_repl_tool = PythonREPLTool(
     plt.close()
     print('Plot saved as sin_plot.png')
     ```
-    """,
-)
+    """
+    
+    def _run(self, query: str) -> str:
+        """Execute code and capture any generated images."""
+        # Get list of existing image files before execution
+        before_files = set(glob.glob("*.png") + glob.glob("*.jpg") + glob.glob("*.jpeg"))
+        
+        # Execute the code using parent class
+        result = super()._run(query)
+        
+        # Get list of image files after execution
+        after_files = set(glob.glob("*.png") + glob.glob("*.jpg") + glob.glob("*.jpeg"))
+        
+        # Find new images
+        new_images = after_files - before_files
+        
+        if new_images:
+            # Encode images as base64 and append to result
+            image_data = []
+            for image_path in sorted(new_images):
+                try:
+                    with open(image_path, "rb") as img_file:
+                        encoded = base64.b64encode(img_file.read()).decode('utf-8')
+                        image_data.append({
+                            "filename": image_path,
+                            "data": encoded
+                        })
+                except Exception as e:
+                    print(f"Error encoding {image_path}: {e}")
+            
+            if image_data:
+                # Return result with embedded image data in JSON format
+                import json
+                return json.dumps({
+                    "output": result,
+                    "images": image_data
+                })
+        
+        # No images generated, return normal result
+        return result
+
+
+# Create instance of enhanced tool
+python_repl_tool = PythonREPLWithImages()
 
 
 # List of all available tools for easy import

@@ -7,7 +7,7 @@ load_dotenv()
 
 # OpenAI Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = "gpt-4o"  # Cost-effective for development
+OPENAI_MODEL = "gpt-4o-mini"  # 128K context, good balance of cost and performance
 OPENAI_TEMPERATURE = 0.3
 OPENAI_MAX_TOKENS = 1000
 
