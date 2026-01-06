@@ -27,21 +27,63 @@ def check_dependencies():
     """Check if required packages are installed"""
     console.print("🔍 [bold]Checking dependencies...[/bold]")
 
-    required_packages = ["fastapi", "uvicorn", "sqlalchemy", "pandas", "requests", "rich"]
+    core_packages = ["fastapi", "uvicorn", "sqlalchemy", "pandas", "requests", "rich"]
+    analytics_packages = ["numpy", "sklearn", "xgboost"]
+    optional_analytics = ["shap"]
 
-    missing = []
-    for package in required_packages:
+    missing_core = []
+    missing_analytics = []
+    missing_optional = []
+
+    for package in core_packages:
         try:
             __import__(package)
         except ImportError:
-            missing.append(package)
+            missing_core.append(package)
 
-    if missing:
-        console.print(f"❌ [bold red]Missing packages: {', '.join(missing)}[/bold red]")
-        console.print("💡 Install with: pip install " + " ".join(missing))
+    for package in analytics_packages:
+        try:
+            __import__(package)
+        except ImportError:
+            missing_analytics.append(package)
+
+    for package in optional_analytics:
+        try:
+            __import__(package)
+        except ImportError:
+            missing_optional.append(package)
+
+    if missing_core:
+        console.print(
+            f"❌ [bold red]Missing core API packages: {', '.join(missing_core)}[/bold red]"
+        )
+        console.print("💡 Install with: pip install " + " ".join(missing_core))
         return False
 
-    console.print("✅ [bold green]All dependencies found[/bold green]")
+    console.print("✅ [bold green]Core API dependencies found[/bold green]")
+
+    if missing_analytics:
+        console.print(
+            f"⚠️ [bold yellow]Missing analytics packages (required for ML pipeline): {', '.join(missing_analytics)}[/bold yellow]"
+        )
+        console.print(
+            "💡 Install with: pip install "
+            + " ".join(
+                "scikit-learn" if pkg == "sklearn" else pkg for pkg in missing_analytics
+            )
+        )
+    else:
+        console.print("✅ [bold green]Analytics dependencies found[/bold green]")
+
+    if missing_optional:
+        console.print(
+            f"ℹ️ [bold cyan]Optional analytics packages missing: {', '.join(missing_optional)}[/bold cyan]"
+        )
+        console.print(
+            "   • These enhance model explainability (SHAP) but are not required for the core API."
+        )
+        console.print("   • Install with: pip install " + " ".join(missing_optional))
+
     return True
 
 
