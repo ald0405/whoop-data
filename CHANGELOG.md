@@ -5,7 +5,15 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-01-06
+
+### 🔧 Changed - Dependency Validation & Release Prep
+
+- Clarified CLI dependency checks by splitting core API vs analytics requirements, adding numpy, scikit-learn, xgboost, and optional SHAP guidance for the ML pipeline.
+- Provided actionable installation tips for each dependency group so users can unblock the analytics pipeline quickly.
+
 ## [1.5.0] - 2026-01-01
+
 
 ### ✨ Added - Cycle Data Loading & Sport-Specific Analysis
 
