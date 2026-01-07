@@ -175,6 +175,105 @@
                 grid-template-columns: 1fr;
             }
         }
+        
+        /* New styles for improvements */
+        .status-section {
+            background: linear-gradient(135deg, rgba(139, 233, 253, 0.1), rgba(189, 147, 249, 0.1));
+            border: 2px solid rgba(139, 233, 253, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .status-card {
+            background: rgba(49, 50, 68, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .status-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .status-card.green { border-color: #50fa7b; }
+        .status-card.yellow { border-color: #ffb86c; }
+        .status-card.red { border-color: #ff6b6b; }
+        
+        .status-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .status-label {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        
+        .badge-green { background: rgba(80, 250, 123, 0.2); color: #50fa7b; }
+        .badge-yellow { background: rgba(255, 184, 108, 0.2); color: #ffb86c; }
+        .badge-red { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+        
+        .section-header {
+            font-size: 1.5em;
+            font-weight: 600;
+            margin: 30px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(139, 233, 253, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .info-icon {
+            cursor: help;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+            font-size: 0.8em;
+            margin-left: 8px;
+        }
+        
+        .info-icon:hover {
+            opacity: 1;
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .recommendation {
+            background: rgba(139, 233, 253, 0.1);
+            border-left: 4px solid #8be9fd;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -187,35 +286,54 @@
             </nav>
         </div>
         
+        <!-- Quick Status Section -->
+        <div class="status-section">
+            <h2 style="margin: 0 0 5px 0; font-size: 1.3em;">⚡ Your Status Right Now</h2>
+            <p style="margin: 0 0 15px 0; color: var(--text-secondary); font-size: 0.9em;">Quick overview of your readiness and key metrics</p>
+            <div class="status-grid" id="statusGrid">
+                <div class="loading">Loading status...</div>
+            </div>
+            <div id="recommendation" style="margin-top: 15px;"></div>
+        </div>
+        
+        <h2 class="section-header">
+            <span>🌍 Context & Environment</span>
+        </h2>
+        
         <div class="info-cards">
             <div class="card" id="weather-card">
-                <h3>☀️ Weather</h3>
+                <h3>☀️ Weather <span class="info-icon" title="Current weather conditions and forecast for planning your day">ℹ️</span></h3>
                 <div class="card-content">
                     <div class="loading">Loading...</div>
                 </div>
             </div>
             
             <div class="card" id="transport-card">
-                <h3>🚇 Transport</h3>
+                <h3>🚇 Transport <span class="info-icon" title="TfL line status and next train arrivals">ℹ️</span></h3>
                 <div class="card-content">
                     <div class="loading">Loading...</div>
                 </div>
             </div>
             
             <div class="card" id="tide-card">
-                <h3>🌊 Thames Tide</h3>
+                <h3>🌊 Thames Tide <span class="info-icon" title="Current tide level and forecast for riverside walks">ℹ️</span></h3>
                 <div class="card-content">
                     <div class="loading">Loading...</div>
                 </div>
             </div>
             
             <div class="card" id="hotspots-card">
-                <h3>🚶 Perfect Walk Times</h3>
+                <h3>🚶 Perfect Walk Times <span class="info-icon" title="Optimal times for riverside walks based on weather, tide, and conditions">ℹ️</span></h3>
                 <div class="card-content">
                     <div class="loading">Loading...</div>
                 </div>
             </div>
         </div>
+        
+        <h2 class="section-header">
+            <span>📊 Your Health Metrics (Last 7 Days)</span>
+            <span style="font-size: 0.6em; font-weight: 400; color: var(--text-secondary);">Hover over charts for details</span>
+        </h2>
         
         <div class="charts-grid">
             <div class="chart-container">
@@ -664,7 +782,113 @@
             }
         }
         
+        // Load quick status
+        async function loadQuickStatus() {
+            try {
+                const response = await fetch('/dashboard/health-metrics');
+                const data = await response.json();
+                
+                const statusGrid = document.getElementById('statusGrid');
+                let html = '';
+                
+                // Recovery
+                if (data.recovery_score) {
+                    const recovery = data.recovery_score.latest || 0;
+                    const statusClass = recovery >= 67 ? 'green' : recovery >= 34 ? 'yellow' : 'red';
+                    const badgeClass = recovery >= 67 ? 'badge-green' : recovery >= 34 ? 'badge-yellow' : 'badge-red';
+                    const statusText = recovery >= 67 ? 'Ready' : recovery >= 34 ? 'Moderate' : 'Rest Needed';
+                    
+                    html += `
+                        <div class="status-card ${statusClass}">
+                            <div class="status-label">Recovery</div>
+                            <div class="status-value">${recovery}%</div>
+                            <div class="status-badge ${badgeClass}">${statusText}</div>
+                        </div>
+                    `;
+                }
+                
+                // HRV
+                if (data.hrv) {
+                    const hrv = data.hrv.latest || 0;
+                    const avg7 = data.hrv.avg_7_days || hrv;
+                    const trend = hrv > avg7 ? '↑' : hrv < avg7 ? '↓' : '→';
+                    const trendColor = hrv > avg7 ? '#50fa7b' : hrv < avg7 ? '#ff6b6b' : '#ffb86c';
+                    
+                    html += `
+                        <div class="status-card">
+                            <div class="status-label">HRV</div>
+                            <div class="status-value">${hrv}<span style="font-size: 0.5em;">ms</span></div>
+                            <div style="color: ${trendColor}; font-size: 1.2em; font-weight: 600;">${trend} vs 7d avg</div>
+                        </div>
+                    `;
+                }
+                
+                // Sleep
+                if (data.sleep_hours) {
+                    const sleep = data.sleep_hours.latest || 0;
+                    const statusClass = sleep >= 7 ? 'green' : sleep >= 6 ? 'yellow' : 'red';
+                    const quality = sleep >= 7 ? 'Good' : sleep >= 6 ? 'Fair' : 'Poor';
+                    
+                    html += `
+                        <div class="status-card ${statusClass}">
+                            <div class="status-label">Sleep</div>
+                            <div class="status-value">${sleep.toFixed(1)}<span style="font-size: 0.5em;">h</span></div>
+                            <div style="color: var(--text-secondary); font-size: 0.9em;">${quality}</div>
+                        </div>
+                    `;
+                }
+                
+                // Strain
+                if (data.strain) {
+                    const strain = data.strain.latest || 0;
+                    const statusClass = strain <= 10 ? 'green' : strain <= 14 ? 'yellow' : 'red';
+                    
+                    html += `
+                        <div class="status-card ${statusClass}">
+                            <div class="status-label">Yesterday's Strain</div>
+                            <div class="status-value">${strain.toFixed(1)}</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9em;">0-21 scale</div>
+                        </div>
+                    `;
+                }
+                
+                statusGrid.innerHTML = html;
+                
+                // Generate recommendation
+                const recovery = data.recovery_score?.latest || 0;
+                const sleep = data.sleep_hours?.latest || 0;
+                const strain = data.strain?.latest || 0;
+                
+                let recommendation = '';
+                
+                if (recovery >= 67 && sleep >= 7) {
+                    recommendation = '💪 <strong>Great status!</strong> You\'re well recovered with good sleep. Perfect day for a challenging workout or important activities.';
+                } else if (recovery >= 67 && sleep < 7) {
+                    recommendation = '⚡ <strong>Good recovery</strong> but sleep was short. Consider prioritizing rest tonight to maintain your recovery.';
+                } else if (recovery < 67 && strain > 14) {
+                    recommendation = '⚠️ <strong>High strain with lower recovery.</strong> Focus on active recovery, good nutrition, and early bedtime tonight.';
+                } else if (recovery < 67 && sleep < 6) {
+                    recommendation = '😴 <strong>Recovery needs attention.</strong> Prioritize sleep and light activity today. Your body needs rest.';
+                } else if (recovery >= 34 && recovery < 67) {
+                    recommendation = '🎯 <strong>Moderate status.</strong> Good for moderate training or work. Avoid overexertion and focus on quality rest.';
+                } else {
+                    recommendation = '🔋 <strong>Rest and recovery mode.</strong> Listen to your body. Light movement, good nutrition, and sleep are priorities.';
+                }
+                
+                document.getElementById('recommendation').innerHTML = `
+                    <div class="recommendation">
+                        ${recommendation}
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Error loading quick status:', error);
+                document.getElementById('statusGrid').innerHTML = '<div class="error">Unable to load status</div>';
+            }
+        }
+        
         // Load all data
+        loadQuickStatus();
         loadHealthMetrics();
         loadWeather();
         loadTransport();

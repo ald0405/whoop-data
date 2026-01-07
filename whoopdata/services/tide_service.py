@@ -271,19 +271,26 @@ class TideService:
         weather_data: dict,
         station_id: str = None,
         days_ahead: int = 3,
+        min_hour: int = 7,
+        max_hour: int = 21,
     ) -> list[dict]:
         """Calculate perfect walk time hotspots.
         
         Scores times based on:
-        - High tide at sunset/sunrise (+3 points)
+        - High tide during daylight hours (+3 points)
         - Clear skies <30% clouds (+2 points)
         - Low wind <10 mph (+1 point)
         - Comfortable temp 10-20°C (+1 point)
+        - Additional points for sunset/sunrise timing
+        
+        Only considers times between min_hour and max_hour (default 7am-9pm).
         
         Args:
             weather_data: Weather forecast data with hourly conditions
             station_id: Station ID (defaults to Silvertown)
-            days_ahead: Number of days to analyze
+            days_ahead: Number of days to analyze (default 3)
+            min_hour: Earliest hour to consider (default 7 for 7am)
+            max_hour: Latest hour to consider (default 21 for 9pm)
             
         Returns:
             List of hotspot dicts with time, score, temperature, and conditions
@@ -304,34 +311,50 @@ class TideService:
         for high_tide in forecast.high_tides:
             tide_time = high_tide["time"]
             
+            # Skip if outside practical hours (default: before 7am or after 9pm)
+            local_hour = tide_time.hour  # Assuming UTC, adjust if needed
+            if local_hour < min_hour or local_hour > max_hour:
+                continue
+            
             score = 0
             conditions = []
             temp_c = None
             
-            # Check if high tide near sunset or sunrise (within 2 hours)
+            # Base points for being during daylight/practical hours
+            if sunrise_timestamp and sunset_timestamp:
+                sunrise_dt = datetime.fromtimestamp(sunrise_timestamp, tz=timezone.utc)
+                sunset_dt = datetime.fromtimestamp(sunset_timestamp, tz=timezone.utc)
+                tide_date = tide_time.date()
+                sunrise_on_tide_date = datetime.combine(tide_date, sunrise_dt.time(), tzinfo=timezone.utc)
+                sunset_on_tide_date = datetime.combine(tide_date, sunset_dt.time(), tzinfo=timezone.utc)
+                
+                # Check if during daylight hours
+                if sunrise_on_tide_date <= tide_time <= sunset_on_tide_date:
+                    score += 2
+                    conditions.append("Daylight hours")
+            
+            # Bonus points for being near sunset or sunrise (within 1 hour)
             is_sunset_time = False
             is_sunrise_time = False
             
             if sunset_timestamp:
                 sunset_dt = datetime.fromtimestamp(sunset_timestamp, tz=timezone.utc)
-                # Use sunset time for the tide date
                 tide_date = tide_time.date()
                 sunset_on_tide_date = datetime.combine(tide_date, sunset_dt.time(), tzinfo=timezone.utc)
                 time_diff = abs((tide_time - sunset_on_tide_date).total_seconds() / 3600)
-                if time_diff <= 2:
-                    score += 3
-                    conditions.append("High tide at sunset")
+                if time_diff <= 1:  # Within 1 hour of sunset
+                    score += 2
+                    conditions.append("Near sunset")
                     is_sunset_time = True
             
             if not is_sunset_time and sunrise_timestamp:
                 sunrise_dt = datetime.fromtimestamp(sunrise_timestamp, tz=timezone.utc)
-                # Use sunrise time for the tide date
                 tide_date = tide_time.date()
                 sunrise_on_tide_date = datetime.combine(tide_date, sunrise_dt.time(), tzinfo=timezone.utc)
                 time_diff = abs((tide_time - sunrise_on_tide_date).total_seconds() / 3600)
-                if time_diff <= 2:
-                    score += 3
-                    conditions.append("High tide at sunrise")
+                if time_diff <= 1 and local_hour >= min_hour:  # Within 1 hour of sunrise AND after min_hour
+                    score += 2
+                    conditions.append("Near sunrise")
                     is_sunrise_time = True
             
             # Find matching weather data for this time
@@ -373,7 +396,11 @@ class TideService:
                 "conditions": conditions,
             })
         
-        # Sort by time (chronological order)
-        hotspots.sort(key=lambda x: x["time"])
+        # Sort by score (best first), then by time
+        hotspots.sort(key=lambda x: (-x["score"], x["time"]))
+        
+        # Update max_score to reflect new scoring (2 base + 2 sunset/sunrise + 2 clouds + 1 wind + 1 temp = 8)
+        for hotspot in hotspots:
+            hotspot["max_score"] = 8
         
         return hotspots

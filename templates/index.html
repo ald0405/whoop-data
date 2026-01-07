@@ -1,6 +1,80 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - WHOOP Health Data Platform{% endblock %}
+{% block title %}Get Ready For The Day - WHOOP Health Data Platform{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metric-card {
+        position: relative;
+        transition: transform 0.2s;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+    }
+    .metric-value-large {
+        font-size: 2.5rem;
+        font-weight: bold;
+        line-height: 1;
+    }
+    .metric-label {
+        font-size: 0.9rem;
+        opacity: 0.8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .trend-indicator {
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin-left: 0.5rem;
+    }
+    .trend-up { color: var(--teal-green); }
+    .trend-down { color: #ff6b6b; }
+    .trend-neutral { color: var(--orange); }
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .status-green { background: rgba(80, 250, 123, 0.2); color: var(--teal-green); }
+    .status-yellow { background: rgba(241, 250, 140, 0.2); color: var(--yellow); }
+    .status-red { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+    .info-icon {
+        cursor: pointer;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+    .info-icon:hover {
+        opacity: 1;
+    }
+    .mini-chart {
+        height: 60px !important;
+        max-height: 60px !important;
+        margin-top: 0.5rem;
+    }
+    .metric-card .card-body {
+        max-height: none;
+    }
+    .section-header {
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .insight-card {
+        border-left: 4px solid var(--lavender);
+    }
+    .insight-priority-high { border-left-color: #ff6b6b; }
+    .insight-priority-medium { border-left-color: var(--orange); }
+    .insight-priority-low { border-left-color: var(--cyan); }
+    .collapse-toggle {
+        cursor: pointer;
+        user-select: none;
+    }
+    .collapse-toggle:hover {
+        opacity: 0.8;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="fade-in">
@@ -10,133 +84,431 @@
             <div class="card glow">
                 <div class="card-header text-center">
                     <h1 class="mb-0">
-                        <i class="bi bi-heart-pulse me-2"></i>
-                        Health Data Dashboard
+                        <i class="bi bi-sunrise me-2"></i>
+                        Get Ready For The Day
                     </h1>
                 </div>
                 <div class="card-body text-center">
                     <p class="card-text mb-0">
-                        Welcome to your comprehensive WHOOP and Withings health data platform.
-                        Explore your recovery, sleep, workouts, and body composition data below.
+                        Your personalized health dashboard with actionable insights to optimize your day.
                     </p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- API Endpoints Section -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h2 class="mb-3">
-                <i class="bi bi-lightning me-2"></i>
-                Quick Access
-            </h2>
+    <!-- Loading Indicator -->
+    <div id="loadingMain" class="text-center mb-4">
+        <div class="spinner-border" role="status" style="color: var(--lavender);">
+            <span class="visually-hidden">Loading...</span>
         </div>
+        <p class="mt-2">Loading your health data...</p>
     </div>
 
-    <!-- WHOOP Data Buttons -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="mb-0">
-                        <i class="bi bi-activity me-2"></i>
-                        WHOOP Data
-                    </h3>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <button class="btn btn-primary w-100" onclick="fetchData('recovery')">
-                                <i class="bi bi-heart me-2"></i>
-                                Recovery Data
-                            </button>
+    <!-- Main Content (Hidden until loaded) -->
+    <div id="mainContent" style="display: none;">
+        <!-- Section 1: Today's Readiness -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2 class="section-header">
+                    <i class="bi bi-lightning-charge me-2"></i>
+                    Today's Readiness
+                </h2>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4" id="readinessCards">
+            <!-- Recovery Card -->
+            <div class="col-md-4">
+                <div class="card metric-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="metric-label">
+                                <i class="bi bi-heart-pulse me-1"></i>
+                                Recovery Score
+                            </span>
+                            <i class="bi bi-info-circle info-icon" 
+                               data-bs-toggle="popover" 
+                               data-bs-placement="top"
+                               data-bs-trigger="hover"
+                               data-bs-content="Your readiness for strain. Green (67-100) = ready, Yellow (34-66) = moderate, Red (0-33) = rest recommended."></i>
                         </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-primary w-100" onclick="fetchLatestData('recovery')">
-                                <i class="bi bi-heart-fill me-2"></i>
-                                Latest Recovery
-                            </button>
+                        <div class="d-flex align-items-center">
+                            <span class="metric-value-large" id="recoveryValue">--</span>
+                            <span class="ms-2">%</span>
+                            <span class="trend-indicator" id="recoveryTrend"></span>
                         </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-success w-100" onclick="fetchData('sleep')">
-                                <i class="bi bi-moon me-2"></i>
-                                Sleep Data
-                            </button>
+                        <div class="mt-2">
+                            <span class="status-badge" id="recoveryStatus">Loading...</span>
                         </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-success w-100" onclick="fetchLatestData('sleep')">
-                                <i class="bi bi-moon-fill me-2"></i>
-                                Latest Sleep
-                            </button>
+                        <div class="mt-2 small text-muted">
+                            <span id="recoveryAvg">7d avg: -- | 28d avg: --</span>
+                        </div>
+                        <canvas id="recoveryMiniChart" class="mini-chart"></canvas>
+                        
+                        <!-- Expandable How to Improve -->
+                        <div class="mt-3">
+                            <a class="text-decoration-none small" data-bs-toggle="collapse" href="#recoveryImprove" role="button">
+                                <i class="bi bi-chevron-down me-1"></i>
+                                How to improve recovery
+                            </a>
+                            <div class="collapse mt-2" id="recoveryImprove">
+                                <div class="small text-muted">
+                                    <ul class="mb-0 ps-3">
+                                        <li>Prioritize 7-9 hours of quality sleep</li>
+                                        <li>Reduce strain when recovery is low (yellow/red)</li>
+                                        <li>Stay hydrated throughout the day</li>
+                                        <li>Manage stress with breathing exercises</li>
+                                        <li>Maintain consistent sleep schedule</li>
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-3">
-                            <button class="btn btn-warning w-100" onclick="fetchData('workouts')">
-                                <i class="bi bi-bicycle me-2"></i>
-                                Workout Data
-                            </button>
+                </div>
+            </div>
+
+            <!-- HRV Card -->
+            <div class="col-md-4">
+                <div class="card metric-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="metric-label">
+                                <i class="bi bi-activity me-1"></i>
+                                Heart Rate Variability
+                            </span>
+                            <i class="bi bi-info-circle info-icon" 
+                               data-bs-toggle="popover" 
+                               data-bs-placement="top"
+                               data-bs-trigger="hover"
+                               data-bs-content="HRV measures your nervous system balance. Higher is generally better. Tracks recovery and stress levels."></i>
                         </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-warning w-100" onclick="fetchLatestData('workouts')">
-                                <i class="bi bi-trophy me-2"></i>
-                                Latest Workout
-                            </button>
+                        <div class="d-flex align-items-center">
+                            <span class="metric-value-large" id="hrvValue">--</span>
+                            <span class="ms-2">ms</span>
+                            <span class="trend-indicator" id="hrvTrend"></span>
                         </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-warning w-100" onclick="fetchData('workouts/get_runs')">
-                                <i class="bi bi-person-walking me-2"></i>
-                                Running Data
-                            </button>
+                        <div class="mt-2 small text-muted">
+                            <span id="hrvAvg">7d avg: -- | 28d avg: --</span>
                         </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-warning w-100" onclick="fetchData('workouts/get_tennis')">
-                                <i class="bi bi-circle me-2"></i>
-                                Tennis Data
-                            </button>
+                        <canvas id="hrvMiniChart" class="mini-chart"></canvas>
+                        
+                        <!-- Expandable How to Improve -->
+                        <div class="mt-3">
+                            <a class="text-decoration-none small" data-bs-toggle="collapse" href="#hrvImprove" role="button">
+                                <i class="bi bi-chevron-down me-1"></i>
+                                How to improve HRV
+                            </a>
+                            <div class="collapse mt-2" id="hrvImprove">
+                                <div class="small text-muted">
+                                    <ul class="mb-0 ps-3">
+                                        <li>Avoid alcohol, especially before bed</li>
+                                        <li>Practice meditation or mindfulness</li>
+                                        <li>Get morning sunlight exposure</li>
+                                        <li>Avoid late-night meals</li>
+                                        <li>Balance training intensity and recovery</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sleep Card -->
+            <div class="col-md-4">
+                <div class="card metric-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="metric-label">
+                                <i class="bi bi-moon-stars me-1"></i>
+                                Sleep Duration
+                            </span>
+                            <i class="bi bi-info-circle info-icon" 
+                               data-bs-toggle="popover" 
+                               data-bs-placement="top"
+                               data-bs-trigger="hover"
+                               data-bs-content="Total sleep time (excluding awake time). Target: 7-9 hours for optimal recovery."></i>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="metric-value-large" id="sleepValue">--</span>
+                            <span class="ms-2">hrs</span>
+                            <span class="trend-indicator" id="sleepTrend"></span>
+                        </div>
+                        <div class="mt-2 small text-muted">
+                            <span id="sleepAvg">7d avg: -- | 28d avg: --</span>
+                        </div>
+                        <canvas id="sleepMiniChart" class="mini-chart"></canvas>
+                        
+                        <!-- Expandable How to Improve -->
+                        <div class="mt-3">
+                            <a class="text-decoration-none small" data-bs-toggle="collapse" href="#sleepImprove" role="button">
+                                <i class="bi bi-chevron-down me-1"></i>
+                                How to improve sleep
+                            </a>
+                            <div class="collapse mt-2" id="sleepImprove">
+                                <div class="small text-muted">
+                                    <ul class="mb-0 ps-3">
+                                        <li>Go to bed at the same time each night</li>
+                                        <li>Keep bedroom cool (65-68°F / 18-20°C)</li>
+                                        <li>Limit screen time 1 hour before bed</li>
+                                        <li>Avoid caffeine after 2 PM</li>
+                                        <li>Create a relaxing bedtime routine</li>
+                                    </ul>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Withings Data Buttons -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="mb-0">
-                        <i class="bi bi-speedometer me-2"></i>
-                        Withings Data
-                    </h3>
+        <!-- Section 2: Key Actions -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2 class="section-header">
+                    <i class="bi bi-clipboard-check me-2"></i>
+                    Key Actions For Today
+                </h2>
+            </div>
+        </div>
+
+        <div class="row mb-4" id="keyActionsSection">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div id="keyActionsContent">
+                            <div class="text-center text-muted">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading insights...</span>
+                                </div>
+                                <span class="ms-2">Loading personalized recommendations...</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <button class="btn btn-info w-100" onclick="fetchData('withings/weight')">
-                                <i class="bi bi-graph-up me-2"></i>
-                                Weight Data
-                            </button>
+            </div>
+        </div>
+
+        <!-- Section 3: Quick Context -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2 class="section-header">
+                    <i class="bi bi-cloud-sun me-2"></i>
+                    Quick Context
+                </h2>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4" id="contextCards">
+            <!-- Weather Card -->
+            <div class="col-md-6 col-lg-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2">
+                            <i class="bi bi-cloud-sun me-1"></i>
+                            Weather Today
+                        </h6>
+                        <div id="weatherContent">
+                            <small class="text-muted">Loading...</small>
                         </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-info w-100" onclick="fetchLatestData('withings/weight')">
-                                <i class="bi bi-graph-up-arrow me-2"></i>
-                                Latest Weight
-                            </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transport Card -->
+            <div class="col-md-6 col-lg-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2">
+                            <i class="bi bi-train-front me-1"></i>
+                            Transport Status
+                        </h6>
+                        <div id="transportContent">
+                            <small class="text-muted">Loading...</small>
                         </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-info w-100" onclick="fetchData('withings/weight/stats')">
-                                <i class="bi bi-bar-chart me-2"></i>
-                                Weight Stats
-                            </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tide Card -->
+            <div class="col-md-6 col-lg-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2">
+                            <i class="bi bi-water me-1"></i>
+                            Thames Tide
+                        </h6>
+                        <div id="tideContent">
+                            <small class="text-muted">Loading...</small>
                         </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-info w-100" onclick="fetchData('withings/heart-rate')">
-                                <i class="bi bi-heart-pulse me-2"></i>
-                                Heart Rate Data
-                            </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Walk Hotspots Card -->
+            <div class="col-md-6 col-lg-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-subtitle mb-2">
+                            <i class="bi bi-sun me-1"></i>
+                            Best Walk Time
+                        </h6>
+                        <div id="walkHotspotsContent">
+                            <small class="text-muted">Loading...</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: What Matters Most (Analytics) -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center section-header">
+                    <h2 class="mb-0">
+                        <i class="bi bi-bullseye me-2"></i>
+                        What Matters Most
+                    </h2>
+                    <button class="btn btn-sm btn-outline-info collapse-toggle" 
+                            type="button" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#analyticsSection">
+                        <i class="bi bi-chevron-down"></i>
+                        Show Analytics
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="collapse" id="analyticsSection">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="bi bi-bar-chart me-1"></i>
+                                Recovery Factors
+                            </h6>
+                        </div>
+                        <div class="card-body" id="factorImportanceContent">
+                            <small class="text-muted">Loading factor analysis...</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="bi bi-arrow-left-right me-1"></i>
+                                Key Correlations
+                            </h6>
+                        </div>
+                        <div class="card-body" id="correlationsContent">
+                            <small class="text-muted">Loading correlations...</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: This Week's Trends -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center section-header">
+                    <h2 class="mb-0">
+                        <i class="bi bi-graph-up me-2"></i>
+                        This Week's Trends
+                    </h2>
+                    <button class="btn btn-sm btn-outline-primary collapse-toggle" 
+                            type="button" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#trendsSection">
+                        <i class="bi bi-chevron-down"></i>
+                        Show Details
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="collapse" id="trendsSection">
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Recovery & Strain</h6>
+                        </div>
+                        <div class="card-body" style="height: 250px; position: relative;">
+                            <canvas id="recoveryStrainChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Sleep Metrics</h6>
+                        </div>
+                        <div class="card-body" style="height: 250px; position: relative;">
+                            <canvas id="sleepMetricsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 6: Deep Dive (Collapsible) -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center section-header">
+                    <h2 class="mb-0">
+                        <i class="bi bi-database me-2"></i>
+                        Deep Dive & Raw Data
+                    </h2>
+                    <button class="btn btn-sm btn-outline-secondary collapse-toggle" 
+                            type="button" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#deepDiveSection">
+                        <i class="bi bi-chevron-down"></i>
+                        Show Data Access
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="collapse" id="deepDiveSection">
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">WHOOP Data</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <button class="btn btn-sm btn-primary w-100" onclick="fetchData('recovery')">
+                                        <i class="bi bi-heart me-1"></i>
+                                        Recovery Data
+                                    </button>
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn btn-sm btn-success w-100" onclick="fetchData('sleep')">
+                                        <i class="bi bi-moon me-1"></i>
+                                        Sleep Data
+                                    </button>
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn btn-sm btn-warning w-100" onclick="fetchData('workouts')">
+                                        <i class="bi bi-bicycle me-1"></i>
+                                        Workouts
+                                    </button>
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn btn-sm btn-info w-100" onclick="fetchData('withings/weight')">
+                                        <i class="bi bi-graph-up me-1"></i>
+                                        Weight Data
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -209,8 +581,11 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
     let currentData = null;
+    let healthMetrics = null;
+    let miniCharts = {};
 
     // Function to fetch data from API endpoints
     async function fetchData(endpoint) {
@@ -287,29 +662,29 @@
         const firstRow = data[0];
         const headers = Object.keys(firstRow);
         
-        let html = '<div class="table-responsive"><table class="table table-dark table-striped table-hover">';
+        let html = '<div class="table-responsive"><table class="table table-striped table-hover" style="background: var(--card-bg); color: var(--text-primary);">';
         
-        // Headers
-        html += '<thead><tr>';
+        // Headers - simpler styling
+        html += '<thead style="background: rgba(189, 147, 249, 0.2); border-bottom: 2px solid var(--lavender);"><tr>';
         headers.forEach(header => {
-            html += `<th>${formatHeader(header)}</th>`;
+            html += `<th style="padding: 0.75rem; font-weight: 600; color: var(--cyan);">${formatHeader(header)}</th>`;
         });
         html += '</tr></thead>';
         
         // Body
         html += '<tbody>';
         data.slice(0, 10).forEach(row => { // Limit to 10 rows for display
-            html += '<tr>';
+            html += '<tr style="border-bottom: 1px solid var(--border-color);">';
             headers.forEach(header => {
                 const value = row[header];
-                html += `<td>${formatValue(header, value)}</td>`;
+                html += `<td style="padding: 0.75rem;">${formatValue(header, value)}</td>`;
             });
             html += '</tr>';
         });
         html += '</tbody></table></div>';
         
         if (data.length > 10) {
-            html += `<p class="text-muted text-center">Showing 10 of ${data.length} records</p>`;
+            html += `<p class="text-muted text-center mt-2">Showing 10 of ${data.length} records</p>`;
         }
         
         return html;
@@ -341,41 +716,97 @@
 
     // Function to format header names
     function formatHeader(header) {
+        // Special case mappings for better readability
+        const headerMap = {
+            'baseline_sleep_needed_milli': 'Baseline Need',
+            'need_from_sleep_debt_milli': 'Sleep Debt',
+            'need_from_recent_strain_milli': 'Strain Need',
+            'need_from_recent_nap_milli': 'Nap Offset',
+            'sleep_performance_percentage': 'Performance',
+            'sleep_consistency_percentage': 'Consistency',
+            'sleep_efficiency_percentage': 'Efficiency',
+            'respiratory_rate': 'Resp. Rate',
+            'disturbance_count': 'Disturbances',
+            'sleep_cycle_count': 'Cycles'
+        };
+        
+        if (headerMap[header]) {
+            return headerMap[header];
+        }
+        
         return header.replace(/_/g, ' ')
                     .replace(/\b\w/g, l => l.toUpperCase())
-                    .replace(/Id/g, 'ID');
+                    .replace(/Id/g, 'ID')
+                    .replace(/ Milli/g, '');
     }
 
     // Function to format values
     function formatValue(key, value) {
         if (value === null || value === undefined) return '<span class="text-muted">—</span>';
         
-        // Format dates
-        if (key.includes('date') || key.includes('time') || key === 'created_at' || key === 'updated_at') {
+        // Format dates - cleaner formatting
+        if (key.includes('date') || key.includes('time') || key === 'created_at' || key === 'updated_at' || key === 'start' || key === 'end') {
             if (typeof value === 'string' && value.includes('T')) {
-                return new Date(value).toLocaleString();
+                const date = new Date(value);
+                // Format as: Jan 7, 11:50 PM
+                return date.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
             }
         }
         
-        // Format percentages
+        // Format milliseconds to hours (for sleep data)
+        if (key.includes('milli') && !key.includes('hrv')) {
+            if (typeof value === 'number') {
+                const hours = value / 3600000;
+                return `${hours.toFixed(1)}h`;
+            }
+        }
+        
+        // Format percentages - no decimal for whole numbers
         if (key.includes('score') || key.includes('percent') || key.includes('ratio')) {
             if (typeof value === 'number') {
-                return `${value}%`;
+                return value % 1 === 0 ? `${value}%` : `${value.toFixed(1)}%`;
             }
         }
         
         // Format weights
         if (key.includes('weight') || key.includes('mass')) {
             if (typeof value === 'number') {
-                return `${value} kg`;
+                return `${value.toFixed(1)} kg`;
             }
         }
         
         // Format heart rate
         if (key.includes('heart_rate') || key.includes('bpm')) {
             if (typeof value === 'number') {
-                return `${value} bpm`;
+                return `${Math.round(value)} bpm`;
             }
+        }
+        
+        // Format respiratory rate
+        if (key.includes('respiratory')) {
+            if (typeof value === 'number') {
+                return `${value.toFixed(1)} bpm`;
+            }
+        }
+        
+        // Format counts (disturbance, cycles)
+        if (key.includes('count')) {
+            if (typeof value === 'number') {
+                return Math.round(value).toString();
+            }
+        }
+        
+        // Format other numbers - limit decimals
+        if (typeof value === 'number') {
+            // For whole numbers, don't show decimals
+            if (value % 1 === 0) return value.toString();
+            // For decimals, show max 1 decimal place
+            return value.toFixed(1);
         }
         
         return value;
@@ -419,5 +850,627 @@
         
         summaryContent.innerHTML = summaryHtml;
     }
+
+    // ========== NEW AUTO-LOADING FUNCTIONALITY ==========
+
+    // Initialize Bootstrap popovers
+    function initPopovers() {
+        const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+        popoverTriggerList.map(function (popoverTriggerEl) {
+            return new bootstrap.Popover(popoverTriggerEl);
+        });
+    }
+
+    // Calculate trend (comparing 7-day vs 28-day averages)
+    function calculateTrend(avg7, avg28, higherIsBetter = true) {
+        if (!avg7 || !avg28) return { arrow: '', class: '', text: 'stable' };
+        
+        const diff = avg7 - avg28;
+        const threshold = avg28 * 0.02; // 2% threshold
+        
+        if (Math.abs(diff) < threshold) {
+            return { arrow: '→', class: 'trend-neutral', text: 'stable' };
+        }
+        
+        if (diff > 0) {
+            return higherIsBetter 
+                ? { arrow: '↑', class: 'trend-up', text: 'improving' }
+                : { arrow: '↑', class: 'trend-down', text: 'worsening' };
+        } else {
+            return higherIsBetter 
+                ? { arrow: '↓', class: 'trend-down', text: 'declining' }
+                : { arrow: '↓', class: 'trend-up', text: 'improving' };
+        }
+    }
+
+    // Create mini sparkline chart
+    function createMiniChart(canvasId, data, color) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return null;
+        
+        // Force canvas dimensions
+        canvas.style.height = '60px';
+        canvas.style.maxHeight = '60px';
+        canvas.height = 60;
+        
+        const chartData = data.slice().reverse(); // Oldest to newest
+        
+        return new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: chartData.map((_, i) => ''),
+                datasets: [{
+                    data: chartData,
+                    borderColor: color,
+                    backgroundColor: color + '33',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                },
+                scales: {
+                    x: { display: false },
+                    y: { display: false }
+                },
+                elements: {
+                    line: { borderWidth: 2 },
+                    point: { radius: 0 }
+                },
+                layout: {
+                    padding: 0
+                }
+            }
+        });
+    }
+
+    // Load and display health metrics
+    async function loadHealthMetrics() {
+        try {
+            const response = await fetch('/dashboard/health-metrics');
+            if (!response.ok) throw new Error('Failed to fetch health metrics');
+            
+            healthMetrics = await response.json();
+            
+            // Update Recovery
+            if (healthMetrics.recovery_score) {
+                const recovery = healthMetrics.recovery_score;
+                document.getElementById('recoveryValue').textContent = recovery.latest || '--';
+                document.getElementById('recoveryAvg').textContent = 
+                    `7d avg: ${recovery.avg_7_days || '--'} | 28d avg: ${recovery.avg_28_days || '--'}`;
+                
+                const trend = calculateTrend(recovery.avg_7_days, recovery.avg_28_days, true);
+                const trendEl = document.getElementById('recoveryTrend');
+                trendEl.textContent = trend.arrow;
+                trendEl.className = 'trend-indicator ' + trend.class;
+                
+                // Status badge
+                const status = document.getElementById('recoveryStatus');
+                if (recovery.latest >= 67) {
+                    status.textContent = 'Green - Ready';
+                    status.className = 'status-badge status-green';
+                } else if (recovery.latest >= 34) {
+                    status.textContent = 'Yellow - Moderate';
+                    status.className = 'status-badge status-yellow';
+                } else {
+                    status.textContent = 'Red - Rest';
+                    status.className = 'status-badge status-red';
+                }
+                
+                // Mini chart
+                if (recovery.last_7_days && recovery.last_7_days.length > 0) {
+                    miniCharts.recovery = createMiniChart('recoveryMiniChart', recovery.last_7_days, '#8be9fd');
+                }
+            }
+            
+            // Update HRV
+            if (healthMetrics.hrv) {
+                const hrv = healthMetrics.hrv;
+                document.getElementById('hrvValue').textContent = hrv.latest || '--';
+                document.getElementById('hrvAvg').textContent = 
+                    `7d avg: ${hrv.avg_7_days || '--'} | 28d avg: ${hrv.avg_28_days || '--'}`;
+                
+                const trend = calculateTrend(hrv.avg_7_days, hrv.avg_28_days, true);
+                const trendEl = document.getElementById('hrvTrend');
+                trendEl.textContent = trend.arrow;
+                trendEl.className = 'trend-indicator ' + trend.class;
+                
+                // Mini chart
+                if (hrv.last_7_days && hrv.last_7_days.length > 0) {
+                    miniCharts.hrv = createMiniChart('hrvMiniChart', hrv.last_7_days, '#ff79c6');
+                }
+            }
+            
+            // Update Sleep
+            if (healthMetrics.sleep_hours) {
+                const sleep = healthMetrics.sleep_hours;
+                document.getElementById('sleepValue').textContent = sleep.latest?.toFixed(1) || '--';
+                document.getElementById('sleepAvg').textContent = 
+                    `7d avg: ${sleep.avg_7_days?.toFixed(1) || '--'} | 28d avg: ${sleep.avg_28_days?.toFixed(1) || '--'}`;
+                
+                const trend = calculateTrend(sleep.avg_7_days, sleep.avg_28_days, true);
+                const trendEl = document.getElementById('sleepTrend');
+                trendEl.textContent = trend.arrow;
+                trendEl.className = 'trend-indicator ' + trend.class;
+                
+                // Mini chart
+                if (sleep.last_7_days && sleep.last_7_days.length > 0) {
+                    miniCharts.sleep = createMiniChart('sleepMiniChart', sleep.last_7_days, '#bd93f9');
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error loading health metrics:', error);
+            document.getElementById('loadingMain').innerHTML = 
+                '<div class="alert alert-danger">Failed to load health metrics. Please refresh the page.</div>';
+        }
+    }
+
+    // Load analytics insights
+    async function loadInsights() {
+        try {
+            const response = await fetch('/analytics/insights/weekly');
+            
+            if (response.status === 404) {
+                // Analytics not yet computed
+                document.getElementById('keyActionsContent').innerHTML = `
+                    <div class="alert alert-info" style="background: rgba(139, 233, 253, 0.1); border: 1px solid var(--cyan);">
+                        <h6 class="alert-heading"><i class="bi bi-info-circle me-2"></i>Insights Coming Soon</h6>
+                        <p class="mb-2">To see personalized recommendations based on your health patterns:</p>
+                        <ol class="mb-0 ps-3">
+                            <li>Run <code>make run</code> from terminal</li>
+                            <li>Select option 6: "Run analytics pipeline"</li>
+                            <li>Refresh this page to see your insights</li>
+                        </ol>
+                    </div>
+                `;
+                return;
+            }
+            
+            const insights = await response.json();
+            const container = document.getElementById('keyActionsContent');
+            let html = '';
+            
+            if (insights.insights && insights.insights.length > 0) {
+                insights.insights.slice(0, 3).forEach((insight, index) => {
+                    // Map priority number to class (1=high, 5=low)
+                    const priorityClass = insight.priority <= 2 ? 'insight-priority-high' : 
+                                         insight.priority <= 3 ? 'insight-priority-medium' : 'insight-priority-low';
+                    const icon = insight.category === 'success' ? 'check-circle' : 
+                                insight.category === 'alert' ? 'exclamation-triangle' : 'lightbulb';
+                    
+                    html += `
+                        <div class="card insight-card ${priorityClass} mb-3">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start">
+                                    <span style="font-size: 1.5rem; margin-right: 1rem;">${insight.emoji || '💡'}</span>
+                                    <div>
+                                        <p class="mb-0">${insight.insight_text}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                html = `
+                    <div class="alert alert-info" style="background: rgba(139, 233, 253, 0.1); border: 1px solid var(--cyan);">
+                        <i class="bi bi-info-circle me-2"></i>
+                        No insights generated yet. Run the analytics pipeline to see personalized recommendations.
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+            
+        } catch (error) {
+            console.error('Error loading insights:', error);
+            document.getElementById('keyActionsContent').innerHTML = `
+                <div class="alert alert-warning" style="background: rgba(255, 184, 108, 0.1); border: 1px solid var(--orange);">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Unable to load insights. Check console for details.
+                </div>
+            `;
+        }
+    }
+
+    // Load context data (weather, transport)
+    async function loadContextData() {
+        try {
+            const response = await fetch('/dashboard/daily');
+            const data = await response.json();
+            
+            // Weather
+            if (data.context?.weather && !data.context.weather.error) {
+                const w = data.context.weather;
+                document.getElementById('weatherContent').innerHTML = `
+                    <div class="mb-2">
+                        <strong>${w.current.temp}°C</strong> (feels like ${w.current.feels_like}°C)
+                    </div>
+                    <div class="small">
+                        ${w.current.conditions}<br>
+                        ${w.forecast_today}<br>
+                        Air Quality: ${w.air_quality?.description || 'N/A'}
+                    </div>
+                `;
+            } else {
+                document.getElementById('weatherContent').innerHTML = 
+                    '<small class="text-muted">Weather unavailable</small>';
+            }
+            
+            // Transport
+            if (data.context?.transport && !data.context.transport.error) {
+                const t = data.context.transport;
+                let html = '';
+                
+                if (t.lines) {
+                    for (const [line, info] of Object.entries(t.lines)) {
+                        const isGood = info.status === 'Good Service';
+                        const color = isGood ? 'var(--teal-green)' : '#ff6b6b';
+                        html += `
+                            <div class="mb-2" style="border-left: 3px solid ${color}; padding-left: 8px;">
+                                <small><strong>${line}:</strong> ${info.status}</small>
+                            </div>
+                        `;
+                    }
+                } else {
+                    html = '<small class="text-muted">All lines operational</small>';
+                }
+                
+                document.getElementById('transportContent').innerHTML = html;
+            } else {
+                document.getElementById('transportContent').innerHTML = 
+                    '<small class="text-muted">Transport data unavailable</small>';
+            }
+            
+            // Tide
+            if (data.context?.tide && !data.context.tide.error) {
+                const tide = data.context.tide;
+                let tideHtml = '';
+                
+                if (tide.current) {
+                    tideHtml += `
+                        <div class="mb-2">
+                            <strong>${tide.current.level}${tide.current.unit}</strong>
+                        </div>
+                        <div class="small text-muted">
+                            ${tide.current.station}
+                        </div>
+                    `;
+                }
+                
+                if (tide.next_high_tide) {
+                    const time = new Date(tide.next_high_tide.time);
+                    const timeStr = time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                    tideHtml += `
+                        <div class="mt-2 small">
+                            <span style="color: var(--cyan);">↑</span> High: ${tide.next_high_tide.height}m @ ${timeStr}
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('tideContent').innerHTML = tideHtml;
+            } else {
+                document.getElementById('tideContent').innerHTML = 
+                    '<small class="text-muted">Tide data unavailable</small>';
+            }
+            
+            // Walk Hotspots
+            if (data.context?.walk_hotspots && Array.isArray(data.context.walk_hotspots) && data.context.walk_hotspots.length > 0) {
+                const hotspot = data.context.walk_hotspots[0]; // Show best time
+                const time = new Date(hotspot.time);
+                const dateStr = time.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                const timeStr = time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                
+                let scoreColor = '#ff6b6b';
+                if (hotspot.score >= 5) scoreColor = 'var(--teal-green)';
+                else if (hotspot.score >= 3) scoreColor = 'var(--orange)';
+                
+                let html = `
+                    <div class="mb-2">
+                        <strong style="color: ${scoreColor};">${dateStr}</strong>
+                    </div>
+                    <div class="mb-2">
+                        <strong>${timeStr}</strong>
+                    </div>
+                    <div class="small text-muted">
+                        Score: ${hotspot.score}/${hotspot.max_score}<br>
+                        ${hotspot.tide_height}m tide, ${hotspot.temperature ? hotspot.temperature + '°C' : 'N/A'}
+                    </div>
+                `;
+                
+                document.getElementById('walkHotspotsContent').innerHTML = html;
+            } else {
+                document.getElementById('walkHotspotsContent').innerHTML = 
+                    '<small class="text-muted">No optimal times found</small>';
+            }
+            
+        } catch (error) {
+            console.error('Error loading context data:', error);
+        }
+    }
+
+    // Load factor importance
+    async function loadFactorImportance() {
+        try {
+            const response = await fetch('/analytics/recovery/factors');
+            
+            if (response.status === 404) {
+                // Analytics not yet computed
+                document.getElementById('factorImportanceContent').innerHTML = `
+                    <div class="alert alert-info mb-0" style="background: rgba(139, 233, 253, 0.1); border: 1px solid var(--cyan); font-size: 0.85rem;">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Analytics not yet computed.</strong><br>
+                        Run the analytics pipeline from the CLI (option 6) to generate insights about what factors affect your recovery most.
+                    </div>
+                `;
+                return;
+            }
+            
+            const data = await response.json();
+            const container = document.getElementById('factorImportanceContent');
+            let html = '';
+            
+            if (data.factors && data.factors.length > 0) {
+                html += '<div class="mb-3"><small class="text-muted">Top factors influencing your recovery:</small></div>';
+                
+                data.factors.slice(0, 5).forEach(factor => {
+                    const percentage = factor.importance_percentage.toFixed(0);
+                    html += `
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <small><strong>${factor.factor_name}</strong></small>
+                                <small class="text-muted">${percentage}%</small>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar" 
+                                     style="width: ${percentage}%; background: linear-gradient(90deg, var(--lavender), var(--cyan));" 
+                                     role="progressbar"></div>
+                            </div>
+                            <small class="text-muted">${factor.explanation}</small>
+                        </div>
+                    `;
+                });
+                
+                if (data.model_accuracy) {
+                    html += `<div class="mt-3"><small class="text-muted"><em>Model R²: ${(data.model_accuracy * 100).toFixed(0)}%</em></small></div>`;
+                }
+            } else {
+                html = `
+                    <div class="alert alert-info mb-0" style="background: rgba(139, 233, 253, 0.1); border: 1px solid var(--cyan); font-size: 0.85rem;">
+                        <i class="bi bi-info-circle me-2"></i>
+                        No factor data available. Run analytics pipeline to generate.
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+            
+        } catch (error) {
+            console.error('Error loading factor importance:', error);
+            document.getElementById('factorImportanceContent').innerHTML = `
+                <div class="alert alert-warning mb-0" style="background: rgba(255, 184, 108, 0.1); border: 1px solid var(--orange); font-size: 0.85rem;">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Unable to load factor analysis. Check console for details.
+                </div>
+            `;
+        }
+    }
+
+    // Load correlations
+    async function loadCorrelations() {
+        try {
+            const response = await fetch('/analytics/correlations');
+            
+            if (response.status === 404) {
+                // Analytics not yet computed
+                document.getElementById('correlationsContent').innerHTML = `
+                    <div class="alert alert-info mb-0" style="background: rgba(139, 233, 253, 0.1); border: 1px solid var(--cyan); font-size: 0.85rem;">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Analytics not yet computed.</strong><br>
+                        Run the analytics pipeline from the CLI (option 6) to discover relationships in your data.
+                    </div>
+                `;
+                return;
+            }
+            
+            const data = await response.json();
+            const container = document.getElementById('correlationsContent');
+            let html = '';
+            
+            if (data.correlations && data.correlations.length > 0) {
+                html += '<div class="mb-3"><small class="text-muted">Strongest relationships in your data:</small></div>';
+                
+                data.correlations.slice(0, 5).forEach(corr => {
+                    const strength = Math.abs(corr.correlation);
+                    const direction = corr.correlation > 0 ? 'positive' : 'negative';
+                    const color = corr.correlation > 0 ? 'var(--teal-green)' : '#ff6b6b';
+                    
+                    html += `
+                        <div class="mb-3 pb-2" style="border-bottom: 1px solid var(--border-color);">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <small><strong>${corr.metric_1}</strong> ↔ <strong>${corr.metric_2}</strong></small>
+                                <span style="color: ${color}; font-weight: bold;">${corr.correlation.toFixed(2)}</span>
+                            </div>
+                            <small class="text-muted">${corr.explanation}</small>
+                        </div>
+                    `;
+                });
+            } else {
+                html = `
+                    <div class="alert alert-info mb-0" style="background: rgba(139, 233, 253, 0.1); border: 1px solid var(--cyan); font-size: 0.85rem;">
+                        <i class="bi bi-info-circle me-2"></i>
+                        No correlation data available. Run analytics pipeline to generate.
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+            
+        } catch (error) {
+            console.error('Error loading correlations:', error);
+            document.getElementById('correlationsContent').innerHTML = `
+                <div class="alert alert-warning mb-0" style="background: rgba(255, 184, 108, 0.1); border: 1px solid var(--orange); font-size: 0.85rem;">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Unable to load correlations. Check console for details.
+                </div>
+            `;
+        }
+    }
+
+    // Load trend charts
+    async function loadTrendCharts() {
+        if (!healthMetrics) return;
+        
+        // Recovery & Strain Chart
+        const recoveryData = healthMetrics.recovery_score?.last_7_days || [];
+        const strainData = healthMetrics.strain?.last_7_days || [];
+        
+        const labels = recoveryData.map((_, i) => {
+            const date = new Date();
+            date.setDate(date.getDate() - (recoveryData.length - 1 - i));
+            return date.toLocaleDateString('en-US', { weekday: 'short' });
+        });
+        
+        new Chart(document.getElementById('recoveryStrainChart'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Recovery',
+                        data: recoveryData.slice().reverse(),
+                        borderColor: '#8be9fd',
+                        backgroundColor: '#8be9fd33',
+                        yAxisID: 'y',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Strain',
+                        data: strainData.slice().reverse(),
+                        borderColor: '#50fa7b',
+                        backgroundColor: '#50fa7b33',
+                        yAxisID: 'y1',
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true },
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: { display: true, text: 'Recovery (%)' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: { display: true, text: 'Strain' },
+                        grid: { drawOnChartArea: false }
+                    }
+                }
+            }
+        });
+        
+        // Sleep Metrics Chart
+        const sleepHours = healthMetrics.sleep_hours?.last_7_days || [];
+        const sleepEfficiency = healthMetrics.sleep_efficiency?.last_7_days || [];
+        
+        new Chart(document.getElementById('sleepMetricsChart'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Sleep Hours',
+                        data: sleepHours.slice().reverse(),
+                        backgroundColor: '#bd93f933',
+                        borderColor: '#bd93f9',
+                        borderWidth: 2,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Efficiency (%)',
+                        data: sleepEfficiency.slice().reverse(),
+                        type: 'line',
+                        borderColor: '#ffb86c',
+                        backgroundColor: '#ffb86c33',
+                        yAxisID: 'y1',
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: { display: true, text: 'Hours' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: { display: true, text: 'Efficiency (%)' },
+                        grid: { drawOnChartArea: false }
+                    }
+                }
+            }
+        });
+    }
+
+    // Initialize everything on page load
+    document.addEventListener('DOMContentLoaded', async function() {
+        // Initialize popovers
+        initPopovers();
+        
+        // Load all data
+        await loadHealthMetrics();
+        await Promise.all([
+            loadInsights(),
+            loadContextData()
+        ]);
+        
+        // Load analytics when section is expanded
+        document.getElementById('analyticsSection').addEventListener('shown.bs.collapse', function() {
+            if (!miniCharts.analytics) {
+                loadFactorImportance();
+                loadCorrelations();
+                miniCharts.analytics = true;
+            }
+        });
+        
+        // Load trend charts when section is expanded
+        document.getElementById('trendsSection').addEventListener('shown.bs.collapse', function() {
+            if (!miniCharts.trends) {
+                loadTrendCharts();
+                miniCharts.trends = true;
+            }
+        });
+        
+        // Hide loading, show content
+        document.getElementById('loadingMain').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+    });
 </script>
 {% endblock %}
