@@ -14,6 +14,7 @@ from whoopdata.crud.workout import get_recoveries as get_workouts  # Historical 
 from whoopdata.services.weather_service import WeatherAPI
 from whoopdata.services.transport_service import TravelAPI
 from whoopdata.services.health_metrics_service import get_all_health_metrics
+from whoopdata.services.tide_service import TideService
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -27,6 +28,9 @@ except ValueError:
     weather_service = None
 
 transport_service = TravelAPI()
+
+# Initialize tide service
+tide_service = TideService()
 
 # Default location for weather (Canary Wharf / South Quay area)
 DEFAULT_LOCATION = "Canary Wharf"
@@ -225,6 +229,93 @@ async def get_daily_dashboard(
         dashboard_data["context"]["transport"] = transport_status
     except Exception as e:
         dashboard_data["context"]["transport"] = {"error": str(e)}
+
+    # Thames tide data
+    try:
+        # Get current tide for Silvertown (default East London station)
+        current_tide = await tide_service.get_latest_reading("0001")
+        
+        # Get tide forecast for next 24 hours
+        tide_forecast = await tide_service.get_tide_forecast("0001", hours_ahead=24)
+        
+        if current_tide:
+            dashboard_data["context"]["tide"] = {
+                "current": {
+                    "level": round(current_tide.value, 2),
+                    "unit": current_tide.unit,
+                    "station": "Silvertown",
+                    "timestamp": current_tide.timestamp.isoformat(),
+                },
+                "next_high_tide": (
+                    {
+                        "time": tide_forecast.high_tides[0]["time"].isoformat(),
+                        "height": round(tide_forecast.high_tides[0]["height"], 2),
+                    }
+                    if tide_forecast.high_tides
+                    else None
+                ),
+                "next_low_tide": (
+                    {
+                        "time": tide_forecast.low_tides[0]["time"].isoformat(),
+                        "height": round(tide_forecast.low_tides[0]["height"], 2),
+                    }
+                    if tide_forecast.low_tides
+                    else None
+                ),
+            }
+        else:
+            dashboard_data["context"]["tide"] = {"error": "Unable to fetch tide data"}
+    except Exception as e:
+        dashboard_data["context"]["tide"] = {"error": str(e)}
+
+    # Perfect walk hotspots (if weather service available)
+    if weather_service:
+        try:
+            # Get Silvertown coordinates
+            coords = {"lat": 51.4975, "lon": 0.0526}
+            
+            # Get hourly forecast for hotspot calculation
+            forecast = weather_service.get_forecast(coords["lat"], coords["lon"])
+            
+            # Convert to format expected by tide service
+            weather_data = {
+                "hourly": [
+                    {
+                        "dt": int(datetime.fromisoformat(f["timestamp"]).timestamp()),
+                        "clouds": f.get("clouds", 100),
+                        "wind_speed": f.get("wind_speed", 0),
+                        "temp": f.get("temperature", 273) + 273.15,  # Convert C to K
+                    }
+                    for f in forecast.get("forecast", [])
+                ],
+                "sunrise": forecast.get("sunrise"),
+                "sunset": forecast.get("sunset"),
+            }
+            
+            hotspots = await tide_service.calculate_perfect_walk_hotspots(
+                weather_data=weather_data,
+                station_id="0001",
+                days_ahead=5,
+            )
+            
+            # Include top 5 hotspots
+            dashboard_data["context"]["walk_hotspots"] = [
+                {
+                    "time": spot["time"].isoformat(),
+                    "score": spot["score"],
+                    "max_score": 7,
+                    "tide_height": round(spot["tide_height"], 2),
+                    "temperature": round(spot["temperature"], 1) if spot["temperature"] is not None else None,
+                    "conditions": spot["conditions"],
+                }
+                for spot in hotspots[:5]
+            ]
+        except Exception as e:
+            dashboard_data["context"]["walk_hotspots"] = {"error": str(e)}
+    else:
+        dashboard_data["context"]["walk_hotspots"] = {
+            "error": "Weather service required for hotspot calculation"
+        }
 
     return dashboard_data
 

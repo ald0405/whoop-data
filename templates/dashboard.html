@@ -201,6 +201,20 @@
                     <div class="loading">Loading...</div>
                 </div>
             </div>
+            
+            <div class="card" id="tide-card">
+                <h3>🌊 Thames Tide</h3>
+                <div class="card-content">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
+            
+            <div class="card" id="hotspots-card">
+                <h3>🚶 Perfect Walk Times</h3>
+                <div class="card-content">
+                    <div class="loading">Loading...</div>
+                </div>
+            </div>
         </div>
         
         <div class="charts-grid">
@@ -511,13 +525,155 @@
             }
         }
         
+        async function loadTideData() {
+            try {
+                const response = await fetch('/dashboard/daily');
+                const data = await response.json();
+                
+                const tideCard = document.getElementById('tide-card');
+                
+                if (data.context.tide && !data.context.tide.error) {
+                    const tide = data.context.tide;
+                    let html = '';
+                    
+                    // Current tide
+                    if (tide.current) {
+                        const currentTime = new Date(tide.current.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                        html += `
+                            <div class="metric-row">
+                                <span class="metric-label">Current Level</span>
+                                <span class="metric-value">${tide.current.level}${tide.current.unit}</span>
+                            </div>
+                            <div class="metric-row">
+                                <span class="metric-label">Station</span>
+                                <span class="metric-value">${tide.current.station}</span>
+                            </div>
+                            <div class="metric-row" style="font-size: 0.85em; color: #a6adc8; margin-top: 4px;">
+                                <span>Updated: ${currentTime}</span>
+                            </div>
+                        `;
+                    }
+                    
+                    // Next high tide
+                    if (tide.next_high_tide) {
+                        const highTime = new Date(tide.next_high_tide.time);
+                        const highTimeStr = highTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                        const highDateStr = highTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                        
+                        html += `
+                            <div style="border-top: 1px solid rgba(68, 71, 90, 0.5); margin-top: 10px; padding-top: 8px;">
+                                <div class="metric-row">
+                                    <span class="metric-label">Next High Tide</span>
+                                    <span class="metric-value" style="color: #8be9fd;">${tide.next_high_tide.height}m</span>
+                                </div>
+                                <div class="metric-row" style="font-size: 0.85em; color: #a6adc8;">
+                                    <span>${highDateStr} at ${highTimeStr}</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Next low tide
+                    if (tide.next_low_tide) {
+                        const lowTime = new Date(tide.next_low_tide.time);
+                        const lowTimeStr = lowTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                        const lowDateStr = lowTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                        
+                        html += `
+                            <div style="border-top: 1px solid rgba(68, 71, 90, 0.5); margin-top: 8px; padding-top: 8px;">
+                                <div class="metric-row">
+                                    <span class="metric-label">Next Low Tide</span>
+                                    <span class="metric-value" style="color: #ffb86c;">${tide.next_low_tide.height}m</span>
+                                </div>
+                                <div class="metric-row" style="font-size: 0.85em; color: #a6adc8;">
+                                    <span>${lowDateStr} at ${lowTimeStr}</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    tideCard.querySelector('.card-content').innerHTML = html;
+                } else {
+                    tideCard.querySelector('.card-content').innerHTML = 
+                        '<div class="error">' + (data.context.tide?.error || 'Failed to load tide data') + '</div>';
+                }
+            } catch (error) {
+                console.error('Error loading tide data:', error);
+                document.getElementById('tide-card').querySelector('.card-content').innerHTML = 
+                    '<div class="error">Failed to load tide data</div>';
+            }
+        }
+        
+        async function loadWalkHotspots() {
+            try {
+                const response = await fetch('/dashboard/daily');
+                const data = await response.json();
+                
+                const hotspotsCard = document.getElementById('hotspots-card');
+                
+                if (data.context.walk_hotspots && !data.context.walk_hotspots.error) {
+                    const hotspots = data.context.walk_hotspots;
+                    let html = '';
+                    
+                    if (hotspots.length === 0) {
+                        html = '<div style="color: #a6adc8; font-size: 0.9em;">No optimal walk times found in the next 3 days</div>';
+                    } else {
+                        // Show top 3 hotspots
+                        hotspots.slice(0, 3).forEach((spot, index) => {
+                            const time = new Date(spot.time);
+                            const dateStr = time.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                            const timeStr = time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                            
+                            // Score color
+                            let scoreColor = '#ff6b6b'; // Red for low scores
+                            if (spot.score >= 5) scoreColor = '#50fa7b'; // Green for high scores
+                            else if (spot.score >= 3) scoreColor = '#ffb86c'; // Orange for medium scores
+                            
+                            html += `
+                                <div style="${index > 0 ? 'border-top: 1px solid rgba(68, 71, 90, 0.5); margin-top: 10px; padding-top: 10px;' : ''}">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <span style="font-weight: 600; color: #f1f1f1;">${dateStr} at ${timeStr}</span>
+                                        <span style="font-weight: 600; color: ${scoreColor};">${spot.score}/${spot.max_score}</span>
+                                    </div>
+                                    <div style="font-size: 0.85em; color: #a6adc8; margin-bottom: 2px;">
+                                        Tide: ${spot.tide_height}m${spot.temperature !== null ? ` • Temp: ${spot.temperature}°C` : ''}
+                                    </div>
+                            `;
+                            
+                            if (spot.conditions && spot.conditions.length > 0) {
+                                html += '<div style="font-size: 0.85em; color: #a6adc8;">';
+                                spot.conditions.forEach(condition => {
+                                    html += `<div>• ${condition}</div>`;
+                                });
+                                html += '</div>';
+                            }
+                            
+                            html += '</div>';
+                        });
+                    }
+                    
+                    hotspotsCard.querySelector('.card-content').innerHTML = html;
+                } else {
+                    hotspotsCard.querySelector('.card-content').innerHTML = 
+                        '<div class="error">' + (data.context.walk_hotspots?.error || 'Failed to load walk hotspots') + '</div>';
+                }
+            } catch (error) {
+                console.error('Error loading walk hotspots:', error);
+                document.getElementById('hotspots-card').querySelector('.card-content').innerHTML = 
+                    '<div class="error">Failed to load walk hotspots</div>';
+            }
+        }
+        
         // Load all data
         loadHealthMetrics();
         loadWeather();
         loadTransport();
+        loadTideData();
+        loadWalkHotspots();
         
-        // Auto-refresh transport data every 30 seconds
+        // Auto-refresh transport and tide data every 30 seconds
         setInterval(loadTransport, 30000);
+        setInterval(loadTideData, 30000);
     </script>
 </body>
 </html>

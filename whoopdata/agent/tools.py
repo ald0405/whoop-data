@@ -857,6 +857,96 @@ async def detect_patterns_tool(metric: str, days: int = 30) -> str:
         return f"Error detecting patterns: {str(e)}"
 
 
+# Thames Tide Tools
+@tool(
+    "get_tide_times",
+    description="Get Thames tide information including current level and next high/low tides - perfect for planning riverside walks",
+)
+async def get_tide_times_tool(station: str = "0001") -> str:
+    """Get current Thames tide level and forecast for next high/low tides.
+
+    Args:
+        station: Station ID (default: 0001 = Silvertown, East London). Other options: 0003 = Charlton, 0007 = Tower Pier
+
+    Returns:
+        JSON string containing current tide level and next high/low tide times with heights
+
+    Examples:
+        - get_tide_times_tool() - Current tide and forecast for Silvertown
+        - get_tide_times_tool("0007") - Tide info for Tower Pier
+    """
+    try:
+        async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
+            # Get current tide
+            current_url = f"{settings.HEALTH_API_BASE_URL}/tides/current"
+            current_params = {"station": station}
+            current_response = await client.get(current_url, params=current_params)
+
+            # Get forecast
+            forecast_url = f"{settings.HEALTH_API_BASE_URL}/tides/forecast"
+            forecast_params = {"station": station, "hours": 24}
+            forecast_response = await client.get(forecast_url, params=forecast_params)
+
+            if current_response.status_code == 200 and forecast_response.status_code == 200:
+                current = current_response.json()
+                forecast = forecast_response.json()
+
+                result = {
+                    "current_tide": current,
+                    "next_high_tide": forecast["high_tides"][0] if forecast["high_tides"] else None,
+                    "next_low_tide": forecast["low_tides"][0] if forecast["low_tides"] else None,
+                    "all_high_tides_24h": forecast["high_tides"],
+                    "all_low_tides_24h": forecast["low_tides"],
+                }
+                return json.dumps(result, indent=2)
+            else:
+                return f"Error retrieving tide data: Current={current_response.status_code}, Forecast={forecast_response.status_code}"
+
+    except Exception as e:
+        return f"Error retrieving tide data: {str(e)}"
+
+
+@tool(
+    "get_perfect_walk_times",
+    description="Get perfect Thames walk hotspots - times when high tide coincides with sunset/sunrise and good weather",
+)
+async def get_perfect_walk_times_tool(days: int = 3) -> str:
+    """Find optimal times for Thames riverside walks based on tides, weather, and sunset/sunrise.
+
+    Scores times based on:
+    - High tide at sunset/sunrise (+3 points)
+    - Clear skies <25% clouds (+2 points)
+    - Low wind <10 mph (+1 point)
+    - Comfortable temp 10-20°C (+1 point)
+
+    Args:
+        days: Number of days to analyze (1-5, default: 3)
+
+    Returns:
+        JSON string containing ranked list of perfect walk times with scores and conditions
+
+    Use case: "When should I go for a walk on the Thames to see the sunset with high tide?"
+
+    Examples:
+        - get_perfect_walk_times_tool() - Next 3 days of hotspots
+        - get_perfect_walk_times_tool(5) - Next 5 days of optimal walk times
+    """
+    try:
+        async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
+            url = f"{settings.HEALTH_API_BASE_URL}/tides/optimal-walk"
+            params = {"days": min(days, 5)}  # Cap at 5 days
+            response = await client.get(url, params=params)
+
+            if response.status_code == 200:
+                data = response.json()
+                return json.dumps(data, indent=2)
+            else:
+                return f"Error retrieving walk hotspots: HTTP {response.status_code} - {response.text}"
+
+    except Exception as e:
+        return f"Error retrieving walk hotspots: {str(e)}"
+
+
 # Configure matplotlib globally before creating the tool
 import matplotlib
 import base64
@@ -992,6 +1082,9 @@ AVAILABLE_TOOLS = [
     get_weather_forecast_tool,
     # Transport Tools
     get_transport_status_tool,
+    # Tide Tools
+    get_tide_times_tool,
+    get_perfect_walk_times_tool,
     # Code Execution Tools
     python_repl_tool,
 ]

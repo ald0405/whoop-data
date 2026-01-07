@@ -6,6 +6,7 @@ from whoopdata.api.weather_routes import router as weather_router
 from whoopdata.api.transport_routes import router as transport_router
 from whoopdata.api.dashboard_routes import router as dashboard_router
 from whoopdata.api.analytics_routes import router as analytics_router
+from whoopdata.api.tide_routes import router as tide_router
 from whoopdata.__version__ import __version__
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -101,3 +102,4 @@ app.include_router(weather_router)
 app.include_router(transport_router)
 app.include_router(dashboard_router)
 app.include_router(analytics_router)
+app.include_router(tide_router)

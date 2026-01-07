@@ -92,6 +92,11 @@ class WeatherAPI:
 
         data = response.json()
         forecasts = []
+        
+        # Extract sunrise and sunset from city data
+        city_data = data.get("city", {})
+        sunrise = city_data.get("sunrise")
+        sunset = city_data.get("sunset")
 
         for item in data["list"]:
             forecasts.append(
@@ -102,10 +107,16 @@ class WeatherAPI:
                     "conditions": item["weather"][0]["description"],
                     "humidity": item["main"]["humidity"],
                     "wind_speed": item["wind"]["speed"],
+                    "clouds": item.get("clouds", {}).get("all", 0),
                 }
             )
 
-        return {"location": data["city"]["name"], "forecast": forecasts}
+        return {
+            "location": data["city"]["name"],
+            "forecast": forecasts,
+            "sunrise": sunrise,
+            "sunset": sunset,
+        }
 
     def get_air_quality(self, lat: float, lon: float) -> Dict[str, Any]:
         """Fetch current air quality data for given coordinates.
