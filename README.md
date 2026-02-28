@@ -1,24 +1,20 @@
-# 🏥 AI-Powered Health Data Platform
+# WHOOP Health Data Platform
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![UV](https://img.shields.io/badge/package%20manager-UV-orange.svg)](https://github.com/astral-sh/uv)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![OpenAI](https://img.shields.io/badge/AI-OpenAI%20GPT-green.svg)](https://openai.com/)
-[![LangGraph](https://img.shields.io/badge/Agent-LangGraph-purple.svg)](https://langchain-ai.github.io/langgraph/)
 
-A comprehensive **AI-powered health data platform** that integrates WHOOP and Withings devices with a conversational agent interface. Chat with your health data using natural language queries!
+A health data platform that integrates WHOOP and Withings devices. Includes ETL pipelines, a REST API, analytics (including multiple linear regression), and a conversational agent for querying your data.
 
-## ✨ Features
+## Features
 
-- 🤖 **AI Health Data Agent** - Chat with your data using natural language
-- 📊 **Comprehensive Data Integration** - WHOOP + Withings APIs
-- 🎾 **Sport-Specific Analysis** - Tennis, running, and general workout tracking
-- 📈 **Trend Analysis** - Weight, recovery, sleep patterns over time
-- 🌐 **REST API** - Complete FastAPI backend with documentation
-- 💬 **Web Chat Interface** - Beautiful Gradio-powered chat UI
+- **Data Integration** -- ETL pipelines for WHOOP (recovery, sleep, workouts, cycles) and Withings (weight, body composition, heart rate)
+- **REST API** -- FastAPI backend with interactive Swagger docs
+- **Analytics Pipeline** -- Trend analysis, correlation analysis, and multiple linear regression models for recovery and HRV
+- **Chat Agent** -- LangGraph-based agent for natural language queries against your health data
+- **Dashboard** -- Web UI with charts, MLR coefficient tables, partial correlation charts, and correlation heatmaps
 
-
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Install UV and Dependencies
 
@@ -35,98 +31,92 @@ uv sync
 Create a `.env` file with your API credentials:
 
 ```bash
-# WHOOP OAuth 2.0 (Browser-based authentication - no username/password needed!)
+# WHOOP OAuth 2.0
 WHOOP_CLIENT_ID=your_whoop_client_id
 WHOOP_CLIENT_SECRET=your_whoop_client_secret
 
-# Withings OAuth credentials  
+# Withings OAuth
 WITHINGS_CLIENT_ID=your_withings_client_id
 WITHINGS_CLIENT_SECRET=your_withings_client_secret
 WITHINGS_CALLBACK_URL=http://localhost:8766/callback
 
-# OpenAI API for AI agent functionality
+# OpenAI (required for the chat agent)
 OPENAI_API_KEY=your_openai_api_key
 ```
 
-**📝 Note**: WHOOP uses OAuth 2.0 browser authentication - you'll be redirected to login through their website when needed.
+WHOOP uses OAuth 2.0 browser authentication -- you will be redirected to log in through their website when first running the ETL.
 
-### 3. Initialize Database & Load Data
+### 3. Initialise Database and Load Data
 
 ```bash
-# Start the interactive CLI launcher
 make run
 ```
 
-This will:
-1. 📦 **Create database tables** (SQLite in `./db/whoop.db`)
-2. 🔐 **Authenticate with WHOOP** (browser popup for OAuth)
-3. 🔐 **Authenticate with Withings** (browser popup for OAuth)
-4. 📊 **Load your health data** (recovery, workouts, sleep, weight, etc.)
-5. 🌐 **Start the API server** (http://localhost:8000)
+The interactive CLI will walk you through creating tables, authenticating with WHOOP and Withings, loading data, and starting the API server.
 
-### 4. Start the AI Chat Interface
+### 4. Start the Chat Interface (optional)
 
 ```bash
 make chat
 ```
 
-### 5. Start Chatting! 🎉
-
-**🤖 AI Chat Interface**: http://localhost:7860
-
-**Example Questions to Try:**
+Chat UI runs at http://localhost:7860. You can ask questions like:
 - "Show me my tennis workouts from 2025"
 - "What's my weight trend over the last 30 days?"
 - "How has my recovery been this month?"
-- "Get my latest sleep data and analyze my patterns"
-- "Show me my running performance with TRIMP scores"
 
-**🌐 REST API Access:**
-- **Interactive API Docs**: http://localhost:8000/docs
-- **Alternative Docs**: http://localhost:8000/redoc
-- **Sample Endpoint**: http://localhost:8000/recovery/latest
+### 5. Access the API
 
-## 🔧 Troubleshooting
-
-For detailed troubleshooting guides, see:
-- [WHOOP Authentication Issues](docs/technical/)
-- [Withings Setup Guide](docs/technical/)
-- Run `uv run whoop-withings-auth` to re-authenticate Withings
-- Delete `.whoop_tokens.json` if you encounter 401 errors
-
-
-## 🔌 API Endpoints
-
-Explore the interactive API documentation at:
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 
-Key endpoints include recovery, workouts, sleep, weight, and heart rate data.
+## Make Commands
 
-## 🛠️ Common Commands
+```
+Setup:
+  make install        Install production dependencies
+  make dev            Install with dev dependencies
+  make sync           Sync/update dependencies
 
-```bash
-make help        # Show all available commands
-make run         # Start interactive CLI
-make server      # Start FastAPI server
-make chat        # Start chat interface
-make etl         # Run ETL pipeline
-make verify      # System verification
+Run:
+  make run            Start the interactive CLI launcher
+  make server         Start FastAPI server
+  make etl            Run ETL pipeline (incremental)
+  make etl-full       Run ETL pipeline (full load)
+  make chat           Start chat interface
+  make analytics      Run analytics pipeline
+  make langgraph-dev  Start LangGraph dev server with LangSmith Studio
+
+Development:
+  make test           Run tests with pytest
+  make test-cov       Run tests with coverage report
+  make format         Format code with black
+  make lint           Lint with flake8
+  make typecheck      Type check with mypy
+  make verify         Run system verification
+
+Maintenance:
+  make clean          Clean cache files and build artifacts
+  make clean-all      Clean everything including .venv
 ```
 
-Run `make help` to see all available commands.
+## Troubleshooting
 
-
+- **WHOOP 401 errors** -- Delete `.whoop_tokens.json` and re-authenticate
+- **Withings re-auth** -- Run `uv run whoop-withings-auth`
+- See [docs/technical/](docs/technical/) for detailed guides
 
 ## Documentation
 
-Comprehensive documentation is available in the [`docs/`](docs/README.md) directory:
+Documentation is in the [`docs/`](docs/README.md) directory:
 
-- **[Technical Documentation](docs/technical/)** - Development logs, API changes, and troubleshooting
-- **[Features Documentation](docs/features/)** - Feature specifications and configurations
+- [Technical Documentation](docs/technical/) -- Development logs, API changes, troubleshooting
+- [Features Documentation](docs/features/) -- Feature specs and configuration
 
-For API documentation, visit http://localhost:8000/docs after starting the application.
+## Acknowledgements
+
+The multiple linear regression module was inspired by [idossha/whoop-insights](https://github.com/idossha/whoop-insights/blob/main/src/whoop_sync/mlr.py).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License. See [LICENSE](LICENSE) for details.
