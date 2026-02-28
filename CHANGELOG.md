@@ -5,6 +5,32 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-02-28
+
+### Added - Multiple Linear Regression Analytics
+
+- **Recovery MLR model** using statsmodels OLS, predicting recovery score from sleep, physiological, and activity features. Outputs R-squared, coefficients, t-values, p-values, and partial correlations.
+- **HRV MLR model** using the same approach for HRV (RMSSD), including workout strain and zone data where available.
+- **Correlation heatmap** across all numeric health features, rendered on the analytics dashboard with retina-quality output and horizontal scroll.
+- **Three new API endpoints**: `/analytics/recovery/mlr`, `/analytics/hrv/mlr`, `/analytics/correlations/matrix`.
+- **Three new analytics pipeline steps** (11 total, up from 8): Recovery MLR, HRV MLR, and Correlation Matrix.
+- **Dashboard sections** for MLR coefficient tables, partial correlation bar charts, and the correlation heatmap.
+- **Pydantic schemas** for MLR coefficients, model responses, partial correlations, and correlation matrix.
+- **30 unit tests** in `tests/test_mlr.py` covering data prep, model fitting, result extraction, serialisation, edge cases, and correlation matrix.
+- Added `statsmodels>=0.14.0` and `loguru>=0.7.3` dependencies.
+
+### Fixed
+
+- Data join direction in MLR data preparation now uses Recovery as the hub table, matching the rest of the codebase.
+- Derived light sleep time from existing columns (Sleep model does not have total_light_sleep_time_milli).
+- NaN and Inf values in statsmodels output no longer break JSON serialisation.
+- Added fillna(0) after outer joins to prevent dropna from removing all rows.
+
+### Known Issues
+
+- Workout.cycle_id remains NULL for all workouts (WHOOP API does not return it). Fix planned for a future release.
+- Recovery.cycle_id stores WHOOP API IDs that do not match Cycle.id (auto-increment). The MLR module works around this with outer joins.
+
 ## [1.6.1] - 2026-01-06
 
 ### 🔧 Changed - Dependency Validation & Release Prep

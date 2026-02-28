@@ -414,6 +414,46 @@
                 </div>
             </section>
             
+            <!-- MLR Analysis -->
+            <section class="charts-section" id="mlr-section" style="display: none;">
+                <h2 class="section-title">📐 Statistical Model (MLR)</h2>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Recovery MLR — Standardised Coefficients</h3>
+                        <div id="recovery-mlr-table" style="overflow-x: auto;"></div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Recovery — Partial Correlations</h3>
+                        <div class="chart-container">
+                            <canvas id="recoveryPartialCorrChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>HRV MLR — Standardised Coefficients</h3>
+                        <div id="hrv-mlr-table" style="overflow-x: auto;"></div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>HRV — Partial Correlations</h3>
+                        <div class="chart-container">
+                            <canvas id="hrvPartialCorrChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Correlation Heatmap -->
+            <section class="charts-section" id="heatmap-section" style="display: none;">
+                <h2 class="section-title">🗺️ Correlation Heatmap</h2>
+                <div class="charts-grid">
+                    <div class="chart-card" style="grid-column: 1 / -1;">
+                        <h3>Metric Correlations</h3>
+                        <div style="overflow-x: auto; padding-bottom: 12px;">
+                            <canvas id="correlationHeatmap"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Recovery Deep Dive -->
             <section class="charts-section">
                 <h2 class="section-title">💪 Recovery Deep Dive</h2>
@@ -1079,8 +1119,190 @@
             });
         }
         
+        // ===================== MLR Loading =====================
+        async function loadMLRData() {
+            try {
+                const [recoveryRes, hrvRes, matrixRes] = await Promise.all([
+                    fetch('/analytics/recovery/mlr'),
+                    fetch('/analytics/hrv/mlr'),
+                    fetch('/analytics/correlations/matrix'),
+                ]);
+
+                if (recoveryRes.ok) {
+                    const recoveryData = await recoveryRes.json();
+                    renderMLRTable('recovery-mlr-table', recoveryData, recoveryData.r_squared, recoveryData.adj_r_squared);
+                    renderPartialCorrChart('recoveryPartialCorrChart', recoveryData.partial_correlations, '#8be9fd');
+                    document.getElementById('mlr-section').style.display = 'block';
+                }
+
+                if (hrvRes.ok) {
+                    const hrvData = await hrvRes.json();
+                    renderMLRTable('hrv-mlr-table', hrvData, hrvData.r_squared, hrvData.adj_r_squared);
+                    renderPartialCorrChart('hrvPartialCorrChart', hrvData.partial_correlations, '#ff79c6');
+                    document.getElementById('mlr-section').style.display = 'block';
+                }
+
+                if (matrixRes.ok) {
+                    const matrixData = await matrixRes.json();
+                    renderCorrelationHeatmap(matrixData);
+                    document.getElementById('heatmap-section').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('MLR data load error:', error);
+            }
+        }
+
+        function renderMLRTable(containerId, data, r2, adjR2) {
+            const container = document.getElementById(containerId);
+            let html = `<div style="margin-bottom: 12px; font-size: 0.9em; color: var(--text-secondary);">R² = ${(r2 * 100).toFixed(1)}% | Adj R² = ${(adjR2 * 100).toFixed(1)}% | n = ${data.n_observations}</div>`;
+            html += '<table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">';
+            html += '<thead><tr style="border-bottom: 2px solid var(--text-secondary);">';
+            html += '<th style="text-align: left; padding: 8px; color: var(--text-secondary);">Feature</th>';
+            html += '<th style="text-align: right; padding: 8px; color: var(--text-secondary);">Coeff</th>';
+            html += '<th style="text-align: right; padding: 8px; color: var(--text-secondary);">p-value</th>';
+            html += '<th style="text-align: center; padding: 8px; color: var(--text-secondary);">Sig</th>';
+            html += '<th style="text-align: right; padding: 8px; color: var(--text-secondary);">CI</th>';
+            html += '</tr></thead><tbody>';
+
+            data.coefficients.forEach(row => {
+                const sigColor = row.significant ? 'var(--color-success)' : 'var(--text-secondary)';
+                const bgColor = row.significant ? 'rgba(80, 250, 123, 0.08)' : 'transparent';
+                html += `<tr style="border-bottom: 1px solid rgba(68, 71, 90, 0.3); background: ${bgColor};">`;
+                html += `<td style="padding: 8px; color: var(--text-primary);">${row.feature}</td>`;
+                html += `<td style="padding: 8px; text-align: right; color: ${sigColor}; font-weight: ${row.significant ? '600' : '400'};">${row.coefficient.toFixed(3)}</td>`;
+                html += `<td style="padding: 8px; text-align: right; color: ${sigColor};">${row.p_value < 0.001 ? '<0.001' : row.p_value.toFixed(3)}</td>`;
+                html += `<td style="padding: 8px; text-align: center;">${row.significant ? '✅' : '—'}</td>`;
+                html += `<td style="padding: 8px; text-align: right; color: var(--text-secondary); font-size: 0.85em;">[${row.ci_lower.toFixed(2)}, ${row.ci_upper.toFixed(2)}]</td>`;
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function renderPartialCorrChart(canvasId, partialCorrs, color) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const labels = partialCorrs.map(p => p.feature);
+            const values = partialCorrs.map(p => p.partial_correlation);
+            const colors = values.map(v => v >= 0 ? color : '#ff6b6b');
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Partial Correlation',
+                        data: values,
+                        backgroundColor: colors,
+                        borderColor: colors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#313244',
+                            titleColor: '#f1f1f1',
+                            bodyColor: '#a6adc8',
+                            callbacks: {
+                                label: ctx => `r = ${ctx.parsed.x.toFixed(3)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(68, 71, 90, 0.3)' },
+                            min: -1,
+                            max: 1
+                        },
+                        y: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderCorrelationHeatmap(data) {
+            const canvas = document.getElementById('correlationHeatmap');
+            const n = data.features.length;
+            const cellSize = Math.max(70, Math.floor(800 / n));
+            const labelSpace = 160;
+            const width = labelSpace + n * cellSize;
+            const height = labelSpace + n * cellSize;
+
+            // Use 2x resolution for crisp rendering on retina displays
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            ctx.fillStyle = '#1e1e2e';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw cells
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    const val = data.matrix[i][j];
+                    ctx.fillStyle = corrColor(val);
+                    ctx.fillRect(labelSpace + j * cellSize, labelSpace + i * cellSize, cellSize - 1, cellSize - 1);
+
+                    // Value text
+                    ctx.fillStyle = Math.abs(val) > 0.5 ? '#1e1e2e' : '#a6adc8';
+                    ctx.font = `${Math.max(10, cellSize / 4.5)}px -apple-system, sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(val.toFixed(2), labelSpace + j * cellSize + cellSize / 2, labelSpace + i * cellSize + cellSize / 2);
+                }
+            }
+
+            // Labels
+            ctx.fillStyle = '#a6adc8';
+            ctx.font = `${Math.max(10, cellSize / 4)}px -apple-system, sans-serif`;
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            for (let i = 0; i < n; i++) {
+                ctx.fillText(data.features[i], labelSpace - 6, labelSpace + i * cellSize + cellSize / 2);
+            }
+
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            for (let j = 0; j < n; j++) {
+                ctx.save();
+                ctx.translate(labelSpace + j * cellSize + cellSize / 2, labelSpace - 6);
+                ctx.rotate(-Math.PI / 4);
+                ctx.textAlign = 'left';
+                ctx.fillText(data.features[j], 0, 0);
+                ctx.restore();
+            }
+        }
+
+        function corrColor(val) {
+            // Blue for positive, red for negative, interpolated
+            const abs = Math.min(Math.abs(val), 1);
+            if (val >= 0) {
+                const r = Math.round(30 + (1 - abs) * 109);
+                const g = Math.round(50 + abs * 183);
+                const b = Math.round(68 + abs * 185);
+                return `rgb(${r},${g},${b})`;
+            } else {
+                const r = Math.round(30 + abs * 225);
+                const g = Math.round(50 + (1 - abs) * 57);
+                const b = Math.round(68 + (1 - abs) * 39);
+                return `rgb(${r},${g},${b})`;
+            }
+        }
+
         // Load analytics on page load
         loadAnalytics();
+        loadMLRData();
     </script>
 </body>
 </html>
