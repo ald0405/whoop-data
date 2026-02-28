@@ -130,3 +130,43 @@ class AnalyticsSummaryResponse(BaseModel):
     recovery_trend: PatternDetectionResponse
     hrv_trend: PatternDetectionResponse
     timestamp: datetime
+
+
+# =================== MLR Schemas ===================
+
+
+class MLRCoefficientRow(BaseModel):
+    """Single row from an OLS coefficient table."""
+
+    feature: str
+    coefficient: float
+    std_error: float
+    t_value: float
+    p_value: float
+    significant: bool
+    ci_lower: float
+    ci_upper: float
+
+
+class PartialCorrelationRow(BaseModel):
+    """Partial correlation for a single feature."""
+
+    feature: str
+    partial_correlation: float
+
+
+class MLRModelResponse(BaseModel):
+    """Response for an MLR (OLS) model analysis."""
+
+    coefficients: List[MLRCoefficientRow]
+    partial_correlations: List[PartialCorrelationRow]
+    r_squared: float
+    adj_r_squared: float
+    n_observations: int
+
+
+class CorrelationMatrixResponse(BaseModel):
+    """Full correlation matrix for heatmap rendering."""
+
+    features: List[str]
+    matrix: List[List[float]]

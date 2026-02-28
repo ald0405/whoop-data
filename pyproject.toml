@@ -54,6 +54,7 @@ dependencies = [
     # Scientific computing
     "scikit-learn>=1.3.0",
     "scipy>=1.11.0",
+    "statsmodels>=0.14.0",
     "xgboost>=2.0.0",
     # LangChain ecosystem
     "langchain==0.3.17",
@@ -74,6 +75,7 @@ dependencies = [
     # CLI utilities
     "rich",
     "langgraph-cli[inmem]>=0.4.11",
+    "loguru>=0.7.3",
 ]
 
 [project.optional-dependencies]

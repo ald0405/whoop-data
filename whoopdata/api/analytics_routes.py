@@ -20,6 +20,8 @@ from whoopdata.schemas.analytics import (
     InsightResponse,
     PatternDetectionResponse,
     AnalyticsSummaryResponse,
+    MLRModelResponse,
+    CorrelationMatrixResponse,
 )
 from whoopdata.analytics.engine import (
     RecoveryFactorAnalyzer,
@@ -515,3 +517,88 @@ async def get_analytics_summary(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading analytics summary: {str(e)}")
+
+
+@router.get("/recovery/mlr", response_model=MLRModelResponse)
+async def get_recovery_mlr(
+    days_back: int = Query(365, description="Days of historical data"),
+    db: Session = Depends(get_db),
+):
+    """Get Multiple Linear Regression analysis for recovery.
+
+    Returns standardised OLS coefficients, p-values, confidence intervals,
+    partial correlations, R² and adjusted R² for the recovery model.
+    """
+    try:
+        result = results_loader.load_result("recovery_mlr", days_back=days_back)
+
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Recovery MLR not yet computed. Run the analytics pipeline first (option 6 in CLI).",
+            )
+
+        result.pop("_computed_at", None)
+        return MLRModelResponse(**result)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading recovery MLR: {str(e)}")
+
+
+@router.get("/hrv/mlr", response_model=MLRModelResponse)
+async def get_hrv_mlr(
+    days_back: int = Query(365, description="Days of historical data"),
+    db: Session = Depends(get_db),
+):
+    """Get Multiple Linear Regression analysis for HRV.
+
+    Returns standardised OLS coefficients, p-values, confidence intervals,
+    partial correlations, R² and adjusted R² for the HRV model.
+    """
+    try:
+        result = results_loader.load_result("hrv_mlr", days_back=days_back)
+
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="HRV MLR not yet computed. Run the analytics pipeline first (option 6 in CLI).",
+            )
+
+        result.pop("_computed_at", None)
+        return MLRModelResponse(**result)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading HRV MLR: {str(e)}")
+
+
+@router.get("/correlations/matrix", response_model=CorrelationMatrixResponse)
+async def get_correlation_matrix(
+    days_back: int = Query(365, description="Days of historical data"),
+    db: Session = Depends(get_db),
+):
+    """Get full correlation matrix for heatmap rendering.
+
+    Returns a square matrix of Pearson correlations across key health metrics.
+    """
+    try:
+        result = results_loader.load_result("correlation_matrix", days_back=days_back)
+
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Correlation matrix not yet computed. Run the analytics pipeline first (option 6 in CLI).",
+            )
+
+        result.pop("_computed_at", None)
+        return CorrelationMatrixResponse(**result)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error loading correlation matrix: {str(e)}"
+        )

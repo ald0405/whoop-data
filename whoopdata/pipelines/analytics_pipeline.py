@@ -28,6 +28,15 @@ from whoopdata.analytics.data_prep import (
     get_sleep_quality_features,
     get_training_data,
 )
+from whoopdata.analytics.mlr import (
+    prepare_recovery_mlr_data,
+    fit_recovery_mlr_model,
+    get_recovery_model_results,
+    prepare_hrv_mlr_data,
+    fit_hrv_mlr_model,
+    get_hrv_model_results,
+    mlr_results_to_dict,
+)
 
 console = Console()
 
@@ -71,12 +80,15 @@ class AnalyticsPipeline:
             self._train_factor_analyzer(progress, task1)
 
             # Step 2: Compute analytics
-            task2 = progress.add_task("Computing analytics...", total=8)
+            task2 = progress.add_task("Computing analytics...", total=11)
 
             self._compute_factor_importance(progress, task2)
             self._compute_sleep_factors(progress, task2)
             self._compute_recovery_deep_dive(progress, task2)
             self._compute_correlations(progress, task2)
+            self._compute_recovery_mlr(progress, task2)
+            self._compute_hrv_mlr(progress, task2)
+            self._compute_correlation_matrix(progress, task2)
             self._compute_insights(progress, task2)
             self._compute_trends(progress, task2)
             self._compute_summary(progress, task2)
@@ -468,6 +480,96 @@ class AnalyticsPipeline:
 
         except Exception as e:
             self.results["errors"].append(f"Correlations: {str(e)}")
+            console.print(f"[red]    ❌ Error: {str(e)}[/red]")
+
+        progress.update(task_id, advance=1)
+
+    def _compute_recovery_mlr(self, progress, task_id):
+        """Compute and save Recovery MLR analysis."""
+        try:
+            console.print("[cyan]  🔄 Computing Recovery MLR...[/cyan]")
+
+            db = SessionLocal()
+            df_mlr = prepare_recovery_mlr_data(db)
+            db.close()
+
+            model, df_model = fit_recovery_mlr_model(df_mlr)
+
+            if model is None:
+                raise ValueError(
+                    f"Insufficient data for Recovery MLR (got {len(df_model)} rows, need 10+)"
+                )
+
+            results = get_recovery_model_results(model, df_model)
+            serialised = mlr_results_to_dict(results)
+
+            self._save_result("recovery_mlr", serialised)
+            self.results["analytics_computed"].append("recovery_mlr")
+            console.print(
+                f"[green]    ✅ Recovery MLR computed (R²: {results['r_squared']:.3f}, "
+                f"Adj R²: {results['adj_r_squared']:.3f}, n={results['n_observations']})[/green]"
+            )
+
+        except Exception as e:
+            self.results["errors"].append(f"Recovery MLR: {str(e)}")
+            console.print(f"[red]    ❌ Error: {str(e)}[/red]")
+
+        progress.update(task_id, advance=1)
+
+    def _compute_hrv_mlr(self, progress, task_id):
+        """Compute and save HRV MLR analysis."""
+        try:
+            console.print("[cyan]  🔄 Computing HRV MLR...[/cyan]")
+
+            db = SessionLocal()
+            df_mlr_hrv = prepare_hrv_mlr_data(db)
+            db.close()
+
+            model, df_model, available_optional = fit_hrv_mlr_model(df_mlr_hrv)
+
+            if model is None:
+                raise ValueError(
+                    f"Insufficient data for HRV MLR (got {len(df_model)} rows, need 10+)"
+                )
+
+            results = get_hrv_model_results(model, df_model, available_optional)
+            serialised = mlr_results_to_dict(results)
+
+            self._save_result("hrv_mlr", serialised)
+            self.results["analytics_computed"].append("hrv_mlr")
+            console.print(
+                f"[green]    ✅ HRV MLR computed (R²: {results['r_squared']:.3f}, "
+                f"Adj R²: {results['adj_r_squared']:.3f}, n={results['n_observations']})[/green]"
+            )
+
+        except Exception as e:
+            self.results["errors"].append(f"HRV MLR: {str(e)}")
+            console.print(f"[red]    ❌ Error: {str(e)}[/red]")
+
+        progress.update(task_id, advance=1)
+
+    def _compute_correlation_matrix(self, progress, task_id):
+        """Compute and save full correlation matrix."""
+        try:
+            console.print("[cyan]  🔄 Computing Correlation Matrix...[/cyan]")
+
+            db = SessionLocal()
+            analyzer = CorrelationAnalyzer(db)
+            result = analyzer.compute_correlation_matrix(days_back=self.days_back)
+            db.close()
+
+            if "error" in result:
+                raise ValueError(result["error"])
+
+            self._save_result("correlation_matrix", result)
+            self.results["analytics_computed"].append("correlation_matrix")
+            n_features = len(result.get("features", []))
+            console.print(
+                f"[green]    ✅ Correlation Matrix computed ({n_features}x{n_features})[/green]"
+            )
+
+        except Exception as e:
+            self.results["errors"].append(f"Correlation Matrix: {str(e)}")
             console.print(f"[red]    ❌ Error: {str(e)}[/red]")
 
         progress.update(task_id, advance=1)

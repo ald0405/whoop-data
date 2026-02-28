@@ -871,6 +871,50 @@ class CorrelationAnalyzer:
                 f"When {name1} is high, {name2} averages {avg_col2_high:.1f} (inverse relationship)"
             )
 
+    def compute_correlation_matrix(self, days_back: int = 365) -> Dict:
+        """Compute full correlation matrix across key numeric features.
+
+        Returns data suitable for heatmap rendering.
+
+        Args:
+            days_back: Days of historical data
+
+        Returns:
+            Dictionary with 'features' (list of names) and 'matrix' (2D list of floats)
+        """
+        df = get_recovery_with_features(self.db, days_back=days_back)
+
+        if len(df) < 10:
+            return {"error": "Insufficient data for correlation matrix"}
+
+        # Key features for the heatmap
+        feature_map = {
+            "recovery_score": "Recovery Score",
+            "sleep_hours": "Sleep Hours",
+            "hrv_rmssd_milli": "HRV (ms)",
+            "resting_heart_rate": "Resting HR",
+            "strain": "Strain",
+            "sleep_efficiency_percentage": "Sleep Efficiency",
+            "rem_sleep_hours": "REM Sleep (hrs)",
+            "slow_wave_sleep_hours": "Deep Sleep (hrs)",
+        }
+
+        available = [col for col in feature_map if col in df.columns]
+        df_numeric = df[available].apply(pd.to_numeric, errors="coerce").dropna()
+
+        if len(df_numeric) < 10:
+            return {"error": "Insufficient numeric data for correlation matrix"}
+
+        corr = df_numeric.corr()
+
+        # Replace any NaN with 0 (can happen with constant columns)
+        corr = corr.fillna(0)
+
+        return {
+            "features": [feature_map[c] for c in available],
+            "matrix": [[round(float(v), 4) for v in row] for row in corr.values],
+        }
+
     def _generate_summary(self, correlations: List[Dict]) -> str:
         """Generate overall summary of correlation findings."""
         if not correlations:
