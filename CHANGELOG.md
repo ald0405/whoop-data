@@ -5,6 +5,18 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-02-28
+
+### Changed
+
+- Rewrote README to use plain language, removed emojis and overly promotional tone.
+- Listed all make commands in the README to match the actual Makefile (including etl-full, analytics, langgraph-dev, test-cov, and clean-all).
+- Added acknowledgement for the MLR module inspiration from [idossha/whoop-insights](https://github.com/idossha/whoop-insights/blob/main/src/whoop_sync/mlr.py).
+
+### Removed
+
+- Removed RELEASE_NOTES_v1.5.0.md, v1.6.1.md, v1.7.1.md, and v1.8.0.md from the repository root. Release notes are now published as GitHub Releases only.
+
 ## [1.8.0] - 2026-02-28
 
 ### Added - Multiple Linear Regression Analytics
