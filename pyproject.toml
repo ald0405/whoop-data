@@ -39,13 +39,13 @@ dependencies = [
     "SQLAlchemy==2.0.40",
     # HTTP clients
     "httpx==0.28.1",
-    "requests==2.32.3",
+    "requests>=2.32.5",
     # Environment and config
     "python-dotenv==1.0.1",
     "pydantic==2.10.5",
     "pydantic_core==2.27.2",
     # Data processing
-    "numpy>=1.23.5,<2.0.0",
+    "numpy>=1.23.5",
     "pandas==2.2.3",
     "python-dateutil==2.9.0.post0",
     # Visualization
@@ -56,17 +56,17 @@ dependencies = [
     "scipy>=1.11.0",
     "statsmodels>=0.14.0",
     "xgboost>=2.0.0",
-    # LangChain ecosystem
-    "langchain==0.3.17",
-    "langchain-openai==0.2.14",
+    # LangChain ecosystem (v1)
+    "langchain>=1.2.0",
+    "langchain-openai>=1.0.0",
     "langgraph>=1.0.0",
     "langsmith>=0.2.10",
-    "langchain-experimental==0.3.4",
-    "langchain-core>=0.3.33,<0.4.0",
-    "langchain-text-splitters==0.3.4",
-    "langchain-community==0.3.16",
+    "langchain-experimental>=0.4.0",
+    "langchain-core>=1.2.0",
+    "langchain-text-splitters>=0.3.4",
+    "langchain-community>=0.4.0",
     # OpenAI
-    "openai==1.59.6",
+    "openai>=1.59.6",
     # Gradio for chat interface
     "gradio==5.9.1",
     # Utility

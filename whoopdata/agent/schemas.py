@@ -9,10 +9,14 @@ from dataclasses import dataclass
 
 # Agent State Schema
 class HealthAgentState(TypedDict, total=False):
-    """State schema for the health data agent."""
+    """State schema for the health data agent.
+
+    Uses add_messages reducer for automatic message merging.
+    """
 
     messages: Annotated[List[AnyMessage], add_messages]
     user_id: str
+    active_agent: str  # Tracks which specialist is active (observability)
     health_data: Dict[str, Any]  # Store retrieved health data
     insights: str  # Generated insights from health data
 

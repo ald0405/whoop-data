@@ -31,3 +31,14 @@ TFL_KEY_LINES = ["Jubilee", "DLR", "Elizabeth line", "Northern"]  # Lines near S
 # Agent Configuration
 AGENT_TIMEOUT_SECONDS = 30.0
 MAX_ITERATIONS = 10
+
+# Supervisor model (delegates to specialists)
+SUPERVISOR_MODEL = "openai:gpt-4o-mini"
+
+# Default specialist model
+SPECIALIST_MODEL = "openai:gpt-4o-mini"
+
+# Per-specialist overrides (model, temperature, etc.)
+SPECIALIST_CONFIG: dict = {
+    # "analytics": {"model": "openai:gpt-4o"},  # Example: use stronger model for analytics
+}
