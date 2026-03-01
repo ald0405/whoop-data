@@ -73,6 +73,58 @@
     .collapse-toggle:hover {
         opacity: 0.8;
     }
+    /* Daily Action Card */
+    .action-card {
+        border-left: 4px solid var(--lavender);
+        margin-bottom: 0.75rem;
+    }
+    .action-card.cat-training { border-left-color: var(--teal-green); }
+    .action-card.cat-sleep { border-left-color: var(--lavender); }
+    .action-card.cat-recovery { border-left-color: var(--orange); }
+    .action-card.cat-lifestyle { border-left-color: var(--cyan); }
+    .category-badge {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.5rem;
+        border-radius: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .cat-training .category-badge { background: rgba(80, 250, 123, 0.2); color: var(--teal-green); }
+    .cat-sleep .category-badge { background: rgba(189, 147, 249, 0.2); color: var(--lavender); }
+    .cat-recovery .category-badge { background: rgba(255, 184, 108, 0.2); color: var(--orange); }
+    .cat-lifestyle .category-badge { background: rgba(139, 233, 253, 0.2); color: var(--cyan); }
+    .sleep-target-card {
+        background: rgba(189, 147, 249, 0.08);
+        border: 1px solid rgba(189, 147, 249, 0.3);
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    /* Scenario Planner */
+    .scenario-slider-group {
+        margin-bottom: 1rem;
+    }
+    .scenario-slider-group label {
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .scenario-slider-group input[type="range"] {
+        width: 100%;
+        accent-color: var(--lavender);
+    }
+    .scenario-result {
+        text-align: center;
+        padding: 1.5rem;
+    }
+    .scenario-score {
+        font-size: 3rem;
+        font-weight: bold;
+        line-height: 1;
+    }
+    .scenario-verdict {
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+        opacity: 0.85;
+    }
 </style>
 {% endblock %}
 
@@ -263,26 +315,94 @@
             </div>
         </div>
 
-        <!-- Section 2: Key Actions -->
+        <!-- Section 2: Daily Action Card -->
         <div class="row mb-4">
             <div class="col-12">
                 <h2 class="section-header">
                     <i class="bi bi-clipboard-check me-2"></i>
-                    Key Actions For Today
+                    What To Do Today
                 </h2>
             </div>
         </div>
 
-        <div class="row mb-4" id="keyActionsSection">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-body">
-                        <div id="keyActionsContent">
+        <div class="row mb-4" id="dailyPlanSection">
+            <!-- Recovery Status Banner -->
+            <div class="col-12 mb-3">
+                <div class="card" id="recoveryBanner">
+                    <div class="card-body py-2">
+                        <div id="recoveryBannerContent">
                             <div class="text-center text-muted">
-                                <div class="spinner-border spinner-border-sm" role="status">
-                                    <span class="visually-hidden">Loading insights...</span>
-                                </div>
-                                <span class="ms-2">Loading personalized recommendations...</span>
+                                <div class="spinner-border spinner-border-sm" role="status"></div>
+                                <span class="ms-2">Building your daily plan...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="col-md-8">
+                <div id="dailyActionsContent">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Sleep Target -->
+            <div class="col-md-4">
+                <div class="sleep-target-card" id="sleepTargetContent">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2b: Scenario Planner -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center section-header">
+                    <h2 class="mb-0">
+                        <i class="bi bi-sliders me-2"></i>
+                        What If?
+                    </h2>
+                    <button class="btn btn-sm btn-outline-info collapse-toggle"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#scenarioSection">
+                        <i class="bi bi-chevron-down"></i>
+                        Plan Tomorrow
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="collapse" id="scenarioSection">
+            <div class="row g-3 mb-4">
+                <div class="col-md-7">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="scenario-slider-group">
+                                <label>Sleep hours: <strong id="sleepSliderVal">8.0</strong>h</label>
+                                <input type="range" id="sleepSlider" min="4" max="12" step="0.5" value="8">
+                            </div>
+                            <div class="scenario-slider-group">
+                                <label>Expected strain: <strong id="strainSliderVal">10.0</strong></label>
+                                <input type="range" id="strainSlider" min="0" max="21" step="0.5" value="10">
+                            </div>
+                            <div class="scenario-slider-group">
+                                <label>Sleep efficiency: <strong id="efficiencySliderVal">85</strong>%</label>
+                                <input type="range" id="efficiencySlider" min="50" max="100" step="1" value="85">
+                            </div>
+                            <button class="btn btn-primary w-100 mt-2" onclick="runScenario()">
+                                <i class="bi bi-lightning-charge me-1"></i>
+                                Predict Recovery
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="card h-100">
+                        <div class="card-body d-flex align-items-center justify-content-center">
+                            <div class="scenario-result" id="scenarioResult">
+                                <div class="text-muted">Adjust the sliders and click predict</div>
                             </div>
                         </div>
                     </div>
@@ -1013,71 +1133,161 @@
         }
     }
 
-    // Load analytics insights
-    async function loadInsights() {
+    // Load daily action card
+    async function loadDailyPlan() {
         try {
-            const response = await fetch('/analytics/insights/weekly');
-            
-            if (response.status === 404) {
-                // Analytics not yet computed
-                document.getElementById('keyActionsContent').innerHTML = `
-                    <div class="alert alert-info" style="background: rgba(139, 233, 253, 0.1); border: 1px solid var(--cyan);">
-                        <h6 class="alert-heading"><i class="bi bi-info-circle me-2"></i>Insights Coming Soon</h6>
-                        <p class="mb-2">To see personalized recommendations based on your health patterns:</p>
-                        <ol class="mb-0 ps-3">
-                            <li>Run <code>make run</code> from terminal</li>
-                            <li>Select option 6: "Run analytics pipeline"</li>
-                            <li>Refresh this page to see your insights</li>
-                        </ol>
-                    </div>
-                `;
-                return;
+            const response = await fetch('/api/daily-plan');
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
             }
-            
-            const insights = await response.json();
-            const container = document.getElementById('keyActionsContent');
-            let html = '';
-            
-            if (insights.insights && insights.insights.length > 0) {
-                insights.insights.slice(0, 3).forEach((insight, index) => {
-                    // Map priority number to class (1=high, 5=low)
-                    const priorityClass = insight.priority <= 2 ? 'insight-priority-high' : 
-                                         insight.priority <= 3 ? 'insight-priority-medium' : 'insight-priority-low';
-                    const icon = insight.category === 'success' ? 'check-circle' : 
-                                insight.category === 'alert' ? 'exclamation-triangle' : 'lightbulb';
-                    
-                    html += `
-                        <div class="card insight-card ${priorityClass} mb-3">
-                            <div class="card-body">
-                                <div class="d-flex align-items-start">
-                                    <span style="font-size: 1.5rem; margin-right: 1rem;">${insight.emoji || '💡'}</span>
+
+            const plan = await response.json();
+
+            // Recovery banner
+            const rs = plan.recovery_status;
+            const bannerColor = rs.category === 'green' ? 'var(--teal-green)' :
+                               rs.category === 'yellow' ? 'var(--yellow)' : '#ff6b6b';
+            const bannerBg = rs.category === 'green' ? 'rgba(80, 250, 123, 0.1)' :
+                            rs.category === 'yellow' ? 'rgba(241, 250, 140, 0.1)' : 'rgba(255, 107, 107, 0.1)';
+
+            document.getElementById('recoveryBannerContent').innerHTML = `
+                <div class="d-flex justify-content-between align-items-center" style="background: ${bannerBg}; border-radius: 8px; padding: 0.75rem 1rem;">
+                    <div>
+                        <span style="font-size: 1.8rem; font-weight: bold; color: ${bannerColor};">${rs.score.toFixed(0)}%</span>
+                        <span class="status-badge status-${rs.category} ms-2">${rs.category.toUpperCase()}</span>
+                        ${rs.vs_baseline ? `<small class="text-muted ms-2">${rs.vs_baseline}</small>` : ''}
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted">${rs.key_driver}</small>
+                        ${rs.hrv ? `<br><small class="text-muted">HRV: ${rs.hrv.toFixed(0)}ms</small>` : ''}
+                    </div>
+                </div>
+            `;
+
+            // Actions
+            let actionsHtml = '';
+            if (plan.actions && plan.actions.length > 0) {
+                plan.actions.forEach(action => {
+                    actionsHtml += `
+                        <div class="card action-card cat-${action.category}">
+                            <div class="card-body py-2">
+                                <div class="d-flex justify-content-between align-items-start">
                                     <div>
-                                        <p class="mb-0">${insight.insight_text}</p>
+                                        <strong>${action.action}</strong>
+                                        <br><small class="text-muted">${action.reasoning}</small>
                                     </div>
+                                    <span class="category-badge">${action.category}</span>
                                 </div>
                             </div>
                         </div>
                     `;
                 });
-            } else {
-                html = `
-                    <div class="alert alert-info" style="background: rgba(139, 233, 253, 0.1); border: 1px solid var(--cyan);">
-                        <i class="bi bi-info-circle me-2"></i>
-                        No insights generated yet. Run the analytics pipeline to see personalized recommendations.
-                    </div>
-                `;
             }
-            
-            container.innerHTML = html;
-            
+            document.getElementById('dailyActionsContent').innerHTML = actionsHtml;
+
+            // Sleep target
+            const st = plan.sleep_target;
+            document.getElementById('sleepTargetContent').innerHTML = `
+                <h6 class="mb-3"><i class="bi bi-moon-stars me-1"></i> Tonight's Target</h6>
+                <div class="text-center mb-3">
+                    <span style="font-size: 2rem; font-weight: bold; color: var(--lavender);">${st.target_hours.toFixed(1)}h</span>
+                    ${st.target_bedtime ? `<br><small class="text-muted">Bedtime: ${st.target_bedtime}</small>` : ''}
+                </div>
+                <small class="text-muted">${st.reasoning}</small>
+            `;
+
+            // Context (if available from daily plan)
+            const ctx = plan.context;
+            if (ctx) {
+                if (ctx.weather) {
+                    document.getElementById('weatherContent').innerHTML = `<small>${ctx.weather}</small>`;
+                }
+                if (ctx.air_quality) {
+                    const aqEl = document.getElementById('weatherContent');
+                    aqEl.innerHTML += `<br><small class="text-muted">Air: ${ctx.air_quality}</small>`;
+                }
+                if (ctx.transport) {
+                    document.getElementById('transportContent').innerHTML = `<small>${ctx.transport}</small>`;
+                }
+            }
+
         } catch (error) {
-            console.error('Error loading insights:', error);
-            document.getElementById('keyActionsContent').innerHTML = `
-                <div class="alert alert-warning" style="background: rgba(255, 184, 108, 0.1); border: 1px solid var(--orange);">
-                    <i class="bi bi-exclamation-triangle me-2"></i>
-                    Unable to load insights. Check console for details.
+            console.error('Error loading daily plan:', error);
+            // Fallback to weekly insights
+            document.getElementById('recoveryBannerContent').innerHTML = '';
+            document.getElementById('dailyActionsContent').innerHTML = `
+                <div class="alert alert-info" style="background: rgba(139, 233, 253, 0.1); border: 1px solid var(--cyan);">
+                    <h6 class="alert-heading"><i class="bi bi-info-circle me-2"></i>Daily Plan Unavailable</h6>
+                    <p class="mb-2">To see personalised daily actions:</p>
+                    <ol class="mb-0 ps-3">
+                        <li>Run <code>make run</code> and select option 6 (analytics pipeline)</li>
+                        <li>Ensure WHOOP data has been synced</li>
+                        <li>Refresh this page</li>
+                    </ol>
                 </div>
             `;
+            document.getElementById('sleepTargetContent').innerHTML = '';
+        }
+    }
+
+    // Scenario planner
+    function initScenarioSliders() {
+        ['sleep', 'strain', 'efficiency'].forEach(name => {
+            const slider = document.getElementById(`${name}Slider`);
+            const val = document.getElementById(`${name}SliderVal`);
+            if (slider && val) {
+                slider.addEventListener('input', () => {
+                    val.textContent = slider.value;
+                });
+            }
+        });
+    }
+
+    async function runScenario() {
+        const resultEl = document.getElementById('scenarioResult');
+        resultEl.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div>';
+
+        const payload = {
+            scenario: {
+                sleep_hours: parseFloat(document.getElementById('sleepSlider').value),
+                strain: parseFloat(document.getElementById('strainSlider').value),
+                sleep_efficiency: parseFloat(document.getElementById('efficiencySlider').value)
+            }
+        };
+
+        try {
+            const response = await fetch('/api/scenarios/recovery', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.status === 503) {
+                resultEl.innerHTML = `
+                    <div class="alert alert-warning" style="background: rgba(255, 183, 77, 0.1); border: 1px solid var(--yellow); font-size: 0.85rem;">
+                        <i class="bi bi-gear me-1"></i> <strong>Model not trained yet</strong><br>
+                        Run <code>make run</code> → option 6 (analytics pipeline) first.
+                    </div>`;
+                return;
+            }
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const data = await response.json();
+            const r = data.result;
+            const color = r.recovery_category === 'green' ? 'var(--teal-green)' :
+                         r.recovery_category === 'yellow' ? 'var(--yellow)' : '#ff6b6b';
+
+            resultEl.innerHTML = `
+                <div class="scenario-score" style="color: ${color};">${r.predicted_recovery.toFixed(0)}%</div>
+                <span class="status-badge status-${r.recovery_category}">${r.recovery_category.toUpperCase()}</span>
+                <div class="scenario-verdict">${r.verdict}</div>
+                <small class="text-muted mt-2 d-block">${r.vs_baseline}</small>
+                <small class="text-muted">Range: ${r.confidence_interval[0].toFixed(0)}-${r.confidence_interval[1].toFixed(0)}%</small>
+            `;
+        } catch (error) {
+            console.error('Scenario error:', error);
+            resultEl.innerHTML = `<small class="text-muted">Prediction unavailable. Run the analytics pipeline first.</small>`;
         }
     }
 
@@ -1447,9 +1657,12 @@
         // Load all data
         await loadHealthMetrics();
         await Promise.all([
-            loadInsights(),
+            loadDailyPlan(),
             loadContextData()
         ]);
+
+        // Initialize scenario sliders
+        initScenarioSliders();
         
         // Load analytics when section is expanded
         document.getElementById('analyticsSection').addEventListener('shown.bs.collapse', function() {

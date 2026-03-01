@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Weekly Coaching Report - WHOOP Health Data Platform{% endblock %}
+
+{% block extra_css %}
+<style>
+    .report-section {
+        margin-bottom: 2rem;
+    }
+    .report-section h3 {
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .worked-item {
+        border-left: 4px solid var(--teal-green);
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.75rem;
+        background: rgba(80, 250, 123, 0.05);
+        border-radius: 0 8px 8px 0;
+    }
+    .change-item {
+        border-left: 4px solid var(--orange);
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.75rem;
+        background: rgba(255, 184, 108, 0.05);
+        border-radius: 0 8px 8px 0;
+    }
+    .progress-metric {
+        text-align: center;
+        padding: 1rem;
+    }
+    .progress-metric .value {
+        font-size: 1.8rem;
+        font-weight: bold;
+    }
+    .progress-metric .change {
+        font-size: 0.9rem;
+    }
+    .change-up { color: var(--teal-green); }
+    .change-down { color: #ff6b6b; }
+    .change-stable { color: var(--yellow); }
+    .report-summary {
+        background: rgba(189, 147, 249, 0.1);
+        border: 1px solid rgba(189, 147, 249, 0.3);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        font-size: 1.1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card glow">
+                <div class="card-header text-center">
+                    <h1 class="mb-0">
+                        <i class="bi bi-clipboard-data me-2"></i>
+                        Weekly Coaching Report
+                    </h1>
+                </div>
+                <div class="card-body text-center">
+                    <p class="card-text mb-0" id="reportPeriod">Loading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingReport" class="text-center mb-4">
+        <div class="spinner-border" role="status" style="color: var(--lavender);">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Generating your coaching report...</p>
+    </div>
+
+    <div id="reportContent" style="display: none;">
+        <!-- Summary -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="report-summary" id="reportSummary"></div>
+            </div>
+        </div>
+
+        <!-- What Happened -->
+        <div class="report-section">
+            <h3><i class="bi bi-bar-chart me-2"></i>What Happened</h3>
+            <div class="card">
+                <div class="card-body" id="whatHappened"></div>
+            </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="report-section" id="progressSection" style="display: none;">
+            <h3><i class="bi bi-graph-up me-2"></i>Progress vs Previous Week</h3>
+            <div class="row g-3" id="progressMetrics"></div>
+        </div>
+
+        <!-- What Worked -->
+        <div class="report-section">
+            <h3><i class="bi bi-check-circle me-2"></i>What Worked</h3>
+            <div id="whatWorked"></div>
+        </div>
+
+        <!-- What to Change -->
+        <div class="report-section">
+            <h3><i class="bi bi-arrow-repeat me-2"></i>What to Change</h3>
+            <div id="whatToChange"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function loadReport() {
+        try {
+            const response = await fetch('/api/reports/weekly?weeks=1');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const report = await response.json();
+
+            // Period
+            if (report.period_start && report.period_end) {
+                const start = new Date(report.period_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const end = new Date(report.period_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                document.getElementById('reportPeriod').textContent = `${start} - ${end}`;
+            }
+
+            // Summary
+            document.getElementById('reportSummary').innerHTML =
+                `<i class="bi bi-lightning-charge me-2"></i>${report.summary}`;
+
+            // What happened
+            document.getElementById('whatHappened').innerHTML =
+                `<p class="mb-0">${report.what_happened}</p>`;
+
+            // Progress
+            if (report.progress && Object.keys(report.progress).length > 0) {
+                let progressHtml = '';
+                for (const [label, data] of Object.entries(report.progress)) {
+                    const changeClass = data.direction === 'up' ? 'change-up' :
+                                       data.direction === 'down' ? 'change-down' : 'change-stable';
+                    const arrow = data.direction === 'up' ? '↑' : data.direction === 'down' ? '↓' : '→';
+                    progressHtml += `
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body progress-metric">
+                                    <div class="small text-muted mb-1">${label}</div>
+                                    <div class="value">${data.current}</div>
+                                    <div class="change ${changeClass}">
+                                        ${arrow} ${Math.abs(data.change_pct).toFixed(1)}% vs last week
+                                    </div>
+                                    <div class="small text-muted">was ${data.previous}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                document.getElementById('progressMetrics').innerHTML = progressHtml;
+                document.getElementById('progressSection').style.display = 'block';
+            }
+
+            // What worked
+            let workedHtml = '';
+            if (report.what_worked && report.what_worked.length > 0) {
+                report.what_worked.forEach(item => {
+                    workedHtml += `
+                        <div class="worked-item">
+                            <strong>${item.behaviour}</strong>
+                            <br><small class="text-muted">${item.detail}</small>
+                        </div>
+                    `;
+                });
+            } else {
+                workedHtml = '<p class="text-muted">Not enough data to identify patterns yet.</p>';
+            }
+            document.getElementById('whatWorked').innerHTML = workedHtml;
+
+            // What to change
+            let changeHtml = '';
+            if (report.what_to_change && report.what_to_change.length > 0) {
+                report.what_to_change.forEach(item => {
+                    changeHtml += `
+                        <div class="change-item">
+                            <strong>${item.recommendation}</strong>
+                            <br><small class="text-muted">${item.reasoning}</small>
+                        </div>
+                    `;
+                });
+            } else {
+                changeHtml = '<p class="text-muted">No specific changes recommended — keep it up.</p>';
+            }
+            document.getElementById('whatToChange').innerHTML = changeHtml;
+
+            document.getElementById('loadingReport').style.display = 'none';
+            document.getElementById('reportContent').style.display = 'block';
+
+        } catch (error) {
+            console.error('Error loading report:', error);
+            document.getElementById('loadingReport').innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Unable to generate report. Ensure data has been synced and the analytics pipeline has run.
+                </div>
+            `;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadReport);
+</script>
+{% endblock %}

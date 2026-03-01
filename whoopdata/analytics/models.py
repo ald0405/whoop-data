@@ -51,7 +51,12 @@ class RecoveryPredictor:
             self.load(model_path)
 
     def train(
-        self, X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
+        self,
+        X_train: np.ndarray,
+        y_train: np.ndarray,
+        X_test: np.ndarray,
+        y_test: np.ndarray,
+        feature_names: Optional[list] = None,
     ):
         """Train the recovery prediction model.
 
@@ -60,7 +65,10 @@ class RecoveryPredictor:
             y_train: Training targets (recovery scores)
             X_test: Test features
             y_test: Test targets
+            feature_names: Names of features (must match X_train columns)
         """
+        if feature_names is not None:
+            self.feature_names = feature_names
         # Use RandomForest for interpretability and performance
         self.model = RandomForestRegressor(
             n_estimators=200,
