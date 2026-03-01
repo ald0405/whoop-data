@@ -368,6 +368,93 @@ async def get_weight_stats_tool(days: int = 30) -> str:
         return f"Error retrieving weight stats: {str(e)}"
 
 
+@tool(
+    "get_protein_recommendation",
+    description="Calculate personalized protein intake recommendation. Automatically fetches current weight from Withings - only needs activity level as input.",
+)
+async def get_protein_recommendation_tool(activity_level: str) -> str:
+    """Get personalized protein intake recommendation. Automatically fetches weight from Withings.
+
+    This tool automatically retrieves the user's latest weight from Withings, so DO NOT ask
+    the user for their weight. Only ask for activity level if not provided.
+
+    Args:
+        activity_level: Activity level - must be one of:
+            - 'normal' (sedentary/light activity)
+            - 'endurance training' (running, cycling, swimming)
+            - 'resistance/strength training' (weightlifting, strength work)
+
+    Returns:
+        String with protein recommendation range in grams per day
+
+    Example:
+        - get_protein_recommendation_tool(activity_level="endurance training")
+          Returns: "Based on your current weight of 70.0kg and 'endurance training' 
+                    activity level, aim for 84g - 98g protein per day"
+    """
+    # Activity level to protein multiplier mapping (g/kg bodyweight)
+    _activity_level_map = {
+        "normal": (1.2, 1.4),
+        "endurance training": (1.2, 1.4),
+        "resistance/strength training": (1.6, 2.2),
+    }
+
+    try:
+        # Get latest weight data using ainvoke
+        weight_data = await get_weight_data_tool.ainvoke({"latest": True})
+        
+        if "Error" in weight_data:
+            return weight_data
+        
+        # Parse weight data
+        data = json.loads(weight_data)
+        
+        # Handle different response formats
+        if isinstance(data, dict) and "weight_kg" in data:
+            # Single record response (when latest=true)
+            patient_current_weight = data.get("weight_kg")
+        elif isinstance(data, list) and len(data) > 0:
+            # List of records
+            patient_current_weight = data[0].get("weight_kg")
+        elif isinstance(data, dict) and "weights" in data:
+            # Nested format
+            sorted_weights = data["weights"]
+            if sorted_weights:
+                patient_current_weight = sorted_weights[0].get("weight_kg")
+            else:
+                return "Need more info: No weight data available. Please log your weight first."
+        else:
+            return "Error: Unexpected weight data format"
+        
+        if not patient_current_weight or patient_current_weight is None:
+            return "Need more info: No weight data available. Please log your weight first."
+        
+        protein_range = _activity_level_map.get(activity_level.lower())
+        
+        if protein_range is None:
+            valid_levels = ", ".join(f"'{k}'" for k in _activity_level_map.keys())
+            return (
+                f"Need more info: Invalid activity level. "
+                f"Please choose from: {valid_levels}"
+            )
+        
+        weight_kg: float = float(patient_current_weight)
+        
+        protein_min = round(weight_kg * protein_range[0])
+        protein_max = round(weight_kg * protein_range[1])
+        
+        # Return recommendation with context
+        return (
+            f"Based on your current weight of {weight_kg:.1f}kg and '{activity_level}' activity level, "
+            f"aim for {protein_min}g - {protein_max}g protein per day"
+        )
+        
+    except (TypeError, ValueError) as e:
+        return f"Error calculating protein recommendation: {str(e)}"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
 # Withings Heart Rate Tools
 @tool(
     "get_heart_rate_data",
@@ -1051,6 +1138,15 @@ class PythonREPLWithImages(PythonREPLTool):
 python_repl_tool = PythonREPLWithImages()
 
 
+# Name-based lookup for registry-driven tool resolution
+TOOLS_BY_NAME: dict[str, object] = {}
+
+
+def _build_tools_by_name(tools_list: list) -> dict[str, object]:
+    """Build a name-to-tool mapping from a tools list."""
+    return {getattr(t, "name", str(t)): t for t in tools_list}
+
+
 # List of all available tools for easy import
 AVAILABLE_TOOLS = [
     # WHOOP Recovery Tools
@@ -1067,6 +1163,8 @@ AVAILABLE_TOOLS = [
     get_weight_stats_tool,
     # Withings Heart Rate Tools
     get_heart_rate_data_tool,
+    # Nutrition Tools
+    get_protein_recommendation_tool,
     # Summary Tools
     get_withings_summary_tool,
     # Analytics Tools
@@ -1088,3 +1186,6 @@ AVAILABLE_TOOLS = [
     # Code Execution Tools
     python_repl_tool,
 ]
+
+# Populate name-based lookup
+TOOLS_BY_NAME = _build_tools_by_name(AVAILABLE_TOOLS)
