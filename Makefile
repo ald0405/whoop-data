@@ -1,4 +1,4 @@
-.PHONY: help install dev sync run server etl chat analytics langgraph-dev test format lint typecheck clean verify
+.PHONY: help install dev sync run server etl chat analytics langgraph-dev dev-all test format lint typecheck clean verify
 
 # Default target
 help:
@@ -17,6 +17,7 @@ help:
 	@echo "  make chat        - Start chat interface"
 	@echo "  make analytics   - Run analytics pipeline"
 	@echo "  make langgraph-dev - Start LangGraph dev server (with LangSmith Studio)"
+	@echo "  make dev-all      - Start FastAPI server + LangGraph dev (combined)"
 	@echo ""
 	@echo "Development:"
 	@echo "  make test        - Run tests with pytest"
@@ -72,6 +73,15 @@ analytics:
 langgraph-dev:
 	@echo "🎨 Starting LangGraph dev server with LangSmith Studio..."
 	@echo "📍 API: http://127.0.0.1:2024"
+	@echo "🎨 Studio: https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024"
+	uv run langgraph dev --allow-blocking
+
+dev-all:
+	@echo "🚀 Starting FastAPI server + LangGraph dev server..."
+	uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
+	@sleep 3
+	@echo "📍 FastAPI: http://0.0.0.0:8000"
+	@echo "📍 LangGraph API: http://127.0.0.1:2024"
 	@echo "🎨 Studio: https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024"
 	uv run langgraph dev --allow-blocking
 
