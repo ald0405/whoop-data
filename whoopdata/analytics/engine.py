@@ -1109,6 +1109,227 @@ class InsightGenerator:
 
         return None
 
+    def generate_coaching_report(self, weeks: int = 1) -> Dict:
+        """Generate a structured coaching report for the past N weeks.
+
+        Sections:
+        - what_happened: data-backed summary of the week
+        - what_worked: behaviours that correlated with best outcomes
+        - what_to_change: 1-2 specific, data-driven recommendations
+        - progress: trend vs previous weeks
+
+        Args:
+            weeks: Number of weeks to analyse
+
+        Returns:
+            Dictionary with coaching report sections
+        """
+        df = get_recovery_with_features(self.db, days_back=weeks * 7 + 28)
+
+        if len(df) < 7:
+            return {
+                "what_happened": "Insufficient data to generate a coaching report.",
+                "what_worked": [],
+                "what_to_change": [],
+                "progress": None,
+                "summary": "Need at least 7 days of data.",
+                "period_start": None,
+                "period_end": None,
+                "timestamp": datetime.now(),
+            }
+
+        recent = df.head(weeks * 7)
+        previous = df.iloc[weeks * 7 : weeks * 14] if len(df) >= weeks * 14 else pd.DataFrame()
+
+        # What happened
+        what_happened = self._coaching_what_happened(recent)
+
+        # What worked
+        what_worked = self._coaching_what_worked(recent)
+
+        # What to change
+        what_to_change = self._coaching_what_to_change(recent)
+
+        # Progress vs previous period
+        progress = self._coaching_progress(recent, previous)
+
+        # Period range
+        period_start = recent["created_at"].min()
+        period_end = recent["created_at"].max()
+
+        return {
+            "what_happened": what_happened,
+            "what_worked": what_worked,
+            "what_to_change": what_to_change,
+            "progress": progress,
+            "summary": self._coaching_summary(what_happened, what_worked, what_to_change, progress),
+            "period_start": period_start.isoformat() if period_start else None,
+            "period_end": period_end.isoformat() if period_end else None,
+            "timestamp": datetime.now(),
+        }
+
+    def _coaching_what_happened(self, df: pd.DataFrame) -> str:
+        """Data-backed summary of the week."""
+        avg_recovery = df["recovery_score"].mean()
+        avg_hrv = df["hrv_rmssd_milli"].mean()
+        avg_sleep = df["sleep_hours"].mean()
+        avg_strain = df["strain"].mean()
+        green_days = len(df[df["recovery_score"] >= 67])
+        yellow_days = len(df[(df["recovery_score"] >= 34) & (df["recovery_score"] < 67)])
+        red_days = len(df[df["recovery_score"] < 34])
+        total = len(df)
+
+        parts = [
+            f"Over {total} days: average recovery {avg_recovery:.0f}%",
+            f"({green_days} green, {yellow_days} yellow, {red_days} red)",
+        ]
+        if not pd.isna(avg_sleep):
+            parts.append(f"averaging {avg_sleep:.1f}h sleep")
+        if not pd.isna(avg_strain) and avg_strain > 0:
+            parts.append(f"{avg_strain:.1f} strain")
+        if not pd.isna(avg_hrv):
+            parts.append(f"HRV {avg_hrv:.0f}ms")
+
+        return ", ".join(parts) + "."
+
+    def _coaching_what_worked(self, df: pd.DataFrame) -> List[Dict]:
+        """Identify behaviours that correlated with best outcomes this period."""
+        results = []
+
+        if len(df) < 5:
+            return results
+
+        top_quarter = df.nlargest(max(2, int(len(df) * 0.25)), "recovery_score")
+        bottom_quarter = df.nsmallest(max(2, int(len(df) * 0.25)), "recovery_score")
+
+        # Sleep hours comparison
+        top_sleep = top_quarter["sleep_hours"].mean()
+        bottom_sleep = bottom_quarter["sleep_hours"].mean()
+        if not pd.isna(top_sleep) and not pd.isna(bottom_sleep) and top_sleep > bottom_sleep + 0.3:
+            results.append({
+                "behaviour": "Longer sleep",
+                "detail": f"Your best days averaged {top_sleep:.1f}h sleep vs {bottom_sleep:.1f}h on worst days.",
+                "impact": "positive",
+            })
+
+        # Sleep efficiency
+        top_eff = top_quarter["sleep_efficiency_percentage"].mean()
+        bottom_eff = bottom_quarter["sleep_efficiency_percentage"].mean()
+        if not pd.isna(top_eff) and not pd.isna(bottom_eff) and top_eff > bottom_eff + 2:
+            results.append({
+                "behaviour": "Higher sleep efficiency",
+                "detail": f"Best recovery days had {top_eff:.0f}% efficiency vs {bottom_eff:.0f}%.",
+                "impact": "positive",
+            })
+
+        # Strain comparison
+        top_strain = top_quarter["strain"].mean()
+        bottom_strain = bottom_quarter["strain"].mean()
+        if not pd.isna(top_strain) and not pd.isna(bottom_strain):
+            if top_strain < bottom_strain - 1:
+                results.append({
+                    "behaviour": "Lower previous-day strain",
+                    "detail": f"Best recoveries followed {top_strain:.1f} strain vs {bottom_strain:.1f}.",
+                    "impact": "positive",
+                })
+
+        # Bedtime consistency
+        if "bedtime_hour" in df.columns:
+            top_bedtime_std = top_quarter["bedtime_hour"].std()
+            overall_std = df["bedtime_hour"].std()
+            if not pd.isna(top_bedtime_std) and not pd.isna(overall_std) and top_bedtime_std < overall_std:
+                avg_bedtime = top_quarter["bedtime_hour"].mean()
+                results.append({
+                    "behaviour": "Consistent bedtime",
+                    "detail": f"Top recoveries had bedtime around {int(avg_bedtime):02d}:00 with less variation.",
+                    "impact": "positive",
+                })
+
+        return results[:3]  # Top 3
+
+    def _coaching_what_to_change(self, df: pd.DataFrame) -> List[Dict]:
+        """Generate 1-2 specific recommendations for next week."""
+        recommendations = []
+
+        # Check sleep deficit
+        avg_sleep = df["sleep_hours"].mean()
+        if "sleep_deficit" in df.columns:
+            avg_deficit = df["sleep_deficit"].mean()
+            if not pd.isna(avg_deficit) and avg_deficit > 0.5:
+                optimal = avg_sleep + avg_deficit
+                recommendations.append({
+                    "recommendation": f"Increase sleep to {optimal:.1f}h",
+                    "reasoning": f"You're averaging {avg_deficit:.1f}h below your sleep need. "
+                                 f"Closing this gap would improve recovery.",
+                    "priority": 1,
+                })
+
+        # Check strain vs recovery balance
+        high_strain_low_recovery = df[
+            (df["strain"] > df["strain"].quantile(0.75)) &
+            (df["recovery_score"] < df["recovery_score"].quantile(0.25))
+        ]
+        if len(high_strain_low_recovery) >= 2:
+            recommendations.append({
+                "recommendation": "Add a rest day after high-strain sessions",
+                "reasoning": f"You had {len(high_strain_low_recovery)} days with high strain and low recovery. "
+                             f"Your body isn't recovering between hard efforts.",
+                "priority": 1,
+            })
+
+        # Check HRV trend
+        if len(df) >= 7:
+            hrv_early = df.tail(3)["hrv_rmssd_milli"].mean()
+            hrv_late = df.head(3)["hrv_rmssd_milli"].mean()
+            if not pd.isna(hrv_early) and not pd.isna(hrv_late):
+                hrv_change = ((hrv_late - hrv_early) / hrv_early) * 100 if hrv_early > 0 else 0
+                if hrv_change < -10:
+                    recommendations.append({
+                        "recommendation": "Prioritise recovery this week",
+                        "reasoning": f"HRV dropped {abs(hrv_change):.0f}% over the period, "
+                                     f"indicating accumulated fatigue.",
+                        "priority": 1,
+                    })
+
+        return recommendations[:2]  # Max 2
+
+    def _coaching_progress(self, recent: pd.DataFrame, previous: pd.DataFrame) -> Optional[Dict]:
+        """Compare this period to the previous period."""
+        if len(previous) < 3:
+            return None
+
+        metrics = {}
+        for col, label in [
+            ("recovery_score", "Recovery"),
+            ("hrv_rmssd_milli", "HRV"),
+            ("sleep_hours", "Sleep hours"),
+        ]:
+            recent_avg = recent[col].mean()
+            prev_avg = previous[col].mean()
+            if pd.isna(recent_avg) or pd.isna(prev_avg) or prev_avg == 0:
+                continue
+            change_pct = ((recent_avg - prev_avg) / prev_avg) * 100
+            metrics[label] = {
+                "current": round(float(recent_avg), 1),
+                "previous": round(float(prev_avg), 1),
+                "change_pct": round(float(change_pct), 1),
+                "direction": "up" if change_pct > 0 else "down" if change_pct < 0 else "stable",
+            }
+
+        return metrics if metrics else None
+
+    def _coaching_summary(
+        self, what_happened: str, what_worked: List, what_to_change: List, progress: Optional[Dict]
+    ) -> str:
+        """One-line coaching summary."""
+        if what_to_change:
+            top_rec = what_to_change[0]["recommendation"]
+            return f"Top priority: {top_rec.lower()}"
+        elif what_worked:
+            return f"Keep doing what works: {what_worked[0]['behaviour'].lower()}"
+        else:
+            return "Stay consistent — your patterns are solid"
+
     def _generate_weekly_summary(self, insights: List[Dict], weeks: int) -> str:
         """Generate overall weekly summary."""
         if not insights:

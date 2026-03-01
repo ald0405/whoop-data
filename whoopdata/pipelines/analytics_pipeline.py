@@ -182,7 +182,7 @@ class AnalyticsPipeline:
             )
 
             predictor = RecoveryPredictor()
-            predictor.train(X_train, y_train, X_test, y_test)
+            predictor.train(X_train, y_train, X_test, y_test, feature_names=feature_cols)
 
             model_path = self.models_dir / "recovery_predictor.pkl"
             predictor.save(str(model_path))
