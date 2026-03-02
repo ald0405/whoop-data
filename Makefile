@@ -18,6 +18,9 @@ help:
 	@echo "  make analytics   - Run analytics pipeline"
 	@echo "  make langgraph-dev - Start LangGraph dev server (with LangSmith Studio)"
 	@echo "  make dev-all      - Start FastAPI server + LangGraph dev (combined)"
+	@echo "  make test-cron    - Test LangGraph cron (fires every minute, creates a new thread)"
+	@echo "  make etl-notify   - Run ETL and notify your active Studio thread with results"
+	@echo "  make etl-notify-full - Full-load ETL with Studio notification"
 	@echo ""
 	@echo "Development:"
 	@echo "  make test        - Run tests with pytest"
@@ -75,6 +78,18 @@ langgraph-dev:
 	@echo "📍 API: http://127.0.0.1:2024"
 	@echo "🎨 Studio: https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024"
 	uv run langgraph dev --allow-blocking
+
+test-cron:
+	@echo "📅 Starting LangGraph server and registering test cron job..."
+	uv run python scripts/test_cron.py
+
+etl-notify:
+	@echo "📊 Running ETL pipeline with Studio notification..."
+	uv run python scripts/etl_with_notify.py
+
+etl-notify-full:
+	@echo "📊 Running full ETL pipeline with Studio notification..."
+	uv run python scripts/etl_with_notify.py --full
 
 dev-all:
 	@echo "🚀 Starting FastAPI server + LangGraph dev server..."
