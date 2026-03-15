@@ -6,7 +6,6 @@ A Gradio-powered chat interface to interact with your WHOOP and Withings health 
 Ask questions about your workouts, sleep, recovery, weight trends, and more!
 """
 
-import uuid
 import logging
 import re
 from typing import List, Tuple
@@ -18,11 +17,6 @@ from whoopdata.agent.conversation_service import get_conversation_service
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-def get_thread_id() -> str:
-    """Generate a unique thread ID for conversation tracking."""
-    return f"chat_{uuid.uuid4().hex[:8]}"
 
 
 async def chat_with_agent(
@@ -43,8 +37,6 @@ async def chat_with_agent(
     Returns:
         Updated history, empty string for input box, and persisted conversation IDs
     """
-    if not thread_id:
-        thread_id = get_thread_id()
 
     try:
         # Add user message to history
@@ -172,7 +164,7 @@ def create_chat_interface():
 
         # Conversation state (hidden)
         session_id_state = gr.State(value=None)
-        thread_id_state = gr.State(value=get_thread_id())
+        thread_id_state = gr.State(value=None)
 
         # Examples
         gr.Examples(

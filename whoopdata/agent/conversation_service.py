@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.constants import CONFIG_KEY_CHECKPOINTER
 
 from whoopdata.agent.graph import build_graph
 from whoopdata.agent.public_response import (
@@ -29,7 +30,9 @@ class ConversationService:
     ) -> None:
         self._session_threads: dict[str, str] = {}
         self._checkpointer = InMemorySaver()
-        self._graph = graph or build_graph(checkpointer=self._checkpointer)
+        self._graph = graph or build_graph(
+            {"configurable": {CONFIG_KEY_CHECKPOINTER: self._checkpointer}}
+        )
         self._graph_name = "health_agent"
 
     @property
