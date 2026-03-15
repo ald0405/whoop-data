@@ -55,7 +55,6 @@ OPENAI_API_KEY=your_openai_api_key
 
 WHOOP uses OAuth 2.0 browser authentication -- you will be redirected to log in through their website when first running the ETL.
 ### 3. Ingest Data
-### 3. Initialise Database and Load Data
 
 ```bash
 make etl
@@ -100,7 +99,6 @@ make langgraph-dev
 This is for development/debugging workflows. It is not a separate product surface and should not be treated as the public agent API.
 
 ### 8. Access the API
-### 5. Access the API
 
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
@@ -125,6 +123,19 @@ This is for development/debugging workflows. It is not a separate product surfac
 - `make dev-all` -- Combined FastAPI + LangGraph dev helper
 
 Use the primary commands for docs, automation, and repeatable workflows. Treat the convenience launchers as shortcuts rather than the canonical product entrypoints.
+
+## Rollout Verification Checklist
+
+1. Run the focused validation slices for the migration work before cutting over.
+2. Start the API with `make server` and confirm `/docs` shows the `data`, `insights`, and `agent` OpenAPI tags.
+3. Smoke the canonical public flows:
+   - `GET /api/v1/data/recovery`
+   - `GET /api/v1/insights/dashboard/daily`
+   - `POST /api/v1/agent/conversations`
+   - `POST /api/v1/agent/messages`
+4. Smoke representative compatibility adapters such as `/workouts/latest`, `/recovery/latest`, `/dashboard/daily`, and `/api/daily-plan`, and confirm the `Deprecation`, `Sunset`, and `X-Canonical-Route` headers advertise the canonical replacement.
+5. Launch `make chat`, send an initial message, then send a follow-up message and confirm the conversation resumes cleanly instead of starting a new thread.
+6. Keep `make langgraph-dev` scoped to development/debugging workflows rather than rollout verification of the public product surface.
 
 ## Make Commands
 
