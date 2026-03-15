@@ -20,7 +20,11 @@ from whoopdata.api.dashboard_routes import (
     insights_router as dashboard_insights_router,
     legacy_insights_router as dashboard_legacy_insights_router,
 )
-from whoopdata.api.public_surface_contract import CanonicalSurface
+from whoopdata.api.public_surface_contract import (
+    CanonicalSurface,
+    PUBLIC_SURFACE_CONTRACT,
+    SURFACE_ORDER,
+)
 from whoopdata.api.recovery_routes import (
     data_router as recovery_data_router,
     insights_router as recovery_insights_router,
@@ -125,6 +129,35 @@ ROUTER_GROUPS: dict[CanonicalSurface, tuple[APIRouter, ...]] = {
     "web": WEB_ROUTERS,
 }
 
+def _build_openapi_tag_metadata() -> list[dict[str, str]]:
+    tag_metadata: list[dict[str, str]] = []
+
+    for surface in SURFACE_ORDER:
+        definition = PUBLIC_SURFACE_CONTRACT[surface]
+        if definition.openapi_tag is None:
+            continue
+
+        description_lines = [
+            definition.summary,
+            "",
+            "Ownership rules:",
+            *(f"- {rule}" for rule in definition.ownership_rules),
+            "",
+            "Examples:",
+            *(f"- `{example}`" for example in definition.examples),
+        ]
+        tag_metadata.append(
+            {
+                "name": definition.openapi_tag,
+                "description": "\n".join(description_lines),
+            }
+        )
+
+    return tag_metadata
+
+
+OPENAPI_TAG_METADATA = _build_openapi_tag_metadata()
+
 
 def _configure_cors(app: FastAPI) -> None:
     app.add_middleware(
@@ -153,8 +186,14 @@ def _include_surface_routers(app: FastAPI) -> None:
 def create_app() -> FastAPI:
     app = FastAPI(
         title="WHOOP Health Data Platform",
-        description="A comprehensive health data integration platform for WHOOP and Withings devices",
+        description=(
+            "A health data platform with canonical public surfaces for raw data "
+            "(`/api/v1/data/*`), interpreted outputs (`/api/v1/insights/*`), and "
+            "conversational requests (`/api/v1/agent/*`). Top-level web pages remain "
+            "outside the API namespaces."
+        ),
         version=__version__,
+        openapi_tags=OPENAPI_TAG_METADATA,
     )
 
     _configure_cors(app)
