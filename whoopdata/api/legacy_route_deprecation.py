@@ -151,6 +151,7 @@ def configure_legacy_route_deprecation(
             title=app.title,
             version=app.version,
             description=app.description,
+            tags=app.openapi_tags,
             routes=app.routes,
         )
         _annotate_legacy_routes_openapi(schema, route_entries)

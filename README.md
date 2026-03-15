@@ -14,6 +14,15 @@ A health data platform that integrates WHOOP and Withings devices. Includes ETL 
 - **Chat Agent** -- LangGraph-based agent for natural language queries against your health data
 - **Dashboard** -- Web UI with charts, MLR coefficient tables, partial correlation charts, and correlation heatmaps
 
+## Public Surface Model
+
+- **`data`** -- Raw health records, context resources, and provider status under `/api/v1/data/*`
+- **`insights`** -- Derived dashboards, analytics, scenarios, plans, and reports under `/api/v1/insights/*`
+- **`agent`** -- Conversational/coaching requests under `/api/v1/agent/*`
+- **`web`** -- Human-facing pages at `/dashboard`, `/analytics`, and `/report`
+
+New integrations should target the canonical namespaces above. Legacy aliases still exist in a few places as temporary compatibility adapters during the migration.
+
 ## Quick Start
 
 ### 1. Install UV and Dependencies
@@ -45,16 +54,33 @@ OPENAI_API_KEY=your_openai_api_key
 ```
 
 WHOOP uses OAuth 2.0 browser authentication -- you will be redirected to log in through their website when first running the ETL.
-
-### 3. Initialise Database and Load Data
+### 3. Ingest Data
 
 ```bash
-make run
+make etl
+# or, for a full historical backfill:
+make etl-full
 ```
 
-The interactive CLI will walk you through creating tables, authenticating with WHOOP and Withings, loading data, and starting the API server.
+These are the canonical ingestion commands. `make run` is still available as a convenience launcher, but it mixes ETL and server startup in one interactive flow.
 
-### 4. Start the Chat Interface (optional)
+### 4. Start the API
+
+```bash
+make server
+```
+
+The API server exposes the canonical `data`, `insights`, and `agent` surfaces.
+
+### 5. Run Analytics (optional)
+
+```bash
+make analytics
+```
+
+Use this when you want to materialize the analytics/insights workflows ahead of time.
+
+### 6. Start the Chat Interface (optional)
 
 ```bash
 make chat
@@ -64,11 +90,52 @@ Chat UI runs at http://localhost:7860. You can ask questions like:
 - "Show me my tennis workouts from 2025"
 - "What's my weight trend over the last 30 days?"
 - "How has my recovery been this month?"
+### 7. Start LangGraph Dev Tooling (optional, development-only)
 
-### 5. Access the API
+```bash
+make langgraph-dev
+```
+
+This is for development/debugging workflows. It is not a separate product surface and should not be treated as the public agent API.
+
+### 8. Access the API
 
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
+- **OpenAPI tags**: `data`, `insights`, and `agent`
+
+## Canonical Run Modes
+
+### Primary Commands
+
+- `make etl` -- Canonical incremental ingestion command
+- `make etl-full` -- Canonical full-history ingestion command
+- `make server` -- Canonical FastAPI server for the `data`, `insights`, and `agent` surfaces
+- `make chat` -- Canonical Gradio chat UI backed by the shared conversation boundary
+- `make analytics` -- Canonical analytics materialization command
+- `make langgraph-dev` -- Development-only LangGraph tooling
+- `uv run whoop-withings-auth` -- Canonical Withings re-auth utility
+
+### Convenience Launchers
+
+- `make run` / `uv run whoop-start` -- Interactive launcher that combines ETL and server flows
+- `uv run python start_health_chat.py` -- Convenience helper that starts the API server and chat UI together
+- `make dev-all` -- Combined FastAPI + LangGraph dev helper
+
+Use the primary commands for docs, automation, and repeatable workflows. Treat the convenience launchers as shortcuts rather than the canonical product entrypoints.
+
+## Rollout Verification Checklist
+
+1. Run the focused validation slices for the migration work before cutting over.
+2. Start the API with `make server` and confirm `/docs` shows the `data`, `insights`, and `agent` OpenAPI tags.
+3. Smoke the canonical public flows:
+   - `GET /api/v1/data/recovery`
+   - `GET /api/v1/insights/dashboard/daily`
+   - `POST /api/v1/agent/conversations`
+   - `POST /api/v1/agent/messages`
+4. Smoke representative compatibility adapters such as `/workouts/latest`, `/recovery/latest`, `/dashboard/daily`, and `/api/daily-plan`, and confirm the `Deprecation`, `Sunset`, and `X-Canonical-Route` headers advertise the canonical replacement.
+5. Launch `make chat`, send an initial message, then send a follow-up message and confirm the conversation resumes cleanly instead of starting a new thread.
+6. Keep `make langgraph-dev` scoped to development/debugging workflows rather than rollout verification of the public product surface.
 
 ## Make Commands
 
@@ -79,13 +146,14 @@ Setup:
   make sync           Sync/update dependencies
 
 Run:
-  make run            Start the interactive CLI launcher
-  make server         Start FastAPI server
-  make etl            Run ETL pipeline (incremental)
-  make etl-full       Run ETL pipeline (full load)
-  make chat           Start chat interface
-  make analytics      Run analytics pipeline
-  make langgraph-dev  Start LangGraph dev server with LangSmith Studio
+  make run            Convenience launcher (interactive ETL + server menu)
+  make server         Primary FastAPI server command
+  make etl            Primary ETL pipeline (incremental)
+  make etl-full       Primary ETL pipeline (full load)
+  make chat           Primary chat interface command
+  make analytics      Primary analytics pipeline command
+  make langgraph-dev  Development-only LangGraph dev server
+  make dev-all        Convenience FastAPI + LangGraph dev launcher
 
 Development:
   make test           Run tests with pytest
@@ -104,6 +172,7 @@ Maintenance:
 
 - **WHOOP 401 errors** -- Delete `.whoop_tokens.json` and re-authenticate
 - **Withings re-auth** -- Run `uv run whoop-withings-auth`
+- **Looking for the right API?** -- Use `/api/v1/data/*` for raw records, `/api/v1/insights/*` for interpreted outputs, and `/api/v1/agent/*` for conversational requests
 - See [docs/technical/](docs/technical/) for detailed guides
 
 ## Documentation

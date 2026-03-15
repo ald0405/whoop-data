@@ -1195,7 +1195,7 @@ ENTRYPOINT_MIGRATION_MATRIX: tuple[EntrypointMigrationEntry, ...] = (
         primary_surface="agent",
         target="Gradio UI backed by the shared /api/v1/agent/* conversation boundary.",
         migration_action="consolidate_under_agent_surface",
-        notes="Current chat UI now reuses the shared conversation service that also powers the canonical agent surface.",
+        notes="Current chat UI now reuses the shared conversation service and boundary-owned session/thread IDs from the canonical agent surface.",
     ),
     entrypoint(
         "analytics",
@@ -1232,7 +1232,7 @@ ENTRYPOINT_MIGRATION_MATRIX: tuple[EntrypointMigrationEntry, ...] = (
         primary_surface="agent",
         target="Shared conversation service that fronts /api/v1/agent/* for the Gradio UI.",
         migration_action="consolidate_under_agent_surface",
-        notes="Current implementation reuses the shared conversation service directly while AGE-15 aligns the UI with the public HTTP boundary.",
+        notes="Current implementation reuses the shared conversation service directly so the Gradio UI and API surface share the same session/thread ownership model.",
     ),
     entrypoint(
         "start_health_chat.py",
