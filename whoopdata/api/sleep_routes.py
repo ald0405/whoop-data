@@ -6,10 +6,12 @@ from typing import List, Optional, Union
 from whoopdata.schemas.sleep import SleepSchema
 from whoopdata.utils.date_filters import standardize_date_params
 
-router = APIRouter()
+data_router = APIRouter(prefix="/api/v1/data", tags=["data"])
+legacy_data_router = APIRouter(tags=["data"])
 
 
-@router.get("/sleep", response_model=Union[List[SleepSchema], SleepSchema])
+@legacy_data_router.get("/sleep", response_model=Union[List[SleepSchema], SleepSchema], deprecated=True)
+@data_router.get("/sleep", response_model=Union[List[SleepSchema], SleepSchema])
 def get_sleep_data(
     latest: bool = Query(False, description="Get only the latest record"),
     limit: int = Query(100, description="Maximum number of records"),
@@ -56,13 +58,13 @@ def get_sleep_data(
 # ============================================================================
 
 
-@router.get("/sleep/", response_model=List[SleepSchema])
+@legacy_data_router.get("/sleep/", response_model=List[SleepSchema], deprecated=True)
 def list_sleep_compat(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """Backward compatibility endpoint - redirects to unified sleep endpoint."""
     return get_sleep(db, skip=skip, limit=limit)
 
 
-@router.get("/sleep/latest", response_model=SleepSchema)
+@legacy_data_router.get("/sleep/latest", response_model=SleepSchema, deprecated=True)
 def latest_sleep_compat(db: Session = Depends(get_db)):
     """Backward compatibility endpoint - redirects to unified sleep endpoint."""
     sleeps = get_sleep(db, skip=0, limit=1)

@@ -6,13 +6,17 @@ from fastapi import APIRouter, HTTPException
 from whoopdata.models.tide import TideForecast, TideReading, TideStation
 from whoopdata.services.tide_service import TideService
 
-router = APIRouter(prefix="/tides", tags=["tides"])
+data_router = APIRouter(prefix="/api/v1/data/tides", tags=["data"])
+legacy_data_router = APIRouter(prefix="/tides", tags=["data"])
+insights_router = APIRouter(prefix="/api/v1/insights/tides", tags=["insights"])
+legacy_insights_router = APIRouter(prefix="/tides", tags=["insights"])
 
 # Initialize service
 tide_service = TideService()
 
 
-@router.get("/stations")
+@legacy_data_router.get("/stations", deprecated=True)
+@data_router.get("/stations")
 async def list_stations() -> dict:
     """List available tidal monitoring stations in East London.
     
@@ -41,7 +45,8 @@ async def list_stations() -> dict:
     }
 
 
-@router.get("/current", response_model=TideReading)
+@legacy_data_router.get("/current", response_model=TideReading, deprecated=True)
+@data_router.get("/current", response_model=TideReading)
 async def get_current_tide(station: str = "0001") -> TideReading:
     """Get the current tide level for a station.
     
@@ -65,7 +70,8 @@ async def get_current_tide(station: str = "0001") -> TideReading:
     return reading
 
 
-@router.get("/forecast", response_model=TideForecast)
+@legacy_insights_router.get("/forecast", response_model=TideForecast, deprecated=True)
+@insights_router.get("/forecast", response_model=TideForecast)
 async def get_tide_forecast(
     station: str = "0001",
     hours: int = 24,
@@ -102,7 +108,8 @@ async def get_tide_forecast(
     return forecast
 
 
-@router.get("/stats")
+@legacy_insights_router.get("/stats", deprecated=True)
+@insights_router.get("/stats")
 async def get_tidal_statistics(station: str = "0001") -> dict:
     """Get tidal range statistics for the past 24 hours.
     
@@ -127,7 +134,8 @@ async def get_tidal_statistics(station: str = "0001") -> dict:
     }
 
 
-@router.get("/optimal-walk")
+@legacy_insights_router.get("/optimal-walk", deprecated=True)
+@insights_router.get("/optimal-walk")
 async def get_optimal_walk_times(
     station: str = "0001",
     days: int = 3,
@@ -215,7 +223,8 @@ async def get_optimal_walk_times(
         )
 
 
-@router.get("/station/{station_id}", response_model=TideStation)
+@legacy_data_router.get("/station/{station_id}", response_model=TideStation, deprecated=True)
+@data_router.get("/station/{station_id}", response_model=TideStation)
 async def get_station_info(station_id: str) -> TideStation:
     """Get metadata for a tidal monitoring station.
     

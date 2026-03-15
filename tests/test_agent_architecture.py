@@ -267,10 +267,10 @@ class TestGraphBuild:
 
     @patch("whoopdata.agent.specialists.create_agent")
     @patch("whoopdata.agent.graph.create_agent")
-    def test_build_graph_supervisor_gets_specialist_tools_plus_repl(
+    def test_build_graph_supervisor_gets_specialist_tools_plus_direct_tools(
         self, mock_graph_create, mock_spec_create
     ):
-        """Supervisor should receive specialist tools + python_repl."""
+        """Supervisor should receive specialist tools plus direct supervisor tools."""
         mock_spec_create.return_value = MagicMock()
         mock_graph_create.return_value = MagicMock()
 
@@ -285,8 +285,23 @@ class TestGraphBuild:
             # Positional args
             tools = call_kwargs[0][1] if len(call_kwargs[0]) > 1 else []
 
-        # Should have N specialist tools + 1 python_repl
-        expected_count = len(AGENT_REGISTRY) + 1
+        # Should have N specialist tools + python_repl + protein recommendation tool
+        expected_count = len(AGENT_REGISTRY) + 2
         assert len(tools) == expected_count, (
             f"Expected {expected_count} tools, got {len(tools)}"
         )
+
+    @patch("whoopdata.agent.specialists.create_agent")
+    @patch("whoopdata.agent.graph.create_agent")
+    def test_build_graph_passes_checkpointer_when_provided(self, mock_graph_create, mock_spec_create):
+        mock_spec_create.return_value = MagicMock()
+        mock_graph_create.return_value = MagicMock()
+
+        from whoopdata.agent.graph import build_graph
+
+        checkpointer = object()
+        build_graph(checkpointer=checkpointer)
+
+        call_kwargs = mock_graph_create.call_args
+        kwargs = call_kwargs.kwargs or call_kwargs[1]
+        assert kwargs["checkpointer"] is checkpointer

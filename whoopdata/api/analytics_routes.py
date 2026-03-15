@@ -37,10 +37,12 @@ from whoopdata.analytics.data_prep import (
     get_training_data,
 )
 
-router = APIRouter(prefix="/analytics", tags=["analytics"])
+insights_router = APIRouter(prefix="/api/v1/insights/analytics", tags=["insights"])
+legacy_insights_router = APIRouter(prefix="/analytics", tags=["insights"])
 
 
-@router.get("/recovery/factors", response_model=FactorImportanceResponse)
+@legacy_insights_router.get("/recovery/factors", response_model=FactorImportanceResponse, deprecated=True)
+@insights_router.get("/recovery/factors", response_model=FactorImportanceResponse)
 async def analyze_recovery_factors(
     days_back: int = Query(365, description="Days of historical data to analyze"),
     db: Session = Depends(get_db),
@@ -74,7 +76,8 @@ async def analyze_recovery_factors(
         raise HTTPException(status_code=500, detail=f"Error loading recovery factors: {str(e)}")
 
 
-@router.get("/sleep/factors")
+@legacy_insights_router.get("/sleep/factors", deprecated=True)
+@insights_router.get("/sleep/factors")
 async def analyze_sleep_quality_factors(
     days_back: int = Query(365, description="Days of historical data to analyze"),
     db: Session = Depends(get_db),
@@ -112,7 +115,8 @@ async def analyze_sleep_quality_factors(
         )
 
 
-@router.get("/correlations", response_model=CorrelationAnalysisResponse)
+@legacy_insights_router.get("/correlations", response_model=CorrelationAnalysisResponse, deprecated=True)
+@insights_router.get("/correlations", response_model=CorrelationAnalysisResponse)
 async def analyze_correlations(
     days_back: int = Query(365, description="Days of historical data"),
     significance_threshold: float = Query(0.05, description="P-value threshold for significance"),
@@ -145,7 +149,8 @@ async def analyze_correlations(
         raise HTTPException(status_code=500, detail=f"Error loading correlations: {str(e)}")
 
 
-@router.post("/predict/recovery", response_model=RecoveryPredictionResponse)
+@legacy_insights_router.post("/predict/recovery", response_model=RecoveryPredictionResponse, deprecated=True)
+@insights_router.post("/predict/recovery", response_model=RecoveryPredictionResponse)
 async def predict_recovery(request: RecoveryPredictionRequest, db: Session = Depends(get_db)):
     """Predict recovery score from input metrics using pre-trained model.
 
@@ -216,7 +221,8 @@ async def predict_recovery(request: RecoveryPredictionRequest, db: Session = Dep
         raise HTTPException(status_code=500, detail=f"Error predicting recovery: {str(e)}")
 
 
-@router.post("/predict/sleep", response_model=SleepPredictionResponse)
+@legacy_insights_router.post("/predict/sleep", response_model=SleepPredictionResponse, deprecated=True)
+@insights_router.post("/predict/sleep", response_model=SleepPredictionResponse)
 async def predict_sleep_performance(request: SleepPredictionRequest, db: Session = Depends(get_db)):
     """Predict sleep performance from sleep metrics using pre-trained model.
 
@@ -256,7 +262,8 @@ async def predict_sleep_performance(request: SleepPredictionRequest, db: Session
         raise HTTPException(status_code=500, detail=f"Error predicting sleep performance: {str(e)}")
 
 
-@router.get("/insights/weekly", response_model=InsightResponse)
+@legacy_insights_router.get("/insights/weekly", response_model=InsightResponse, deprecated=True)
+@insights_router.get("/insights/weekly", response_model=InsightResponse)
 async def get_weekly_insights(
     weeks: int = Query(1, description="Number of weeks to analyze", ge=1, le=12),
     db: Session = Depends(get_db),
@@ -291,7 +298,8 @@ async def get_weekly_insights(
         raise HTTPException(status_code=500, detail=f"Error loading insights: {str(e)}")
 
 
-@router.get("/patterns/{metric}", response_model=PatternDetectionResponse)
+@legacy_insights_router.get("/patterns/{metric}", response_model=PatternDetectionResponse, deprecated=True)
+@insights_router.get("/patterns/{metric}", response_model=PatternDetectionResponse)
 async def analyze_metric_pattern(
     metric: str,
     days: int = Query(30, description="Days to analyze", ge=7, le=365),
@@ -341,7 +349,8 @@ async def analyze_metric_pattern(
         raise HTTPException(status_code=500, detail=f"Error loading metric pattern: {str(e)}")
 
 
-@router.get("/recovery/deep-dive")
+@legacy_insights_router.get("/recovery/deep-dive", deprecated=True)
+@insights_router.get("/recovery/deep-dive")
 async def get_recovery_deep_dive(
     days_back: int = Query(365, description="Days of historical data to analyze"),
     db: Session = Depends(get_db),
@@ -376,7 +385,8 @@ async def get_recovery_deep_dive(
         raise HTTPException(status_code=500, detail=f"Error loading recovery deep dive: {str(e)}")
 
 
-@router.get("/recovery/by-sport")
+@legacy_insights_router.get("/recovery/by-sport", deprecated=True)
+@insights_router.get("/recovery/by-sport")
 async def get_recovery_by_sport(
     days_back: int = Query(365, description="Days of historical data to analyze"),
     db: Session = Depends(get_db),
@@ -402,7 +412,8 @@ async def get_recovery_by_sport(
         raise HTTPException(status_code=500, detail=f"Error loading sport recovery data: {str(e)}")
 
 
-@router.get("/recovery/by-time-of-day")
+@legacy_insights_router.get("/recovery/by-time-of-day", deprecated=True)
+@insights_router.get("/recovery/by-time-of-day")
 async def get_recovery_by_time_of_day(
     days_back: int = Query(365, description="Days of historical data to analyze"),
     db: Session = Depends(get_db),
@@ -430,7 +441,8 @@ async def get_recovery_by_time_of_day(
         )
 
 
-@router.get("/recovery/by-hr-zones")
+@legacy_insights_router.get("/recovery/by-hr-zones", deprecated=True)
+@insights_router.get("/recovery/by-hr-zones")
 async def get_recovery_by_hr_zones(
     days_back: int = Query(365, description="Days of historical data to analyze"),
     db: Session = Depends(get_db),
@@ -458,7 +470,8 @@ async def get_recovery_by_hr_zones(
         )
 
 
-@router.get("/recovery/strain-patterns")
+@legacy_insights_router.get("/recovery/strain-patterns", deprecated=True)
+@insights_router.get("/recovery/strain-patterns")
 async def get_strain_patterns(
     days_back: int = Query(365, description="Days of historical data to analyze"),
     db: Session = Depends(get_db),
@@ -484,7 +497,8 @@ async def get_strain_patterns(
         raise HTTPException(status_code=500, detail=f"Error loading strain pattern data: {str(e)}")
 
 
-@router.get("/summary", response_model=AnalyticsSummaryResponse)
+@legacy_insights_router.get("/summary", response_model=AnalyticsSummaryResponse, deprecated=True)
+@insights_router.get("/summary", response_model=AnalyticsSummaryResponse)
 async def get_analytics_summary(
     days_back: int = Query(365, description="Days of historical data"),
     db: Session = Depends(get_db),
@@ -519,7 +533,8 @@ async def get_analytics_summary(
         raise HTTPException(status_code=500, detail=f"Error loading analytics summary: {str(e)}")
 
 
-@router.get("/recovery/mlr", response_model=MLRModelResponse)
+@legacy_insights_router.get("/recovery/mlr", response_model=MLRModelResponse, deprecated=True)
+@insights_router.get("/recovery/mlr", response_model=MLRModelResponse)
 async def get_recovery_mlr(
     days_back: int = Query(365, description="Days of historical data"),
     db: Session = Depends(get_db),
@@ -547,7 +562,8 @@ async def get_recovery_mlr(
         raise HTTPException(status_code=500, detail=f"Error loading recovery MLR: {str(e)}")
 
 
-@router.get("/hrv/mlr", response_model=MLRModelResponse)
+@legacy_insights_router.get("/hrv/mlr", response_model=MLRModelResponse, deprecated=True)
+@insights_router.get("/hrv/mlr", response_model=MLRModelResponse)
 async def get_hrv_mlr(
     days_back: int = Query(365, description="Days of historical data"),
     db: Session = Depends(get_db),
@@ -575,7 +591,8 @@ async def get_hrv_mlr(
         raise HTTPException(status_code=500, detail=f"Error loading HRV MLR: {str(e)}")
 
 
-@router.get("/correlations/matrix", response_model=CorrelationMatrixResponse)
+@legacy_insights_router.get("/correlations/matrix", response_model=CorrelationMatrixResponse, deprecated=True)
+@insights_router.get("/correlations/matrix", response_model=CorrelationMatrixResponse)
 async def get_correlation_matrix(
     days_back: int = Query(365, description="Days of historical data"),
     db: Session = Depends(get_db),

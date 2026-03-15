@@ -3,6 +3,7 @@
 Builds a supervisor agent using create_agent with specialist subagents
 wrapped as tools. All user-visible responses come from the supervisor.
 """
+from typing import Any
 
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
@@ -14,7 +15,7 @@ from .tools import python_repl_tool, get_protein_recommendation_tool
 from . import settings
 
 
-def build_graph():
+def build_graph(*, checkpointer: Any | None = None):
     """Build the health data agent graph.
 
     Creates a supervisor agent (via create_agent) that delegates to
@@ -33,11 +34,17 @@ def build_graph():
     # Create the supervisor agent
     # create_agent returns a compiled LangGraph graph that handles
     # the tool-calling loop internally
+    graph_kwargs = {
+        "model": settings.SUPERVISOR_MODEL,
+        "tools": all_tools,
+        "system_prompt": SUPERVISOR_SYSTEM_PROMPT,
+        "name": "health_coach",
+    }
+    if checkpointer is not None:
+        graph_kwargs["checkpointer"] = checkpointer
+
     graph = create_agent(
-        model=settings.SUPERVISOR_MODEL,
-        tools=all_tools,
-        system_prompt=SUPERVISOR_SYSTEM_PROMPT,
-        name="health_coach",
+        **graph_kwargs,
     )
 
     return graph
