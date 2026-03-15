@@ -40,3 +40,16 @@ def test_readme_and_makefile_distinguish_surfaces_and_run_modes():
     assert "convenience" in readme_text.lower()
     assert "Primary FastAPI server command" in makefile_text
     assert "Convenience launcher" in makefile_text
+
+
+def test_readme_includes_rollout_verification_checklist():
+    readme_text = (ROOT / "README.md").read_text()
+
+    assert "## Rollout Verification Checklist" in readme_text
+    assert "Run the focused validation slices" in readme_text
+    assert "/docs" in readme_text
+    assert "/api/v1/data/recovery" in readme_text
+    assert "/api/v1/insights/dashboard/daily" in readme_text
+    assert "/api/v1/agent/conversations" in readme_text
+    assert "/workouts/latest" in readme_text
+    assert "Deprecation" in readme_text

@@ -4,12 +4,13 @@ Verifies registry, tool grouping, specialist factory, graph build, and prompts
 without requiring the API server or LLM calls.
 """
 
-import pytest
+import inspect
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from langchain_core.tools import BaseTool
 from langchain_core.messages import AIMessage
+import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -291,16 +292,27 @@ class TestGraphBuild:
             f"Expected {expected_count} tools, got {len(tools)}"
         )
 
+    def test_build_graph_has_single_langgraph_config_parameter(self):
+
+        from whoopdata.agent.graph import build_graph
+        parameters = list(inspect.signature(build_graph).parameters.values())
+        assert len(parameters) == 1
+        assert parameters[0].name == "config"
+
     @patch("whoopdata.agent.specialists.create_agent")
     @patch("whoopdata.agent.graph.create_agent")
-    def test_build_graph_passes_checkpointer_when_provided(self, mock_graph_create, mock_spec_create):
+    def test_build_graph_accepts_langgraph_config_and_uses_its_checkpointer(
+        self, mock_graph_create, mock_spec_create
+    ):
         mock_spec_create.return_value = MagicMock()
         mock_graph_create.return_value = MagicMock()
+
+        from langgraph.constants import CONFIG_KEY_CHECKPOINTER
 
         from whoopdata.agent.graph import build_graph
 
         checkpointer = object()
-        build_graph(checkpointer=checkpointer)
+        build_graph({"configurable": {CONFIG_KEY_CHECKPOINTER: checkpointer}})
 
         call_kwargs = mock_graph_create.call_args
         kwargs = call_kwargs.kwargs or call_kwargs[1]

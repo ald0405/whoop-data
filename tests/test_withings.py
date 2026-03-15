@@ -4,12 +4,7 @@ Test script for Withings authentication and data retrieval
 Run this to test the Withings integration
 """
 
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from services.withings_client import WithingsClient
+from whoopdata.clients.withings_client import WithingsClient
 import json
 
 
@@ -92,7 +87,7 @@ def main():
 
         # Test simple client
         print("\n5. Testing simple client...")
-        from analysis.withings_simple import get_body_measurements
+        from whoopdata.analysis.withings_simple import get_body_measurements
 
         simple_response = get_body_measurements()
         print(f"✅ Simple client works! Status: {simple_response.get('status')}")

@@ -86,3 +86,32 @@ def test_send_message_respects_explicit_thread_id_without_existing_session():
     assert response.thread_id == "thread-explicit"
     assert response.session_id is not None
     assert graph.calls[0][1] == {"configurable": {"thread_id": "thread-explicit"}}
+
+
+def test_send_message_reuses_same_thread_for_session_resume():
+    graph = FakeGraph({"messages": [AIMessage(content="Resumed response.")]})
+    service = ConversationService(graph=graph)
+
+    first_response = asyncio.run(service.send_message(message="First message"))
+    second_response = asyncio.run(
+        service.send_message(
+            message="Follow-up message",
+            session_id=first_response.session_id,
+        )
+    )
+
+    assert second_response.session_id == first_response.session_id
+    assert second_response.thread_id == first_response.thread_id
+    assert graph.calls[0][1] == graph.calls[1][1]
+
+
+def test_send_message_isolates_distinct_conversations_by_thread():
+    graph = FakeGraph({"messages": [AIMessage(content="Isolated response.")]})
+    service = ConversationService(graph=graph)
+
+    first_response = asyncio.run(service.send_message(message="Conversation one"))
+    second_response = asyncio.run(service.send_message(message="Conversation two"))
+
+    assert first_response.session_id != second_response.session_id
+    assert first_response.thread_id != second_response.thread_id
+    assert graph.calls[0][1] != graph.calls[1][1]
