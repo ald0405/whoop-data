@@ -3,9 +3,11 @@
 Builds a supervisor agent using create_agent with specialist subagents
 wrapped as tools. All user-visible responses come from the supervisor.
 """
+from typing import Any
 
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
+from langgraph.constants import CONFIG_KEY_CHECKPOINTER
 
 from .prompts import SUPERVISOR_SYSTEM_PROMPT
 from .schemas import AgentConfig
@@ -13,9 +15,18 @@ from .specialists import build_specialist_tools
 from .tools import python_repl_tool, get_protein_recommendation_tool
 from . import settings
 
+def _resolve_checkpointer(
+    config: dict[str, Any] | None,
+) -> Any | None:
+    if not isinstance(config, dict):
+        return None
+    configurable = config.get("configurable")
+    if not isinstance(configurable, dict):
+        return None
+    return configurable.get(CONFIG_KEY_CHECKPOINTER)
 
-def build_graph():
-    """Build the health data agent graph.
+def _create_graph(*, checkpointer: Any | None = None):
+    """Build the compiled health data agent graph.
 
     Creates a supervisor agent (via create_agent) that delegates to
     specialist subagents wrapped as tools. The supervisor always
@@ -33,14 +44,33 @@ def build_graph():
     # Create the supervisor agent
     # create_agent returns a compiled LangGraph graph that handles
     # the tool-calling loop internally
+    graph_kwargs = {
+        "model": settings.SUPERVISOR_MODEL,
+        "tools": all_tools,
+        "system_prompt": SUPERVISOR_SYSTEM_PROMPT,
+        "name": "health_coach",
+    }
+    if checkpointer is not None:
+        graph_kwargs["checkpointer"] = checkpointer
+
     graph = create_agent(
-        model=settings.SUPERVISOR_MODEL,
-        tools=all_tools,
-        system_prompt=SUPERVISOR_SYSTEM_PROMPT,
-        name="health_coach",
+        **graph_kwargs,
     )
 
     return graph
+
+
+def build_graph(config: dict[str, Any] | None = None):
+    """Build the health data agent graph from a LangGraph config.
+
+    This factory intentionally exposes a single positional config
+    argument because LangGraph validates graph factory signatures while
+    loading `langgraph.json`.
+
+    Returns:
+        Compiled LangGraph graph ready for .invoke() / .ainvoke()
+    """
+    return _create_graph(checkpointer=_resolve_checkpointer(config))
 
 
 async def run_agent(message: str, thread_id: str = "default") -> dict:

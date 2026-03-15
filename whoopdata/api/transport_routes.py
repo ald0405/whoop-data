@@ -3,13 +3,15 @@
 from fastapi import APIRouter, HTTPException
 from whoopdata.services.transport_service import TravelAPI
 
-router = APIRouter(prefix="/transport", tags=["transport"])
+data_router = APIRouter(prefix="/api/v1/data/transport", tags=["data"])
+legacy_data_router = APIRouter(prefix="/transport", tags=["data"])
 
 # Initialize transport service
 transport_service = TravelAPI()
 
 
-@router.get("/status")
+@legacy_data_router.get("/status", deprecated=True)
+@data_router.get("/status")
 async def get_transport_status():
     """Get current status of key TfL lines.
 
@@ -31,7 +33,8 @@ async def get_transport_status():
         raise HTTPException(status_code=500, detail=f"Failed to fetch transport status: {str(e)}")
 
 
-@router.get("/arrivals")
+@legacy_data_router.get("/arrivals", deprecated=True)
+@data_router.get("/arrivals")
 async def get_train_arrivals(limit: int = 5):
     """Get real-time train arrivals for key stations.
 

@@ -6,139 +6,90 @@ A Gradio-powered chat interface to interact with your WHOOP and Withings health 
 Ask questions about your workouts, sleep, recovery, weight trends, and more!
 """
 
-import asyncio
-import gradio as gr
-from whoopdata.agent.graph import run_agent
-import uuid
-from datetime import datetime
-from typing import List, Tuple
 import logging
-import json
 import re
+from typing import List, Tuple
+
+import gradio as gr
+
+from whoopdata.agent.conversation_service import get_conversation_service
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Global conversation state
-conversations = {}
-
-
-def get_thread_id() -> str:
-    """Generate a unique thread ID for conversation tracking."""
-    return f"chat_{uuid.uuid4().hex[:8]}"
-
 
 async def chat_with_agent(
-    message: str, history: List[Tuple[str, str]], thread_id: str = None
-) -> Tuple[List[Tuple[str, str]], str]:
+    message: str,
+    history: List[Tuple[str, str]],
+    session_id: str | None = None,
+    thread_id: str | None = None,
+) -> Tuple[List[Tuple[str, str]], str, str | None, str]:
     """
     Send a message to the health data agent and get a response.
 
     Args:
         message: User's message
         history: Chat history as list of (user_msg, agent_msg) tuples
+        session_id: Stable session ID for the public conversation boundary
         thread_id: Unique conversation thread ID
 
     Returns:
-        Updated history and empty string for input box
+        Updated history, empty string for input box, and persisted conversation IDs
     """
-    if not thread_id:
-        thread_id = get_thread_id()
 
     try:
         # Add user message to history
         history = history or []
         logger.info(f"User message: {message}")
 
-        # Call the agent
-        result = await run_agent(message, thread_id)
+        conversation_service = get_conversation_service()
+        conversation_response = await conversation_service.send_message(
+            message=message,
+            session_id=session_id,
+            thread_id=thread_id,
+        )
+        session_id = conversation_response.session_id
+        thread_id = conversation_response.thread_id
+        agent_response = conversation_response.assistant_message
 
-        # Extract the agent's response from the final message
-        if result and "messages" in result:
-            final_message = result["messages"][-1]
-            if hasattr(final_message, "content") and final_message.content:
-                agent_response = final_message.content
-                
-                # Check if response contains image data from Python tool
-                # Look for tool messages that might contain JSON with images
-                logger.info(f"Processing {len(result['messages'])} messages for images")
-                for i, msg in enumerate(result["messages"]):
-                    msg_type = type(msg).__name__
-                    logger.info(f"Message {i}: type={msg_type}")
-                    
-                    if hasattr(msg, "content") and isinstance(msg.content, str):
-                        content_preview = msg.content[:100] if len(msg.content) > 100 else msg.content
-                        logger.info(f"  Content preview: {content_preview}")
-                        
-                        # Try to parse as JSON to extract images
-                        try:
-                            if '{' in msg.content and '"images"' in msg.content:
-                                data = json.loads(msg.content)
-                                if "images" in data and data["images"]:
-                                    logger.info(f"  Found {len(data['images'])} images!")
-                                    # Embed images in the response
-                                    for img in data["images"]:
-                                        img_html = f'<img src="data:image/png;base64,{img["data"]}" style="max-width: 600px; border-radius: 8px; margin: 10px 0;"/>'
-                                        agent_response += f"\n\n{img_html}"
-                                        logger.info(f"  Added image: {img['filename']}")
-                        except (json.JSONDecodeError, KeyError) as e:
-                            logger.debug(f"  Not JSON or no images: {e}")
-                
-                # Convert markdown image syntax to HTML for Gradio
-                # Pattern: ![alt text](data:image/png;base64,...)
-                markdown_image_pattern = r'!\[([^\]]*)\]\((data:image/[^;]+;base64,[^)]+)\)'
-                
-                def replace_markdown_image(match):
-                    alt_text = match.group(1)
-                    data_url = match.group(2)
-                    return f'<img src="{data_url}" alt="{alt_text}" style="max-width: 600px; border-radius: 8px; margin: 10px 0;"/>'
-                
-                agent_response = re.sub(markdown_image_pattern, replace_markdown_image, agent_response)
-                logger.info(f"Converted markdown images to HTML")
-                
-                # Extract and display Python code from tool calls
-                python_code_found = False
-                for i, msg in enumerate(result["messages"]):
-                    if hasattr(msg, "tool_calls") and msg.tool_calls:
-                        for tool_call in msg.tool_calls:
-                            # Handle both dict and object formats
-                            tool_name = tool_call.get("name") if isinstance(tool_call, dict) else getattr(tool_call, "name", None)
-                            
-                            if tool_name == "python_interpreter":
-                                # Try multiple ways to get the code
-                                code = None
-                                if isinstance(tool_call, dict):
-                                    code = tool_call.get("args", {}).get("query", "")
-                                else:
-                                    code = getattr(tool_call, "args", {}).get("query", "")
-                                
-                                if code and not python_code_found:
-                                    logger.info(f"Found Python code ({len(code)} chars)")
-                                    # Add code block before the response
-                                    code_block = f"\n\n**Generated Python Code:**\n```python\n{code}\n```\n\n"
-                                    agent_response = code_block + agent_response
-                                    python_code_found = True
-                                    break
-            else:
-                agent_response = "I processed your request, but didn't generate a response. Please try rephrasing your question."
-        else:
-            agent_response = (
-                "I'm having trouble processing your request right now. Please try again."
-            )
+        for artifact in conversation_response.artifacts:
+            if artifact.kind == "image" and artifact.mime_type == "image/png":
+                img_html = f'<img src="data:{artifact.mime_type};base64,{artifact.content}" style="max-width: 600px; border-radius: 8px; margin: 10px 0;"/>'
+                agent_response += f"\n\n{img_html}"
+
+        python_artifact = next(
+            (artifact for artifact in conversation_response.artifacts if artifact.kind == "python_code"),
+            None,
+        )
+        if python_artifact and python_artifact.content:
+            code_block = f"\n\n**Generated Python Code:**\n```python\n{python_artifact.content}\n```\n\n"
+            agent_response = code_block + agent_response
+
+        # Convert markdown image syntax to HTML for Gradio
+        # Pattern: ![alt text](data:image/png;base64,...)
+        markdown_image_pattern = r'!\[([^\]]*)\]\((data:image/[^;]+;base64,[^)]+)\)'
+
+        def replace_markdown_image(match):
+            alt_text = match.group(1)
+            data_url = match.group(2)
+            return f'<img src="{data_url}" alt="{alt_text}" style="max-width: 600px; border-radius: 8px; margin: 10px 0;"/>'
+
+        agent_response = re.sub(markdown_image_pattern, replace_markdown_image, agent_response)
+        logger.info(f"Converted markdown images to HTML")
 
         logger.info(f"Agent response length: {len(agent_response)}")
 
         # Add to history
         history.append((message, agent_response))
 
-        return history, ""  # Return updated history and clear input box
+        return history, "", session_id, thread_id
 
     except Exception as e:
         error_msg = f"Sorry, I encountered an error: {str(e)}"
         logger.error(f"Chat error: {e}")
         history.append((message, error_msg))
-        return history, ""
+        return history, "", session_id, thread_id
 
 
 def create_chat_interface():
@@ -211,8 +162,9 @@ def create_chat_interface():
             )
             send_btn = gr.Button("Send 💬", variant="primary", scale=1)
 
-        # Thread ID state (hidden)
-        thread_id_state = gr.State(value=get_thread_id())
+        # Conversation state (hidden)
+        session_id_state = gr.State(value=None)
+        thread_id_state = gr.State(value=None)
 
         # Examples
         gr.Examples(
@@ -229,25 +181,25 @@ def create_chat_interface():
         )
 
         # Event handlers
-        async def handle_message(message, history, thread_id):
+        async def handle_message(message, history, session_id, thread_id):
             """Handle message submission with async support."""
             if not message.strip():
-                return history, ""
-            return await chat_with_agent(message, history, thread_id)
+                return history, "", session_id, thread_id
+            return await chat_with_agent(message, history, session_id, thread_id)
 
         # Submit on button click
         send_btn.click(
             fn=handle_message,
-            inputs=[msg_input, chatbot, thread_id_state],
-            outputs=[chatbot, msg_input],
+            inputs=[msg_input, chatbot, session_id_state, thread_id_state],
+            outputs=[chatbot, msg_input, session_id_state, thread_id_state],
             show_progress=True,
         )
 
         # Submit on Enter key
         msg_input.submit(
             fn=handle_message,
-            inputs=[msg_input, chatbot, thread_id_state],
-            outputs=[chatbot, msg_input],
+            inputs=[msg_input, chatbot, session_id_state, thread_id_state],
+            outputs=[chatbot, msg_input, session_id_state, thread_id_state],
             show_progress=True,
         )
 

@@ -6,10 +6,14 @@ from typing import List, Optional, Union
 from datetime import datetime, timedelta
 import pandas as pd
 
-router = APIRouter()
+data_router = APIRouter(prefix="/api/v1/data", tags=["data"])
+legacy_data_router = APIRouter(tags=["data"])
+insights_router = APIRouter(prefix="/api/v1/insights", tags=["insights"])
+legacy_insights_router = APIRouter(tags=["insights"])
 
 
-@router.get("/withings/weight", response_model=Union[List[dict], dict])
+@legacy_data_router.get("/withings/weight", response_model=Union[List[dict], dict], deprecated=True)
+@data_router.get("/withings/weight", response_model=Union[List[dict], dict])
 async def get_weight_data(
     latest: bool = Query(False, description="Get only the latest record"),
     limit: int = Query(100, description="Maximum number of records to return"),
@@ -103,7 +107,7 @@ async def get_weight_data(
         raise HTTPException(status_code=500, detail=f"Error retrieving weight data: {str(e)}")
 
 
-@router.get("/withings/weight/latest")
+@legacy_data_router.get("/withings/weight/latest", deprecated=True)
 async def get_latest_weight(
     db: Session = Depends(get_db), user_id: str = Query("default_user", description="User ID")
 ):
@@ -140,7 +144,8 @@ async def get_latest_weight(
         raise HTTPException(status_code=500, detail=f"Error retrieving latest weight: {str(e)}")
 
 
-@router.get("/withings/weight/analytics")
+@legacy_insights_router.get("/withings/weight/analytics", deprecated=True)
+@insights_router.get("/withings/weight/analytics")
 async def get_weight_stats(
     db: Session = Depends(get_db),
     user_id: str = Query("default_user", description="User ID"),
@@ -198,7 +203,8 @@ async def get_weight_stats(
         raise HTTPException(status_code=500, detail=f"Error calculating weight stats: {str(e)}")
 
 
-@router.get("/withings/heart-rate", response_model=Union[List[dict], dict])
+@legacy_data_router.get("/withings/heart-rate", response_model=Union[List[dict], dict], deprecated=True)
+@data_router.get("/withings/heart-rate", response_model=Union[List[dict], dict])
 async def get_heart_rate_data(
     latest: bool = Query(False, description="Get only the latest record"),
     limit: int = Query(100, description="Maximum number of records to return"),
@@ -272,7 +278,7 @@ async def get_heart_rate_data(
         raise HTTPException(status_code=500, detail=f"Error retrieving heart rate data: {str(e)}")
 
 
-@router.get("/withings/heart-rate/latest")
+@legacy_data_router.get("/withings/heart-rate/latest", deprecated=True)
 async def get_latest_heart_rate(
     db: Session = Depends(get_db), user_id: str = Query("default_user", description="User ID")
 ):
@@ -306,7 +312,8 @@ async def get_latest_heart_rate(
         raise HTTPException(status_code=500, detail=f"Error retrieving latest heart rate: {str(e)}")
 
 
-@router.get("/withings/summary")
+@legacy_insights_router.get("/withings/summary", deprecated=True)
+@insights_router.get("/withings/summary")
 async def get_withings_summary(
     db: Session = Depends(get_db), user_id: str = Query("default_user", description="User ID")
 ):
@@ -372,42 +379,8 @@ async def get_withings_summary(
 # ============================================================================
 
 
-@router.get("/withings/weight/latest")
-async def get_latest_weight_compat(
-    db: Session = Depends(get_db), user_id: str = Query("default_user", description="User ID")
-):
-    """Backward compatibility endpoint - redirects to unified weight endpoint."""
-    try:
-        record = (
-            db.query(WithingsWeight)
-            .filter(WithingsWeight.user_id == user_id)
-            .filter(WithingsWeight.weight_kg.isnot(None))
-            .order_by(WithingsWeight.datetime.desc())
-            .first()
-        )
 
-        if not record:
-            raise HTTPException(status_code=404, detail="No weight data found")
-
-        return {
-            "id": record.id,
-            "user_id": record.user_id,
-            "datetime": record.datetime.isoformat() if record.datetime else None,
-            "weight_kg": record.weight_kg,
-            "bmi": record.bmi(),
-            "weight_category": record.weight_category(),
-            "fat_ratio_percent": record.fat_ratio_percent,
-            "fat_mass_kg": record.fat_mass_kg,
-            "muscle_mass_kg": record.muscle_mass_kg,
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving latest weight: {str(e)}")
-
-
-@router.get("/withings/weight/stats")
+@legacy_insights_router.get("/withings/weight/stats", deprecated=True)
 async def get_weight_stats_compat(
     db: Session = Depends(get_db),
     user_id: str = Query("default_user", description="User ID"),
@@ -463,33 +436,3 @@ async def get_weight_stats_compat(
         raise HTTPException(status_code=500, detail=f"Error calculating weight stats: {str(e)}")
 
 
-@router.get("/withings/heart-rate/latest")
-async def get_latest_heart_rate_compat(
-    db: Session = Depends(get_db), user_id: str = Query("default_user", description="User ID")
-):
-    """Backward compatibility endpoint - redirects to unified heart rate endpoint."""
-    try:
-        record = (
-            db.query(WithingsHeartRate)
-            .filter(WithingsHeartRate.user_id == user_id)
-            .order_by(WithingsHeartRate.datetime.desc())
-            .first()
-        )
-
-        if not record:
-            raise HTTPException(status_code=404, detail="No heart rate data found")
-
-        return {
-            "id": record.id,
-            "user_id": record.user_id,
-            "datetime": record.datetime.isoformat() if record.datetime else None,
-            "heart_rate_bpm": record.heart_rate_bpm,
-            "systolic_bp_mmhg": record.systolic_bp_mmhg,
-            "diastolic_bp_mmhg": record.diastolic_bp_mmhg,
-            "bp_category": record.bp_category(),
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving latest heart rate: {str(e)}")

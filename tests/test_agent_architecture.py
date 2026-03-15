@@ -4,12 +4,13 @@ Verifies registry, tool grouping, specialist factory, graph build, and prompts
 without requiring the API server or LLM calls.
 """
 
-import pytest
+import inspect
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from langchain_core.tools import BaseTool
 from langchain_core.messages import AIMessage
+import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -267,10 +268,10 @@ class TestGraphBuild:
 
     @patch("whoopdata.agent.specialists.create_agent")
     @patch("whoopdata.agent.graph.create_agent")
-    def test_build_graph_supervisor_gets_specialist_tools_plus_repl(
+    def test_build_graph_supervisor_gets_specialist_tools_plus_direct_tools(
         self, mock_graph_create, mock_spec_create
     ):
-        """Supervisor should receive specialist tools + python_repl."""
+        """Supervisor should receive specialist tools plus direct supervisor tools."""
         mock_spec_create.return_value = MagicMock()
         mock_graph_create.return_value = MagicMock()
 
@@ -285,8 +286,34 @@ class TestGraphBuild:
             # Positional args
             tools = call_kwargs[0][1] if len(call_kwargs[0]) > 1 else []
 
-        # Should have N specialist tools + 1 python_repl
-        expected_count = len(AGENT_REGISTRY) + 1
+        # Should have N specialist tools + python_repl + protein recommendation tool
+        expected_count = len(AGENT_REGISTRY) + 2
         assert len(tools) == expected_count, (
             f"Expected {expected_count} tools, got {len(tools)}"
         )
+
+    def test_build_graph_has_single_langgraph_config_parameter(self):
+
+        from whoopdata.agent.graph import build_graph
+        parameters = list(inspect.signature(build_graph).parameters.values())
+        assert len(parameters) == 1
+        assert parameters[0].name == "config"
+
+    @patch("whoopdata.agent.specialists.create_agent")
+    @patch("whoopdata.agent.graph.create_agent")
+    def test_build_graph_accepts_langgraph_config_and_uses_its_checkpointer(
+        self, mock_graph_create, mock_spec_create
+    ):
+        mock_spec_create.return_value = MagicMock()
+        mock_graph_create.return_value = MagicMock()
+
+        from langgraph.constants import CONFIG_KEY_CHECKPOINTER
+
+        from whoopdata.agent.graph import build_graph
+
+        checkpointer = object()
+        build_graph({"configurable": {CONFIG_KEY_CHECKPOINTER: checkpointer}})
+
+        call_kwargs = mock_graph_create.call_args
+        kwargs = call_kwargs.kwargs or call_kwargs[1]
+        assert kwargs["checkpointer"] is checkpointer

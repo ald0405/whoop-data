@@ -6,10 +6,14 @@ from whoopdata.crud.recovery import get_recoveries, get_top_recoveries, get_avg_
 from whoopdata.utils.date_filters import standardize_date_params, apply_recovery_date_filter
 from whoopdata.database.database import get_db
 
-router = APIRouter()
+data_router = APIRouter(prefix="/api/v1/data", tags=["data"])
+legacy_data_router = APIRouter(tags=["data"])
+insights_router = APIRouter(prefix="/api/v1/insights", tags=["insights"])
+legacy_insights_router = APIRouter(tags=["insights"])
 
 
-@router.get("/recovery", response_model=Union[List[RecoverySchema], RecoverySchema])
+@legacy_data_router.get("/recovery", response_model=Union[List[RecoverySchema], RecoverySchema], deprecated=True)
+@data_router.get("/recovery", response_model=Union[List[RecoverySchema], RecoverySchema])
 def get_recovery_data(
     latest: bool = Query(False, description="Get only the latest record"),
     top: bool = Query(False, description="Get top recoveries by score"),
@@ -58,7 +62,8 @@ def get_recovery_data(
         raise HTTPException(status_code=500, detail=f"Error retrieving recovery data: {str(e)}")
 
 
-@router.get("/recovery/analytics/weekly", response_model=List[AvgRecovery])
+@legacy_insights_router.get("/recovery/analytics/weekly", response_model=List[AvgRecovery], deprecated=True)
+@insights_router.get("/recovery/analytics/weekly", response_model=List[AvgRecovery])
 def get_recovery_weekly_analytics(
     weeks: int = Query(4, description="Number of weeks to analyze (can be 52+ for full year)"),
     db: Session = Depends(get_db),
@@ -83,13 +88,13 @@ def get_recovery_weekly_analytics(
 # ============================================================================
 
 
-@router.get("/recoveries/", response_model=List[RecoverySchema])
+@legacy_data_router.get("/recoveries/", response_model=List[RecoverySchema], deprecated=True)
 def list_recoveries_compat(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """Backward compatibility endpoint - redirects to unified recovery endpoint."""
     return get_recoveries(db, skip=skip, limit=limit)
 
 
-@router.get("/recovery/latest", response_model=RecoverySchema)
+@legacy_data_router.get("/recovery/latest", response_model=RecoverySchema, deprecated=True)
 def latest_recovery_compat(db: Session = Depends(get_db)):
     """Backward compatibility endpoint - redirects to unified recovery endpoint."""
     recoveries = get_recoveries(db, skip=0, limit=1)
@@ -98,13 +103,13 @@ def latest_recovery_compat(db: Session = Depends(get_db)):
     return recoveries[0]
 
 
-@router.get("/recoveries/top", response_model=List[RecoverySchema])
+@legacy_data_router.get("/recoveries/top", response_model=List[RecoverySchema], deprecated=True)
 def top_recoveries_compat(limit: int = 10, db: Session = Depends(get_db)):
     """Backward compatibility endpoint - redirects to unified recovery endpoint."""
     return get_top_recoveries(db, limit=limit)
 
 
-@router.get("/recoveries/avg_recoveries/", response_model=List[AvgRecovery])
+@legacy_insights_router.get("/recoveries/avg_recoveries/", response_model=List[AvgRecovery], deprecated=True)
 def avg_recovery_compat(week: int = 4, db: Session = Depends(get_db)):
     """Backward compatibility endpoint - redirects to analytics endpoint."""
     return get_avg_recovery_by_week(db, weeks=week)

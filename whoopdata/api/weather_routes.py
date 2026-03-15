@@ -4,7 +4,8 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 from whoopdata.services.weather_service import WeatherAPI
 
-router = APIRouter(prefix="/weather", tags=["weather"])
+data_router = APIRouter(prefix="/api/v1/data/weather", tags=["data"])
+legacy_data_router = APIRouter(prefix="/weather", tags=["data"])
 
 # Initialize weather service
 try:
@@ -14,7 +15,8 @@ except ValueError as e:
     print(f"Warning: Weather service not initialized - {str(e)}")
 
 
-@router.get("/current")
+@legacy_data_router.get("/current", deprecated=True)
+@data_router.get("/current")
 async def get_current_weather(
     location: str = Query(..., description="Location name (e.g., 'Canary Wharf', 'London')")
 ):
@@ -52,7 +54,8 @@ async def get_current_weather(
         raise HTTPException(status_code=500, detail=f"Failed to fetch weather: {str(e)}")
 
 
-@router.get("/forecast")
+@legacy_data_router.get("/forecast", deprecated=True)
+@data_router.get("/forecast")
 async def get_weather_forecast(
     location: str = Query(..., description="Location name (e.g., 'Canary Wharf', 'London')"),
     days: Optional[int] = Query(3, description="Number of days to forecast (max 5)", ge=1, le=5),
@@ -97,7 +100,8 @@ async def get_weather_forecast(
         raise HTTPException(status_code=500, detail=f"Failed to fetch forecast: {str(e)}")
 
 
-@router.get("/air-quality")
+@legacy_data_router.get("/air-quality", deprecated=True)
+@data_router.get("/air-quality")
 async def get_air_quality(
     location: str = Query(..., description="Location name (e.g., 'Canary Wharf', 'London')")
 ):
