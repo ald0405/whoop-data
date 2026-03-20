@@ -1,8 +1,10 @@
 """LangGraph assembly for the health data agent.
 
-Builds a supervisor agent using create_agent with specialist subagents
-wrapped as tools. All user-visible responses come from the supervisor.
+Builds a supervisor agent using the standardized specialist delegation layer:
+internal ``create_agent`` specialists wrapped as tools rather than graph-level
+specialist handoffs. All user-visible responses come from the supervisor.
 """
+
 from typing import Any
 
 from langchain.agents import create_agent
@@ -10,10 +12,12 @@ from langchain_core.messages import HumanMessage
 from langgraph.constants import CONFIG_KEY_CHECKPOINTER
 
 from .prompts import SUPERVISOR_SYSTEM_PROMPT
+from .routing import SupervisorRoutingMiddleware
 from .schemas import AgentConfig
-from .specialists import build_specialist_tools
-from .tools import python_repl_tool, get_protein_recommendation_tool
+from .specialists import build_specialist_delegation_tools
+from .tools import python_repl_tool
 from . import settings
+
 
 def _resolve_checkpointer(
     config: dict[str, Any] | None,
@@ -25,6 +29,7 @@ def _resolve_checkpointer(
         return None
     return configurable.get(CONFIG_KEY_CHECKPOINTER)
 
+
 def _create_graph(*, checkpointer: Any | None = None):
     """Build the compiled health data agent graph.
 
@@ -35,11 +40,11 @@ def _create_graph(*, checkpointer: Any | None = None):
     Returns:
         Compiled LangGraph graph ready for .invoke() / .ainvoke()
     """
-    # Build specialist wrapper tools from registry
-    specialist_tools = build_specialist_tools()
+    # Build standardized specialist delegation tools from the registry.
+    specialist_tools = build_specialist_delegation_tools()
 
-    # Supervisor gets specialist tools + python REPL + protein tool for direct use
-    all_tools = specialist_tools + [python_repl_tool, get_protein_recommendation_tool]
+    # Supervisor gets specialist tools plus the Python REPL for direct utility work.
+    all_tools = specialist_tools + [python_repl_tool]
 
     # Create the supervisor agent
     # create_agent returns a compiled LangGraph graph that handles
@@ -48,6 +53,7 @@ def _create_graph(*, checkpointer: Any | None = None):
         "model": settings.SUPERVISOR_MODEL,
         "tools": all_tools,
         "system_prompt": SUPERVISOR_SYSTEM_PROMPT,
+        "middleware": [SupervisorRoutingMiddleware()],
         "name": "health_coach",
     }
     if checkpointer is not None:

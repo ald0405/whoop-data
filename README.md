@@ -23,6 +23,17 @@ A health data platform that integrates WHOOP and Withings devices. Includes ETL 
 
 New integrations should target the canonical namespaces above. Legacy aliases still exist in a few places as temporary compatibility adapters during the migration.
 
+## Coach Agent Architecture
+
+The conversational coach uses one public supervisor (`health_coach`) plus internal stateless specialists defined in `whoopdata/agent/registry.py`.
+
+- The supervisor is the only user-facing response writer.
+- Specialists own bounded domains: `health_data`, `analytics`, `environment`, `exercise`, `behaviour_change`, and `nutrition`.
+- Specialists do not call one another directly; the supervisor decides whether a second delegation is needed.
+- Delegation is standardized on `create_agent` specialists wrapped as supervisor tools; graph-level specialist handoffs are not the default path.
+- Typed delegation contracts now live in `whoopdata/agent/specialist_contracts.py`; the specialist wrapper renders typed handoffs deterministically and returns validated structured results to the supervisor.
+- Deterministic outputs such as daily plans, scenario predictions/comparisons, and weekly coaching reports stay in the `insights` workflows rather than specialist delegation.
+
 ## Quick Start
 
 ### 1. Install UV and Dependencies
