@@ -31,6 +31,7 @@ The product goal is not just to collect biometrics. It is to make personal healt
 - **Analytics Pipeline** -- Trend analysis, correlation analysis, and multiple linear regression models for recovery and HRV
 - **Chat Agent** -- LangGraph-based agent for natural language queries against your health data
 - **Dashboard** -- Web UI with charts, MLR coefficient tables, partial correlation charts, and correlation heatmaps
+- **Telegram Bot** -- Optional Telegram transport for the shared agent conversation boundary
 
 ## Experience at a glance
 
@@ -132,6 +133,7 @@ This is for development and debugging workflows. It is not a separate product su
 - `make etl-full` -- Canonical full-history ingestion command
 - `make server` -- Canonical FastAPI server for the `data`, `insights`, and `agent` surfaces
 - `make chat` -- Canonical Gradio chat UI backed by the shared conversation boundary
+- `make telegram-bot` -- Telegram bot transport backed by the shared conversation boundary
 - `make analytics` -- Canonical analytics materialization command
 - `make langgraph-dev` -- Development-only LangGraph tooling
 - `uv run whoop-withings-auth` -- Canonical Withings re-auth utility
@@ -142,6 +144,65 @@ This is for development and debugging workflows. It is not a separate product su
 - `make dev-all` -- Combined FastAPI + LangGraph dev helper
 
 Use the primary commands for docs, automation, and repeatable workflows. Treat the convenience launchers as shortcuts rather than the canonical product entrypoints.
+
+## Telegram bot setup
+
+The LangChain Telegram page linked in some examples is a document loader for ingesting Telegram data; it is not the transport used to expose this agent over Telegram. In this repository, Telegram is an optional adapter over the same shared conversation boundary used by the API and Gradio chat UI.
+
+### Required configuration
+
+Add the Telegram bot token to `.env`:
+
+```bash
+TELEGRAM_BOT_TOKEN=your_botfather_token_here
+```
+
+The bot token is a secret. Do not paste it into chat, logs, screenshots, or source control. If it is ever exposed, rotate it in `@BotFather` and update `.env`.
+
+### First-run ID capture
+
+Start the API and the Telegram bot:
+
+```bash
+make server
+make telegram-bot
+```
+
+Message the bot in a private Telegram chat, then use `/whoami` to see your Telegram `user_id` and `chat_id`. In a 1:1 bot chat these values may be identical — that is normal. After that, restrict the bot to your account by setting:
+
+```bash
+TELEGRAM_ALLOWED_USER_IDS=123456789
+TELEGRAM_ALLOWED_CHAT_IDS=123456789
+```
+
+Restart the bot after updating `.env` so the allowlists take effect.
+
+### Runtime model
+
+Telegram runs as a separate transport process over the shared conversation boundary:
+
+```bash
+make server
+make telegram-bot
+```
+
+`make dev-all` starts FastAPI and LangGraph dev tooling, but it does not start the Telegram bot.
+
+### Current Telegram behavior
+
+- Supports `/start` and `/whoami`
+- Supports normal text chat with the shared health-data agent
+- Reuses conversation context per Telegram chat
+- Rejects non-private chats
+- Uses Telegram-only HTML formatting for better rendering without changing Studio/API output
+- Sends agent-generated image artifacts back to Telegram when available
+
+Current limitations:
+
+- Incoming photos/images you send to the bot are not processed yet
+- The bot must be restarted after changing Telegram token or allowlist settings
+
+The Telegram adapter can silently ignore unauthorized users once the allowlists are set. Rotate any token that was ever pasted into chat, logs, or source control before relying on the bot.
 
 ## Rollout Verification Checklist
 
@@ -176,6 +237,7 @@ Run:
   make etl            Primary ETL pipeline (incremental)
   make etl-full       Primary ETL pipeline (full load)
   make chat           Primary chat interface command
+  make telegram-bot   Telegram bot adapter command
   make analytics      Primary analytics pipeline command
   make langgraph-dev  Development-only LangGraph dev server
   make dev-all        Convenience FastAPI + LangGraph dev launcher
@@ -197,6 +259,9 @@ Maintenance:
 
 - **WHOOP 401 errors** -- Delete `.whoop_tokens.json` and re-authenticate
 - **Withings re-auth** -- Run `uv run whoop-withings-auth`
+- **Telegram token rejected** -- Re-copy the current token from `@BotFather`, make sure `.env` contains the full token with no quotes or truncation, then restart `make telegram-bot`
+- **`/whoami` or formatting errors in Telegram** -- Restart the bot after pulling the latest code; Telegram formatting is handled adapter-side and should not affect Studio/API output
+- **Telegram access control not working** -- Confirm `TELEGRAM_ALLOWED_USER_IDS` and `TELEGRAM_ALLOWED_CHAT_IDS` are set in `.env`, then restart the bot
 - **Looking for the right API?** -- Use `/api/v1/data/*` for raw records, `/api/v1/insights/*` for interpreted outputs, and `/api/v1/agent/*` for conversational requests
 - **Need detailed implementation notes?** -- Start in [`docs/README.md`](docs/README.md)
 
