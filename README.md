@@ -17,7 +17,7 @@ This project is a personal health intelligence system that consolidates data fro
 - **Chat Agent** -- LangGraph-based agent for natural language queries against your health data
 - **Dashboard** -- Web UI with charts, MLR coefficient tables, partial correlation charts, and correlation heatmaps
 
-## How it works
+## Public Surface Model
 
 - **`data`** -- Raw health records, context resources, and provider status under `/api/v1/data/*`
 - **`insights`** -- Derived dashboards, analytics, scenarios, plans, and reports under `/api/v1/insights/*`
@@ -25,6 +25,8 @@ This project is a personal health intelligence system that consolidates data fro
 - **`web`** -- Human-facing pages at `/dashboard`, `/analytics`, and `/report`
 
 New integrations should target the canonical namespaces above. Legacy aliases still exist in a few places as temporary compatibility adapters during the migration.
+
+WHOOP developer integrations in this repository target the WHOOP **v2** API. The app's own route versioning under `/api/v1/*` is internal product/API namespacing and is separate from the upstream WHOOP developer API version.
 
 ## Quick Start
 
@@ -56,7 +58,7 @@ WITHINGS_CALLBACK_URL=http://localhost:8766/callback
 OPENAI_API_KEY=your_openai_api_key
 ```
 
-WHOOP uses OAuth 2.0 browser authentication -- you will be redirected to log in through their website when first running the ETL.
+WHOOP uses OAuth 2.0 browser authentication -- you will be redirected to log in through their website when first running the ETL. Some WHOOP developer apps do not allow the `client_credentials` grant; in that case the local clients in this repo fall back to the browser-based authorization-code flow.
 ### 3. Ingest Data
 
 ```bash

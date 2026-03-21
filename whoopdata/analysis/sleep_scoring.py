@@ -37,8 +37,8 @@ password = os.getenv("PASSWORD")
 access_token = whoop_authentication(username=username, password=password)
 headers = {"Authorization": f"Bearer {access_token}"}
 # API Endpoints
-url_sleep = f"https://api.prod.whoop.com/developer/v1/activity/sleep/"
-url_recovery = f"https://api.prod.whoop.com/developer/v1/recovery/"
+url_sleep = f"https://api.prod.whoop.com/developer/v2/activity/sleep/"
+url_recovery = f"https://api.prod.whoop.com/developer/v2/recovery/"
 
 
 # Get recovery data

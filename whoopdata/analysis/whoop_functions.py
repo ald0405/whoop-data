@@ -3,11 +3,17 @@ from __future__ import annotations
 from typing import Any
 import pandas as pd
 import requests
+TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token"
 
 
 def whoop_authentication(username: str, password: str) -> str:
     """
-    Authenticates a user with the `WHOOP API` using `OAuth` and retrieves an access token.
+    Deprecated helper for legacy analysis scripts.
+
+    Authenticates a user with the WHOOP OAuth token endpoint and retrieves an
+    access token using the password grant flow if the app still supports it.
+    New integrations should prefer the OAuth 2.0 browser-based flow used by the
+    maintained WHOOP clients in this repository.
 
     This function sends a `POST` request to the `WHOOP API` with the user's credentials.
     Upon successful authentication,it returns an access token that can be used for subsequent API requests. This function is specifically designed
@@ -30,13 +36,13 @@ def whoop_authentication(username: str, password: str) -> str:
     >>> print(access_token)
     """
     r = requests.post(
-        "https://api-7.whoop.com/oauth/token",
-        json={
-            "issueRefresh": False,
-            "password": password,
-            "username": username,
+        TOKEN_URL,
+        data={
             "grant_type": "password",
+            "username": username,
+            "password": password,
         },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
 
     if r.status_code != 200:
@@ -69,7 +75,7 @@ def make_paginated_request(url: str, headers: dict[str, Any]) -> pd.DataFrame:
     - It prints the `'next_token'` of each request and the total number of records returned for debugging purposes.
 
     Example:
-    >>> url = 'https://api.prod.whoop.com/developer/v1/recovery/'
+    >>> url = 'https://api.prod.whoop.com/developer/v2/recovery/'
     >>> headers = {'Authorization': 'Bearer your_access_token'}
     >>> df = make_paginated_request(url, headers)
     >>> print(df.head())

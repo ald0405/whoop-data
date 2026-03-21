@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.openapi.utils import get_openapi
 from fastapi.routing import APIRoute
+from starlette.responses import PlainTextResponse
 
 from whoopdata.api.public_surface_contract import (
     LEGACY_COMPATIBILITY_REMOVAL_DATE,
@@ -121,12 +122,13 @@ def configure_legacy_route_deprecation(
 
     @app.middleware("http")
     async def add_legacy_route_headers(request: Request, call_next):
-        response = await call_next(request)
-        route = request.scope.get("route")
-        if not isinstance(route, APIRoute):
-            return response
-
-        entry = legacy_route_index.get((request.method, route.path))
+        entry = legacy_route_index.get((request.method, request.url.path))
+        try:
+            response = await call_next(request)
+        except Exception:
+            if entry is None:
+                raise
+            response = PlainTextResponse("Internal Server Error", status_code=500)
         if entry is None:
             return response
 

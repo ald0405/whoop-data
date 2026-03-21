@@ -7,7 +7,7 @@ servers:
   - url: https://api.prod.whoop.com
     description: Whoop data server
 paths:
-  /v1/activity/workout:
+  /v2/activity/workout:
     get:
       operationId: getWorkoutCollection
       summary: Get a collection of workouts for a user
@@ -53,8 +53,9 @@ paths:
                       type: object
                       properties:
                         id:
-                          type: integer
-                          description: Unique ID of the workout.
+                          type: string
+                          format: uuid
+                          description: Unique UUID of the workout.
                         user_id:
                           type: integer
                           description: User ID.

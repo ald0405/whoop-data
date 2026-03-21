@@ -1,45 +1,37 @@
-"""Test script for protein recommendation tool."""
+"""Tests for protein recommendation tool."""
 
-import asyncio
-from whoopdata.agent.tools import get_protein_recommendation_tool, get_weight_data_tool
+from __future__ import annotations
 
+import pytest
 
-async def test_protein_recommendation():
-    """Test the protein recommendation tool."""
-    
-    print("=" * 60)
-    print("Testing Protein Recommendation Tool")
-    print("=" * 60)
-    
-    # Test 1: Check weight data availability
-    print("\n1. Testing weight data retrieval...")
-    weight_result = await get_weight_data_tool(latest=True)
-    print(f"Weight data result (first 200 chars):\n{weight_result[:200]}...")
-    
-    # Test 2: Normal activity level
-    print("\n2. Testing protein recommendation - Normal activity...")
-    result_normal = await get_protein_recommendation_tool(activity_level="normal")
-    print(f"Result: {result_normal}")
-    
-    # Test 3: Endurance training
-    print("\n3. Testing protein recommendation - Endurance training...")
-    result_endurance = await get_protein_recommendation_tool(activity_level="endurance training")
-    print(f"Result: {result_endurance}")
-    
-    # Test 4: Resistance training
-    print("\n4. Testing protein recommendation - Resistance training...")
-    result_resistance = await get_protein_recommendation_tool(activity_level="resistance/strength training")
-    print(f"Result: {result_resistance}")
-    
-    # Test 5: Invalid activity level
-    print("\n5. Testing protein recommendation - Invalid activity level...")
-    result_invalid = await get_protein_recommendation_tool(activity_level="invalid")
-    print(f"Result: {result_invalid}")
-    
-    print("\n" + "=" * 60)
-    print("Testing Complete!")
-    print("=" * 60)
+from whoopdata.agent import tools as agent_tools
 
 
-if __name__ == "__main__":
-    asyncio.run(test_protein_recommendation())
+@pytest.mark.anyio
+async def test_protein_recommendation(monkeypatch: pytest.MonkeyPatch):
+    """Protein recommendations should be derived from latest weight and activity level."""
+
+    class FakeWeightTool:
+        async def ainvoke(self, _args):
+            return '{"weight_kg": 70.0}'
+
+    monkeypatch.setattr(agent_tools, "get_weight_data_tool", FakeWeightTool())
+
+    result_normal = await agent_tools.get_protein_recommendation_tool.coroutine(
+        activity_level="normal"
+    )
+    result_endurance = await agent_tools.get_protein_recommendation_tool.coroutine(
+        activity_level="endurance training"
+    )
+    result_resistance = await agent_tools.get_protein_recommendation_tool.coroutine(
+        activity_level="resistance/strength training"
+    )
+    result_invalid = await agent_tools.get_protein_recommendation_tool.coroutine(
+        activity_level="invalid"
+    )
+
+    assert "70.0kg" in result_normal
+    assert "84g - 98g protein per day" in result_normal
+    assert "84g - 98g protein per day" in result_endurance
+    assert "112g - 154g protein per day" in result_resistance
+    assert "Invalid activity level" in result_invalid

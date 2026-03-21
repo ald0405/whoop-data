@@ -15,7 +15,7 @@ sleep_url = whoop.get_endpoint_url("sleep")
 
 
 stg_recovery = whoop.make_paginated_request(recovery_url)
-stg_sleep = whoop.make_paginated_request("https://api.prod.whoop.com/developer/v1/activity/sleep/")
+stg_sleep = whoop.make_paginated_request("https://api.prod.whoop.com/developer/v2/activity/sleep/")
 
 
 stg_sleep.info()
