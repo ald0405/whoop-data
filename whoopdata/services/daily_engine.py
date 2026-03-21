@@ -8,6 +8,7 @@ Produces personalised daily action cards by combining:
 """
 
 import logging
+import math
 from datetime import datetime
 from typing import Dict, Optional, List
 from statistics import mean
@@ -28,6 +29,19 @@ from whoopdata.schemas.daily import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _finite_or_none(value):
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return value if math.isfinite(value) else None
+    return value
+
+
+def _finite_or_default(value, default):
+    normalized = _finite_or_none(value)
+    return default if normalized is None else normalized
 
 
 class DailyEngine:
@@ -91,7 +105,7 @@ class DailyEngine:
             )
 
         latest = recoveries[0]
-        score = latest.recovery_score or 0
+        score = _finite_or_default(latest.recovery_score, 0)
 
         # Category
         if score >= 67:
@@ -116,8 +130,8 @@ class DailyEngine:
         return RecoveryStatus(
             score=score,
             category=category,
-            hrv=latest.hrv_rmssd_milli,
-            resting_heart_rate=latest.resting_heart_rate,
+            hrv=_finite_or_none(latest.hrv_rmssd_milli),
+            resting_heart_rate=_finite_or_none(latest.resting_heart_rate),
             key_driver=key_driver,
             vs_baseline=vs_baseline,
         )
@@ -134,7 +148,7 @@ class DailyEngine:
 
         top = factors[0]
         name = top.get("factor_name", "Unknown factor")
-        pct = top.get("importance_percentage", 0)
+        pct = _finite_or_default(top.get("importance_percentage", 0), 0)
         return f"{name} is your top recovery driver ({pct:.0f}% importance)"
 
     # =================== Baselines ===================
@@ -219,9 +233,9 @@ class DailyEngine:
             latest_bedtime = sleeps[0].start.strftime("%H:%M")
 
         return {
-            "optimal_sleep_hours": round(optimal_hours, 1) if optimal_hours else 8.0,
+            "optimal_sleep_hours": round(_finite_or_default(optimal_hours, 8.0), 1),
             "optimal_bedtime_hour": optimal_bedtime or 22,
-            "optimal_efficiency": round(optimal_efficiency, 1) if optimal_efficiency else 85.0,
+            "optimal_efficiency": round(_finite_or_default(optimal_efficiency, 85.0), 1),
             "latest_bedtime": latest_bedtime,
         }
 
@@ -319,10 +333,10 @@ class DailyEngine:
         priority: int,
     ) -> Optional[DailyAction]:
         """Generate sleep-related action if sleep is a concern."""
-        optimal = sleep_patterns.get("optimal_sleep_hours", 8.0)
-        avg_sleep = baselines.get("sleep_hours_7d")
+        optimal = _finite_or_default(sleep_patterns.get("optimal_sleep_hours", 8.0), 8.0)
+        avg_sleep = _finite_or_none(baselines.get("sleep_hours_7d"))
 
-        if avg_sleep and avg_sleep < optimal - 0.5:
+        if avg_sleep is not None and avg_sleep < optimal - 0.5:
             deficit = optimal - avg_sleep
             return DailyAction(
                 action=f"Aim for {optimal:.0f}+ hours sleep tonight",
@@ -346,10 +360,10 @@ class DailyEngine:
         self, recovery: RecoveryStatus, baselines: Dict, priority: int
     ) -> Optional[DailyAction]:
         """Generate action based on HRV trends."""
-        if recovery.hrv is None or baselines.get("hrv_7d") is None:
+        baseline_hrv = _finite_or_none(baselines.get("hrv_7d"))
+        if recovery.hrv is None or baseline_hrv is None or baseline_hrv == 0:
             return None
-
-        hrv_diff_pct = ((recovery.hrv - baselines["hrv_7d"]) / baselines["hrv_7d"]) * 100
+        hrv_diff_pct = ((recovery.hrv - baseline_hrv) / baseline_hrv) * 100
 
         if hrv_diff_pct > 10:
             return DailyAction(
@@ -398,7 +412,7 @@ class DailyEngine:
         """Generate action informed by weather conditions."""
         current = weather_data.get("current", {})
         conditions = current.get("conditions", "").lower()
-        temp = current.get("temp") or current.get("temperature")
+        temp = _finite_or_none(current.get("temp") or current.get("temperature"))
         aqi_data = weather_data.get("air_quality", {})
         aqi = aqi_data.get("aqi")
 
@@ -438,9 +452,9 @@ class DailyEngine:
 
     def _build_sleep_target(self, sleep_patterns: Dict, baselines: Dict) -> SleepTarget:
         """Build tonight's sleep recommendation."""
-        optimal_hours = sleep_patterns.get("optimal_sleep_hours", 8.0)
+        optimal_hours = _finite_or_default(sleep_patterns.get("optimal_sleep_hours", 8.0), 8.0)
         optimal_bedtime_hour = sleep_patterns.get("optimal_bedtime_hour", 22)
-        optimal_efficiency = sleep_patterns.get("optimal_efficiency", 85.0)
+        optimal_efficiency = _finite_or_none(sleep_patterns.get("optimal_efficiency", 85.0))
 
         # Format bedtime
         bedtime_str = f"{optimal_bedtime_hour:02d}:00"
@@ -476,7 +490,7 @@ class DailyEngine:
 
         if weather_data:
             current = weather_data.get("current", {})
-            temp = current.get("temp") or current.get("temperature")
+            temp = _finite_or_none(current.get("temp") or current.get("temperature"))
             conditions = current.get("conditions", "")
             forecast = weather_data.get("forecast_today", "")
 
