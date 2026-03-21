@@ -62,6 +62,7 @@ def get_recovery_with_features(
     query = (
         db.query(
             Recovery.id,
+            Recovery.user_id,
             Recovery.created_at,
             Recovery.recovery_score,
             Recovery.hrv_rmssd_milli,
@@ -71,6 +72,8 @@ def get_recovery_with_features(
             Recovery.user_calibrating,
             Recovery.cycle_id,
             # Sleep data - expanded features
+            Sleep.id.label("sleep_db_id"),
+            Sleep.whoop_id.label("sleep_whoop_id"),
             Sleep.sleep_efficiency_percentage,
             Sleep.sleep_consistency_percentage,
             Sleep.sleep_performance_percentage,
@@ -90,10 +93,11 @@ def get_recovery_with_features(
             Sleep.need_from_recent_strain_milli,
             Sleep.need_from_recent_nap_milli,
             # Cycle data for strain and activity
-            Cycle.strain,
-            Cycle.average_heart_rate,
-            Cycle.max_heart_rate,
-            Cycle.kilojoule,
+            Cycle.id.label("cycle_db_id"),
+            Cycle.strain.label("cycle_strain"),
+            Cycle.average_heart_rate.label("cycle_average_heart_rate"),
+            Cycle.max_heart_rate.label("cycle_max_heart_rate"),
+            Cycle.kilojoule.label("cycle_kilojoule"),
             Cycle.start.label("cycle_start"),
             Cycle.end.label("cycle_end"),
         )
@@ -115,6 +119,150 @@ def get_recovery_with_features(
 
     # Sort by date for temporal features
     df = df.sort_values("created_at").reset_index(drop=True)
+
+    # Fallback sleep matching:
+    # Many historical recovery rows have null sleep_id because ETL loaded recovery
+    # before sleep and the transform layer only maps WHOOP sleep IDs to local DB IDs
+    # when the sleep row already exists. Recover sleep-derived fields by matching the
+    # same user's nearest prior sleep end to the recovery timestamp.
+    missing_sleep_mask = df["sleep_db_id"].isna()
+    if missing_sleep_mask.any():
+        sleep_query = db.query(
+            Sleep.id.label("fallback_sleep_db_id"),
+            Sleep.whoop_id.label("fallback_sleep_whoop_id"),
+            Sleep.user_id.label("fallback_sleep_user_id"),
+            Sleep.created_at.label("fallback_sleep_created_at"),
+            Sleep.start.label("fallback_sleep_start"),
+            Sleep.end.label("fallback_sleep_end"),
+            Sleep.sleep_efficiency_percentage.label("fallback_sleep_efficiency_percentage"),
+            Sleep.sleep_consistency_percentage.label("fallback_sleep_consistency_percentage"),
+            Sleep.sleep_performance_percentage.label("fallback_sleep_performance_percentage"),
+            Sleep.respiratory_rate.label("fallback_respiratory_rate"),
+            Sleep.total_time_in_bed_time_milli.label("fallback_total_time_in_bed_time_milli"),
+            Sleep.total_awake_time_milli.label("fallback_total_awake_time_milli"),
+            Sleep.total_rem_sleep_time_milli.label("fallback_total_rem_sleep_time_milli"),
+            Sleep.total_slow_wave_sleep_time_milli.label("fallback_total_slow_wave_sleep_time_milli"),
+            Sleep.total_no_data_time_milli.label("fallback_total_no_data_time_milli"),
+            Sleep.sleep_cycle_count.label("fallback_sleep_cycle_count"),
+            Sleep.disturbance_count.label("fallback_disturbance_count"),
+            Sleep.baseline_sleep_needed_milli.label("fallback_baseline_sleep_needed_milli"),
+            Sleep.need_from_sleep_debt_milli.label("fallback_need_from_sleep_debt_milli"),
+            Sleep.need_from_recent_strain_milli.label("fallback_need_from_recent_strain_milli"),
+            Sleep.need_from_recent_nap_milli.label("fallback_need_from_recent_nap_milli"),
+        )
+        sleep_df = pd.read_sql(sleep_query.statement, db.bind)
+
+        if len(sleep_df) > 0:
+            sleep_df["fallback_sleep_end"] = pd.to_datetime(sleep_df["fallback_sleep_end"])
+            fallback_sleep_merge = pd.merge_asof(
+                df[["id", "user_id", "created_at"]].sort_values("created_at"),
+                sleep_df.sort_values("fallback_sleep_end"),
+                left_on="created_at",
+                right_on="fallback_sleep_end",
+                left_by="user_id",
+                right_by="fallback_sleep_user_id",
+                direction="backward",
+                tolerance=pd.Timedelta("12h"),
+            )
+
+            fallback_sleep_merge = fallback_sleep_merge.set_index("id")
+            df = df.set_index("id")
+
+            sleep_fill_map = {
+                "sleep_db_id": "fallback_sleep_db_id",
+                "sleep_whoop_id": "fallback_sleep_whoop_id",
+                "sleep_efficiency_percentage": "fallback_sleep_efficiency_percentage",
+                "sleep_consistency_percentage": "fallback_sleep_consistency_percentage",
+                "sleep_performance_percentage": "fallback_sleep_performance_percentage",
+                "respiratory_rate": "fallback_respiratory_rate",
+                "total_time_in_bed_time_milli": "fallback_total_time_in_bed_time_milli",
+                "total_awake_time_milli": "fallback_total_awake_time_milli",
+                "total_rem_sleep_time_milli": "fallback_total_rem_sleep_time_milli",
+                "total_slow_wave_sleep_time_milli": "fallback_total_slow_wave_sleep_time_milli",
+                "total_no_data_time_milli": "fallback_total_no_data_time_milli",
+                "sleep_cycle_count": "fallback_sleep_cycle_count",
+                "disturbance_count": "fallback_disturbance_count",
+                "sleep_start": "fallback_sleep_start",
+                "sleep_end": "fallback_sleep_end",
+                "baseline_sleep_needed_milli": "fallback_baseline_sleep_needed_milli",
+                "need_from_sleep_debt_milli": "fallback_need_from_sleep_debt_milli",
+                "need_from_recent_strain_milli": "fallback_need_from_recent_strain_milli",
+                "need_from_recent_nap_milli": "fallback_need_from_recent_nap_milli",
+            }
+
+            for dest_col, src_col in sleep_fill_map.items():
+                df.loc[missing_sleep_mask.values, dest_col] = df.loc[
+                    missing_sleep_mask.values, dest_col
+                ].combine_first(fallback_sleep_merge[src_col])
+
+            df = df.reset_index()
+
+    # Fallback cycle matching:
+    # Some recovery rows store upstream WHOOP cycle identifiers instead of the local
+    # cycle table primary key, which breaks the FK-based join above. When that happens,
+    # recover cycle-derived fields by matching on user_id + nearest cycle.created_at.
+    cycle_fields = [
+        "cycle_db_id",
+        "cycle_strain",
+        "cycle_average_heart_rate",
+        "cycle_max_heart_rate",
+        "cycle_kilojoule",
+        "cycle_start",
+        "cycle_end",
+    ]
+    missing_cycle_mask = df["cycle_strain"].isna()
+    if missing_cycle_mask.any():
+        cycles_query = db.query(
+            Cycle.id.label("fallback_cycle_db_id"),
+            Cycle.user_id.label("fallback_cycle_user_id"),
+            Cycle.created_at.label("fallback_cycle_created_at"),
+            Cycle.strain.label("fallback_cycle_strain"),
+            Cycle.average_heart_rate.label("fallback_cycle_average_heart_rate"),
+            Cycle.max_heart_rate.label("fallback_cycle_max_heart_rate"),
+            Cycle.kilojoule.label("fallback_cycle_kilojoule"),
+            Cycle.start.label("fallback_cycle_start"),
+            Cycle.end.label("fallback_cycle_end"),
+        )
+        cycles_df = pd.read_sql(cycles_query.statement, db.bind)
+
+        if len(cycles_df) > 0:
+            fallback_merge = pd.merge_asof(
+                df[["id", "user_id", "created_at"]].sort_values("created_at"),
+                cycles_df.sort_values("fallback_cycle_created_at"),
+                left_on="created_at",
+                right_on="fallback_cycle_created_at",
+                left_by="user_id",
+                right_by="fallback_cycle_user_id",
+                direction="nearest",
+                tolerance=pd.Timedelta("30min"),
+            )
+
+            fallback_merge = fallback_merge.set_index("id")
+            df = df.set_index("id")
+
+            df.loc[missing_cycle_mask.values, "cycle_db_id"] = df.loc[
+                missing_cycle_mask.values, "cycle_db_id"
+            ].combine_first(fallback_merge["fallback_cycle_db_id"])
+            df.loc[missing_cycle_mask.values, "cycle_strain"] = df.loc[
+                missing_cycle_mask.values, "cycle_strain"
+            ].combine_first(fallback_merge["fallback_cycle_strain"])
+            df.loc[missing_cycle_mask.values, "cycle_average_heart_rate"] = df.loc[
+                missing_cycle_mask.values, "cycle_average_heart_rate"
+            ].combine_first(fallback_merge["fallback_cycle_average_heart_rate"])
+            df.loc[missing_cycle_mask.values, "cycle_max_heart_rate"] = df.loc[
+                missing_cycle_mask.values, "cycle_max_heart_rate"
+            ].combine_first(fallback_merge["fallback_cycle_max_heart_rate"])
+            df.loc[missing_cycle_mask.values, "cycle_kilojoule"] = df.loc[
+                missing_cycle_mask.values, "cycle_kilojoule"
+            ].combine_first(fallback_merge["fallback_cycle_kilojoule"])
+            df.loc[missing_cycle_mask.values, "cycle_start"] = df.loc[
+                missing_cycle_mask.values, "cycle_start"
+            ].combine_first(fallback_merge["fallback_cycle_start"])
+            df.loc[missing_cycle_mask.values, "cycle_end"] = df.loc[
+                missing_cycle_mask.values, "cycle_end"
+            ].combine_first(fallback_merge["fallback_cycle_end"])
+
+            df = df.reset_index()
 
     # ===== Basic Sleep Time Features =====
     df["sleep_hours"] = (
@@ -157,9 +305,13 @@ def get_recovery_with_features(
 
     # ===== Heart Rate Metrics =====
     # Only calculate if we have max_heart_rate from cycle data
-    df["hr_reserve"] = (df["max_heart_rate"] - df["resting_heart_rate"]).astype("float64").fillna(0)
+    df["hr_reserve"] = (
+        df["cycle_max_heart_rate"] - df["resting_heart_rate"]
+    ).astype("float64").fillna(0)
     df["avg_hr_percentage_of_max"] = (
-        (df["average_heart_rate"] / df["max_heart_rate"] * 100).astype("float64").fillna(0)
+        (df["cycle_average_heart_rate"] / df["cycle_max_heart_rate"] * 100)
+        .astype("float64")
+        .fillna(0)
     )
 
     # ===== Temporal Features =====
@@ -169,8 +321,8 @@ def get_recovery_with_features(
     df["is_weekend"] = df["day_of_week"] >= 5
 
     # ===== Strain & Activity Features =====
-    df["strain"] = df["strain"].astype("float64").fillna(0)
-    df["kilojoule"] = df["kilojoule"].astype("float64").fillna(0)
+    df["strain"] = df["cycle_strain"].astype("float64").fillna(0)
+    df["kilojoule"] = df["cycle_kilojoule"].astype("float64").fillna(0)
 
     # ===== Previous Day Features (lagged) =====
     df["prev_recovery_score"] = df["recovery_score"].shift(1)

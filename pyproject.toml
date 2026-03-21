@@ -76,6 +76,7 @@ dependencies = [
     "rich",
     "langgraph-cli[inmem]>=0.4.11",
     "loguru>=0.7.3",
+    "shap>=0.46,<0.48",
 ]
 
 [project.optional-dependencies]
