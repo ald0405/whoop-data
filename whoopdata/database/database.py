@@ -1,8 +1,11 @@
+from pathlib import Path
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# Path to your SQLite database file
-DATABASE_URL = "sqlite:///whoopdata/database/whoop.db"
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = BASE_DIR / "whoop.db"
+DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 # Create the SQLAlchemy engine
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})

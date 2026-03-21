@@ -388,27 +388,6 @@ def run_complete_etl(incremental=True):
     console.print("[bold cyan]WHOOP Data Pipeline[/bold cyan]")
     console.print("=" * 60)
 
-    # Recovery
-    recovery_start, recovery_end = windows.get("recovery", (None, None))
-    success, errors = whoop_etl_run(
-        whoop_endpoint="recovery",
-        transformer=transform_recovery,
-        loader_fn=loader.load_recovery,
-        start_date=format_datetime_for_whoop(recovery_start) if recovery_start else None,
-        end_date=format_datetime_for_whoop(recovery_end) if recovery_end else None,
-    )
-    results["whoop_recovery"] = {"success": success, "errors": errors}
-
-    # Workout
-    workout_start, workout_end = windows.get("workout", (None, None))
-    success, errors = whoop_etl_run(
-        whoop_endpoint="workout",
-        transformer=transform_workout,
-        loader_fn=loader.load_workout,
-        start_date=format_datetime_for_whoop(workout_start) if workout_start else None,
-        end_date=format_datetime_for_whoop(workout_end) if workout_end else None,
-    )
-    results["whoop_workout"] = {"success": success, "errors": errors}
 
     # Sleep
     sleep_start, sleep_end = windows.get("sleep", (None, None))
@@ -431,6 +410,28 @@ def run_complete_etl(incremental=True):
         end_date=format_datetime_for_whoop(cycle_end) if cycle_end else None,
     )
     results["whoop_cycle"] = {"success": success, "errors": errors}
+
+    # Workout
+    workout_start, workout_end = windows.get("workout", (None, None))
+    success, errors = whoop_etl_run(
+        whoop_endpoint="workout",
+        transformer=transform_workout,
+        loader_fn=loader.load_workout,
+        start_date=format_datetime_for_whoop(workout_start) if workout_start else None,
+        end_date=format_datetime_for_whoop(workout_end) if workout_end else None,
+    )
+    results["whoop_workout"] = {"success": success, "errors": errors}
+
+    # Recovery
+    recovery_start, recovery_end = windows.get("recovery", (None, None))
+    success, errors = whoop_etl_run(
+        whoop_endpoint="recovery",
+        transformer=transform_recovery,
+        loader_fn=loader.load_recovery,
+        start_date=format_datetime_for_whoop(recovery_start) if recovery_start else None,
+        end_date=format_datetime_for_whoop(recovery_end) if recovery_end else None,
+    )
+    results["whoop_recovery"] = {"success": success, "errors": errors}
 
     # Withings Data
     console.print("\n" + "=" * 60)
