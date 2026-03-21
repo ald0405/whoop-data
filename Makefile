@@ -1,4 +1,4 @@
-.PHONY: help install dev sync run server etl chat analytics langgraph-dev dev-all test format lint typecheck clean verify
+.PHONY: help install dev sync run server etl chat telegram-bot analytics langgraph-dev dev-all test format lint typecheck clean verify
 
 # Default target
 help:
@@ -15,6 +15,7 @@ help:
 	@echo "  make etl         - Primary ETL pipeline (incremental load)"
 	@echo "  make etl-full    - Primary ETL pipeline (full load)"
 	@echo "  make chat        - Primary chat interface command"
+	@echo "  make telegram-bot - Telegram bot adapter for the shared agent boundary"
 	@echo "  make analytics   - Primary analytics pipeline command"
 	@echo "  make langgraph-dev - Development-only LangGraph dev server"
 	@echo "  make dev-all     - Convenience FastAPI + LangGraph dev launcher"
@@ -65,6 +66,10 @@ etl-full:
 chat:
 	@echo "💬 Starting chat interface..."
 	uv run python chat_app.py
+
+telegram-bot:
+	@echo "📨 Starting Telegram bot adapter..."
+	uv run whoop-telegram-bot
 
 analytics:
 	@echo "🤖 Running analytics pipeline..."

@@ -229,6 +229,13 @@ class TestPrompts:
         assert "analytics" in SUPERVISOR_SYSTEM_PROMPT.lower()
         assert "environment" in SUPERVISOR_SYSTEM_PROMPT.lower()
 
+    def test_supervisor_prompt_includes_day_of_briefing_instruction(self):
+        from whoopdata.agent.prompts import SUPERVISOR_SYSTEM_PROMPT
+        prompt = SUPERVISOR_SYSTEM_PROMPT.lower()
+        assert "set me up for today" in prompt
+        assert "recovery score" in prompt
+        assert "weather" in prompt
+
     def test_exercise_prompt_file_exists(self):
         path = Path(__file__).parent.parent / "data" / "prompts" / "agents" / "exercise_sub_agent.md"
         assert path.exists(), f"Exercise prompt not found at {path}"

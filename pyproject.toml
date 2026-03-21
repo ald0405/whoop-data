@@ -69,6 +69,8 @@ dependencies = [
     "openai>=1.59.6",
     # Gradio for chat interface
     "gradio==5.9.1",
+    # Telegram bot transport
+    "python-telegram-bot>=21.0,<23.0",
     # Utility
     "PyYAML==6.0.2",
     "Jinja2==3.1.5",
@@ -92,6 +94,7 @@ dev = [
 whoop-start = "whoopdata.cli:main"
 whoop-etl = "whoopdata.etl:run_complete_etl"
 whoop-withings-auth = "whoopdata.cli:withings_auth_main"
+whoop-telegram-bot = "whoopdata.telegram_bot:main"
 
 [project.urls]
 Homepage = "https://github.com/ald0405/whoop-data"

@@ -36,9 +36,11 @@ def test_readme_and_makefile_distinguish_surfaces_and_run_modes():
     assert "### Primary Commands" in readme_text
     assert "### Convenience Launchers" in readme_text
     assert "`make server`" in readme_text
+    assert "`make telegram-bot`" in readme_text
     assert "`make run`" in readme_text
     assert "convenience" in readme_text.lower()
     assert "Primary FastAPI server command" in makefile_text
+    assert "Telegram bot adapter" in makefile_text
     assert "Convenience launcher" in makefile_text
 
 
