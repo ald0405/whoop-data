@@ -35,7 +35,7 @@ Relates to #
 - [ ] ✅ Verified API endpoints work
 - [ ] ✅ Verified chat interface works  
 - [ ] ✅ Verified ETL pipeline works
-- [ ] ✅ Ran `python verify_system.py` successfully
+- [ ] ✅ Ran `make verify` successfully
 
 ## 📸 Screenshots (if applicable)
 <!-- Add screenshots or GIFs to demonstrate changes -->
@@ -50,7 +50,7 @@ Relates to #
 
 - [ ] Updated README.md
 - [ ] Updated API documentation
-- [ ] Updated TESTING_GUIDE.md
+- [ ] Updated docs/guides/TESTING_GUIDE.md
 - [ ] No documentation changes needed
 
 ## ✅ Pre-merge Checklist

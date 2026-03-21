@@ -127,7 +127,7 @@ def test_database():
 
         if not has_data:
             print(f"\n{check_mark(False)} Database is empty - run ETL to load data")
-            print("    Run: python run_app.py (choose option 1 or 3)")
+            print("    Run: make etl")
             return False
 
         return True
@@ -314,8 +314,9 @@ def print_summary(results):
     if passed == total:
         print("\n✅ All systems operational!")
         print("\nNext steps:")
-        print("  1. ETL: python run_app.py (choose option 1)")
-        print("  2. Chat: python chat_app.py")
+        print("  1. ETL: make etl")
+        print("  2. API: make server")
+        print("  3. Chat: make chat")
         return 0
     else:
         print("\n⚠️  Some tests failed. See above for details.")

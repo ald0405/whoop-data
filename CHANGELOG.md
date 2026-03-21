@@ -4,6 +4,30 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.0.0] - 2026-03-21
+
+### Added
+
+- Established the canonical public surface model across `data`, `insights`, and `agent` namespaces under `/api/v1/*`, with shared OpenAPI grouping and rollout verification coverage.
+- Routed the Gradio chat experience through the shared conversation boundary so the UI and API now follow the same session and thread ownership model.
+- Upgraded maintained WHOOP integrations to the WHOOP v2 developer API and added regression coverage around the migration.
+- Added recovery modeling notebook groundwork and related dataset stabilization updates.
+
+### Changed
+
+- Reframed the repository README around product outcomes, reviewer-oriented context, and canonical run modes while preserving the tested technical guidance.
+- Reorganized supporting docs and assets under `docs/` and moved the verification script under `scripts/` to reduce root-level noise.
+- Simplified launcher guidance to favor canonical commands (`make etl`, `make server`, `make chat`, `make verify`) and removed redundant wrapper scripts.
+
+### Removed
+
+- Removed redundant launcher scripts `run_app.py` and `start_health_chat.py`.
+
+### Breaking Changes
+
+- The canonical public API model is now organized around `/api/v1/data/*`, `/api/v1/insights/*`, and `/api/v1/agent/*`. Legacy aliases remain only as temporary compatibility adapters and should not be treated as the primary integration surface.
+- WHOOP developer integrations now target the WHOOP v2 API. Existing developer setups may require token refresh and migration validation.
+- Repository workflow guidance now assumes the canonical make targets and current script locations rather than older top-level helper scripts.
 
 ## [1.8.1] - 2026-02-28
 
@@ -175,7 +199,7 @@ Co-Authored-By: Warp <agent@warp.dev>
 - API: `/auth/withings/status` endpoint for token/data recency diagnostics
 
 ### 📚 Docs
-- README and TESTING_GUIDE: Withings troubleshooting and health checks
+- README and docs/guides/TESTING_GUIDE.md: Withings troubleshooting and health checks
 
 ## [1.4.3] - 2025-12-29
 
@@ -201,7 +225,7 @@ Co-Authored-By: Warp <agent@warp.dev>
 
 #### Files Kept
 - Migration guides (`MIGRATION_UV.md`, `MIGRATION_v1.2.1.md`) for historical reference
-- Active workflow documentation (`PR_WORKFLOW.md`, `TESTING_GUIDE.md`)
+- Active workflow documentation (`docs/guides/PR_WORKFLOW.md`, `docs/guides/TESTING_GUIDE.md`)
 - Core documentation (`README.md`, `CHANGELOG.md`)
 
 ## [1.4.0] - 2025-12-29

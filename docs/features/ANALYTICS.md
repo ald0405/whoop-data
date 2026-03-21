@@ -6,7 +6,7 @@ ML-powered health analytics with explainability. Understand what drives your rec
 
 ### 1. Start the API
 ```bash
-python run_app.py
+make server
 ```
 
 ### 2. Access Analytics

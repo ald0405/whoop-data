@@ -72,7 +72,7 @@ make install
 make verify
 
 # Or directly
-uv run python verify_system.py
+uv run python scripts/verify_system.py
 ```
 
 ### 5. Update Your Workflow
@@ -80,7 +80,7 @@ uv run python verify_system.py
 **Old Commands:**
 ```bash
 source venv/bin/activate
-python run_app.py
+python -m whoopdata.cli
 pip install <package>
 ```
 
@@ -100,7 +100,7 @@ uv add <package>
 |------|------------|-------------|
 | Activate env | `source venv/bin/activate` | Not needed! UV manages it |
 | Install deps | `pip install -r requirements.txt` | `uv sync` or `make dev` |
-| Run CLI | `python run_app.py` | `make run` or `uv run whoop-start` |
+| Run CLI | `python -m whoopdata.cli` | `make run` or `uv run whoop-start` |
 | Start server | `python -m uvicorn main:app` | `make server` |
 | Run ETL | `python -m whoopdata.etl` | `make etl` |
 | Run tests | `pytest` | `make test` |
@@ -243,7 +243,7 @@ The project still supports traditional pip installation:
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python run_app.py
+python -m whoopdata.cli
 ```
 
 However, we **strongly recommend** migrating to UV for better performance and developer experience.

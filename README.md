@@ -4,10 +4,25 @@
 [![UV](https://img.shields.io/badge/package%20manager-UV-orange.svg)](https://github.com/astral-sh/uv)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+![WHOOP Health Data Platform product snapshot](docs/assets/readme-hero.png)
 
-![alt text](image.png)
+This project turns fragmented personal health data into a decision-support product. It combines WHOOP and Withings data with analytics, API surfaces, and a chat layer so the user can move from “what happened?” to “what should I do next?” across training, recovery, sleep, and broader day-of planning.
 
-This project is a personal health intelligence system that consolidates data from WHOOP and Withings into a single analysis layer. It helps quantify how sleep, training, recovery, body composition, and behaviour interact, so you can move from raw device data to interpretable insights, API-accessible metrics, and conversational exploration. Beyond personal biometrics, it adds environmental and operational context—such as weather forecasts, air quality, tidal conditions, and public transport status—so the platform can support better day-of decisions about outdoor training, route choice, and activity planning
+## Why this project matters
+
+The product goal is not just to collect biometrics. It is to make personal health data more actionable by:
+
+- translating raw records into interpretable trends and coaching-style outputs
+- connecting multiple systems into one consistent experience layer
+- making the same underlying data accessible through API, dashboard, and conversational UX
+- supporting better day-of decisions around training load, recovery, and activity planning
+
+## Product outcomes
+
+- **Single source of truth** for recovery, sleep, workouts, body composition, and related context
+- **Faster interpretation** via dashboards, derived insights, and scenario-oriented analytics
+- **More accessible exploration** through a chat interface for natural-language questions
+- **More usable health decisions** by framing outputs around actions, not just raw measurements
 
 ## What it does
 
@@ -16,6 +31,15 @@ This project is a personal health intelligence system that consolidates data fro
 - **Analytics Pipeline** -- Trend analysis, correlation analysis, and multiple linear regression models for recovery and HRV
 - **Chat Agent** -- LangGraph-based agent for natural language queries against your health data
 - **Dashboard** -- Web UI with charts, MLR coefficient tables, partial correlation charts, and correlation heatmaps
+
+## Experience at a glance
+
+- **Dashboard** for quick review of trends and supporting visualizations
+- **API** for structured access to raw and interpreted outputs
+- **Chat** for question-driven exploration such as:
+  - “Show me my tennis workouts from 2025”
+  - “What’s my weight trend over the last 30 days?”
+  - “How has my recovery been this month?”
 
 ## Public Surface Model
 
@@ -30,36 +54,29 @@ WHOOP developer integrations in this repository target the WHOOP **v2** API. The
 
 ## Quick Start
 
-### 1. Install UV and Dependencies
+### 1. Install UV and dependencies
 
 ```bash
-# Install UV package manager
 curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Install all dependencies (creates .venv automatically)
 uv sync
 ```
 
-### 2. Set up Environment Variables
+### 2. Set up environment variables
 
 Create a `.env` file with your API credentials:
 
 ```bash
-# WHOOP OAuth 2.0
 WHOOP_CLIENT_ID=your_whoop_client_id
 WHOOP_CLIENT_SECRET=your_whoop_client_secret
-
-# Withings OAuth
 WITHINGS_CLIENT_ID=your_withings_client_id
 WITHINGS_CLIENT_SECRET=your_withings_client_secret
 WITHINGS_CALLBACK_URL=http://localhost:8766/callback
-
-# OpenAI (required for the chat agent)
 OPENAI_API_KEY=your_openai_api_key
 ```
 
-WHOOP uses OAuth 2.0 browser authentication -- you will be redirected to log in through their website when first running the ETL. Some WHOOP developer apps do not allow the `client_credentials` grant; in that case the local clients in this repo fall back to the browser-based authorization-code flow.
-### 3. Ingest Data
+WHOOP uses OAuth 2.0 browser authentication. When first running ingestion, you may be redirected to complete the authorization-code flow in the browser.
+
+### 3. Ingest data
 
 ```bash
 make etl
@@ -77,36 +94,34 @@ make server
 
 The API server exposes the canonical `data`, `insights`, and `agent` surfaces.
 
-### 5. Run Analytics (optional)
+### 5. Run analytics (optional)
 
 ```bash
 make analytics
 ```
 
-Use this when you want to materialize the analytics/insights workflows ahead of time.
+Use this when you want to materialize analytics and insight outputs ahead of time.
 
-### 6. Start the Chat Interface (optional)
+### 6. Start the chat interface (optional)
 
 ```bash
 make chat
 ```
 
-Chat UI runs at http://localhost:7860. You can ask questions like:
-- "Show me my tennis workouts from 2025"
-- "What's my weight trend over the last 30 days?"
-- "How has my recovery been this month?"
-### 7. Start LangGraph Dev Tooling (optional, development-only)
+Chat UI runs at `http://localhost:7860`.
+
+### 7. Start LangGraph dev tooling (optional, development-only)
 
 ```bash
 make langgraph-dev
 ```
 
-This is for development/debugging workflows. It is not a separate product surface and should not be treated as the public agent API.
+This is for development and debugging workflows. It is not a separate product surface and should not be treated as the public agent API.
 
 ### 8. Access the API
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
 - **OpenAPI tags**: `data`, `insights`, and `agent`
 
 ## Canonical Run Modes
@@ -124,7 +139,6 @@ This is for development/debugging workflows. It is not a separate product surfac
 ### Convenience Launchers
 
 - `make run` / `uv run whoop-start` -- Interactive launcher that combines ETL and server flows
-- `uv run python start_health_chat.py` -- Convenience helper that starts the API server and chat UI together
 - `make dev-all` -- Combined FastAPI + LangGraph dev helper
 
 Use the primary commands for docs, automation, and repeatable workflows. Treat the convenience launchers as shortcuts rather than the canonical product entrypoints.
@@ -142,9 +156,15 @@ Use the primary commands for docs, automation, and repeatable workflows. Treat t
 5. Launch `make chat`, send an initial message, then send a follow-up message and confirm the conversation resumes cleanly instead of starting a new thread.
 6. Keep `make langgraph-dev` scoped to development/debugging workflows rather than rollout verification of the public product surface.
 
+## Repo notes for reviewers
+
+- The root now prioritizes core product files and entrypoints.
+- Supporting guides live under `docs/` to keep the submission easier to scan.
+- Local runtime artifacts such as tokens, logs, caches, virtual environments, and local databases are gitignored and not part of the deliverable.
+
 ## Make Commands
 
-```
+```text
 Setup:
   make install        Install production dependencies
   make dev            Install with dev dependencies
@@ -178,14 +198,15 @@ Maintenance:
 - **WHOOP 401 errors** -- Delete `.whoop_tokens.json` and re-authenticate
 - **Withings re-auth** -- Run `uv run whoop-withings-auth`
 - **Looking for the right API?** -- Use `/api/v1/data/*` for raw records, `/api/v1/insights/*` for interpreted outputs, and `/api/v1/agent/*` for conversational requests
-- See [docs/technical/](docs/technical/) for detailed guides
+- **Need detailed implementation notes?** -- Start in [`docs/README.md`](docs/README.md)
 
 ## Documentation
 
-Documentation is in the [`docs/`](docs/README.md) directory:
+Documentation is organized in [`docs/`](docs/README.md):
 
-- [Technical Documentation](docs/technical/) -- Development logs, API changes, troubleshooting
-- [Features Documentation](docs/features/) -- Feature specs and configuration
+- [`docs/technical/`](docs/technical/) -- API changes, migration notes, troubleshooting, implementation detail
+- [`docs/features/`](docs/features/) -- Feature specs and product behavior
+- [`docs/guides/`](docs/guides/) -- Testing, plotting, and contribution workflow guides
 
 ## Acknowledgements
 

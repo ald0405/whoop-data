@@ -32,8 +32,7 @@ python scripts/migrate_add_whoop_id.py
 
 # Choose option 2: Drop all tables and recreate
 # Then reload your data
-python run_app.py
-# Choose option 1 or 2 to run full pipeline
+make etl-full
 ```
 
 ### Option 2: Automatic Migration (Only if tables are empty)
@@ -62,8 +61,7 @@ If you have important data and want to preserve it:
 
 4. **Reload data from API:**
    ```bash
-   python run_app.py
-   # Choose option 2: Full pipeline (full load)
+   make etl-full
    ```
 
 ## Testing the Fix
@@ -72,8 +70,7 @@ After migration, test the ETL pipeline:
 
 ```bash
 # Test full load
-python run_app.py
-# Choose option 2: Full pipeline (full load)
+make etl-full
 
 # Verify no errors appear
 # You should see successful inserts for:

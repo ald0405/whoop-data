@@ -1235,15 +1235,6 @@ ENTRYPOINT_MIGRATION_MATRIX: tuple[EntrypointMigrationEntry, ...] = (
         notes="Current implementation reuses the shared conversation service directly so the Gradio UI and API surface share the same session/thread ownership model.",
     ),
     entrypoint(
-        "start_health_chat.py",
-        kind="python_script",
-        source_refs=("start_health_chat.py:21-135",),
-        current_role="combined_launcher",
-        primary_surface="mixed",
-        target="Convenience wrapper for the API server plus chat UI; not the primary product surface.",
-        migration_action="keep_convenience_only",
-    ),
-    entrypoint(
         "health_agent",
         kind="langgraph_graph",
         source_refs=("langgraph.json:5-10",),

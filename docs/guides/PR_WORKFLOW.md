@@ -79,7 +79,7 @@ We follow **Conventional Commits** with emojis:
 ```bash
 ✨ feat: Add automated system verification script
 
-Added verify_system.py to test all components (imports, database, API, agent)
+Added a system verification script to test all components (imports, database, API, agent)
 - Tests database connectivity and data presence
 - Validates environment variables
 - Verifies agent functionality
@@ -152,7 +152,7 @@ Before submitting your PR, ensure:
   - [ ] Complex logic is commented
   
 - [ ] **Testing**
-  - [ ] Ran `python verify_system.py`
+  - [ ] Ran `make verify`
   - [ ] Tested locally with real data
   - [ ] Verified API endpoints work
   - [ ] Verified chat interface works
@@ -218,7 +218,7 @@ gh auth status
 1. **Commit often**: Small, focused commits are better than large ones
 2. **Be descriptive**: Write commit messages for your future self
 3. **Use the template**: Run `git commit` (no `-m`) to use the full template
-4. **Test before pushing**: Run `verify_system.py` to catch issues early
+4. **Test before pushing**: Run `make verify` to catch issues early
 5. **Use the script**: `./scripts/create_pr.sh` automates the tedious parts
 
 ## 🚨 Common Issues

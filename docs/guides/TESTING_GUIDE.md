@@ -6,15 +6,13 @@
 
 **Option A: Full Pipeline with Server**
 ```bash
-python run_app.py
-# Choose option 1: Run complete pipeline
-# Watch for success messages showing data loaded
+make run
+# Choose the ETL + server flow from the interactive launcher
 ```
 
 **Option B: ETL Only**
 ```bash
-python run_app.py
-# Choose option 3: Only run data pipeline
+make etl
 ```
 
 **Expected Output:**
@@ -47,8 +45,7 @@ db.close()
 **Start the Server:**
 ```bash
 # If not already running from step 1
-python run_app.py
-# Choose option 2: Skip data loading and just start server
+make server
 ```
 
 **Test Endpoints:**
@@ -80,12 +77,7 @@ open http://localhost:8000/docs  # macOS
 **Start the Chat:**
 ```bash
 # Requires API server running on port 8000
-python chat_app.py
-```
-
-**Or start both together:**
-```bash
-python start_health_chat.py
+make chat
 ```
 
 **Test Questions:**
@@ -248,7 +240,7 @@ pip list
 ```bash
 # Recreate database
 rm -rf db/whoop.db
-python run_app.py  # Choose option 1
+make etl
 ```
 
 ### Issue: API server won't start
@@ -272,7 +264,7 @@ python -c "from whoopdata.agent.graph import run_agent; print('✅ Agent imports
 ```bash
 # Remove old tokens and re-authenticate
 rm .whoop_tokens.json .withings_tokens.json
-python run_app.py  # Will trigger new OAuth flow
+make etl  # Will trigger new OAuth flow if needed
 ```
 
 ---
@@ -331,9 +323,9 @@ echo ""
 echo "✅ All checks passed!"
 echo ""
 echo "Next steps:"
-echo "1. Run ETL: python run_app.py (choose option 1)"
+echo "1. Run ETL: make etl"
 echo "2. Test API: curl http://localhost:8000/recovery/latest"
-echo "3. Test Chat: python chat_app.py"
+echo "3. Test Chat: make chat"
 ```
 
 Make it executable:

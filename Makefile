@@ -108,7 +108,7 @@ typecheck:
 
 verify:
 	@echo "✅ Running system verification..."
-	uv run python verify_system.py
+	uv run python scripts/verify_system.py
 
 # Cleanup targets
 clean:
