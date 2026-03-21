@@ -4,10 +4,10 @@ info:
   description: Authenticate with the Whoop API to obtain an access token.
   version: 1.0.0
 servers:
-  - url: https://api-7.whoop.com
+  - url: https://api.prod.whoop.com
     description: Authentication server
 paths:
-  /oauth/token:
+  /oauth/oauth2/token:
     post:
       operationId: authenticate
       summary: Authenticate with the Whoop API

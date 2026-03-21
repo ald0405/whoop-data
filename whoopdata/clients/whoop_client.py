@@ -25,11 +25,11 @@ class Whoop:
     TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token"  # OAuth 2.0 token endpoint
 
     ENDPOINTS = {
-        "recovery": "https://api.prod.whoop.com/developer/v1/recovery",
-        "sleep": "https://api.prod.whoop.com/developer/v1/activity/sleep",
-        "workout": "https://api.prod.whoop.com/developer/v1/activity/workout",
-        "strain": "https://api.prod.whoop.com/developer/v1/cycle",
-        "body": "https://api.prod.whoop.com/developer/v1/user/measurement/body",
+        "recovery": "https://api.prod.whoop.com/developer/v2/recovery",
+        "sleep": "https://api.prod.whoop.com/developer/v2/activity/sleep",
+        "workout": "https://api.prod.whoop.com/developer/v2/activity/workout",
+        "strain": "https://api.prod.whoop.com/developer/v2/cycle",
+        "body": "https://api.prod.whoop.com/developer/v2/user/measurement/body",
     }
 
     def __init__(
@@ -172,7 +172,7 @@ class Whoop:
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
-            "scope": "read:recovery read:sleep read:workout read:profile read:body_measurement",
+            "scope": "read:recovery read:cycles read:sleep read:workout read:profile read:body_measurement",
         }
 
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -420,12 +420,12 @@ class Whoop:
             "score.altitude_gain_meter": "altitude_gain_meter",
             "score.altitude_change_meter": "altitude_change_meter",
             # Zone duration fields (convert from milliseconds to minutes)
-            "score.zone_duration.zone_zero_milli": "zone_zero_minutes",
-            "score.zone_duration.zone_one_milli": "zone_one_minutes",
-            "score.zone_duration.zone_two_milli": "zone_two_minutes",
-            "score.zone_duration.zone_three_milli": "zone_three_minutes",
-            "score.zone_duration.zone_four_milli": "zone_four_minutes",
-            "score.zone_duration.zone_five_milli": "zone_five_minutes",
+            "score.zone_durations.zone_zero_milli": "zone_zero_minutes",
+            "score.zone_durations.zone_one_milli": "zone_one_minutes",
+            "score.zone_durations.zone_two_milli": "zone_two_minutes",
+            "score.zone_durations.zone_three_milli": "zone_three_minutes",
+            "score.zone_durations.zone_four_milli": "zone_four_minutes",
+            "score.zone_durations.zone_five_milli": "zone_five_minutes",
         }
 
         df = df.rename(columns=rename_map)
@@ -494,12 +494,7 @@ class Whoop:
             return pd.json_normalize(response_data)
 
 
-whoops = Whoop()
-
-whoops.authenticate()
-
-whoops.make_paginated_request(data_endpoint="https://api.prod.whoop.com/developer/v1/recovery/")
-
-
-# whoops.available_endpoints[0]
-# whoops.get_endpoint_url(whoops.available_endpoints[0])
+if __name__ == "__main__":
+    whoops = Whoop()
+    whoops.authenticate()
+    whoops.make_paginated_request(data_endpoint=whoops.get_endpoint_url("recovery"))
