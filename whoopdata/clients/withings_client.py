@@ -198,11 +198,13 @@ class WithingsClient:
         print(f"\n🔐 Generated state: '{state}' (length: {len(state)})")
         print(f"🌐 Callback URL: {self.callback_url}")
 
-        # Parse callback URL to get port
+        # Parse callback URL to get host/port for local callback server
         from urllib.parse import urlparse
 
         parsed_url = urlparse(self.callback_url)
+        callback_host = parsed_url.hostname or "localhost"
         port = parsed_url.port or 8766
+        bind_host = "127.0.0.1" if callback_host in {"localhost", "127.0.0.1"} else callback_host
 
         class CallbackHandler(BaseHTTPRequestHandler):
             def log_message(self, format, *args):
@@ -246,28 +248,24 @@ class WithingsClient:
                                 b"<html><body><h1>Authorization failed!</h1><p>State parameter mismatch</p></body></html>"
                             )
 
-        # Start callback server (bind explicitly to loopback)
-        # Try desired port, then increment a few times if unavailable
-        server = None
-        for try_port in [port] + [port + i for i in range(1, 6)]:
-            try:
-                server = HTTPServer(("127.0.0.1", try_port), CallbackHandler)
-                port = try_port
-                break
-            except OSError:
-                continue
-        if server is None:
-            raise Exception("Unable to bind local callback server on 127.0.0.1")
+        # Start callback server on the configured loopback host/port.
+        # The redirect URI must exactly match the partner dashboard callback.
+        try:
+            server = HTTPServer((bind_host, port), CallbackHandler)
+        except OSError as exc:
+            raise Exception(
+                f"Unable to bind local callback server on {bind_host}:{port}. "
+                "Free the configured callback port or update WITHINGS_CALLBACK_URL to another registered callback."
+            ) from exc
         server_thread = threading.Thread(target=server.serve_forever)
         server_thread.daemon = True
         server_thread.start()
-
-        # Create authorization URL (update redirect to actual bound port)
+        # Create authorization URL using the configured callback URL exactly.
         actual_redirect = f"http://127.0.0.1:{port}/callback"
         auth_params = {
             "response_type": "code",
             "client_id": self.client_id,
-            "redirect_uri": actual_redirect,
+            "redirect_uri": self.callback_url,
             "scope": "user.metrics",
             "state": state,
         }
