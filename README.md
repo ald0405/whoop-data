@@ -4,9 +4,12 @@
 [![UV](https://img.shields.io/badge/package%20manager-UV-orange.svg)](https://github.com/astral-sh/uv)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A health data platform that integrates WHOOP and Withings devices. Includes ETL pipelines, a REST API, analytics (including multiple linear regression), and a conversational agent for querying your data.
 
-## Features
+![alt text](image.png)
+
+This project is a personal health intelligence system that consolidates data from WHOOP and Withings into a single analysis layer. It helps quantify how sleep, training, recovery, body composition, and behaviour interact, so you can move from raw device data to interpretable insights, API-accessible metrics, and conversational exploration. Beyond personal biometrics, it adds environmental and operational context—such as weather forecasts, air quality, tidal conditions, and public transport status—so the platform can support better day-of decisions about outdoor training, route choice, and activity planning
+
+## What it does
 
 - **Data Integration** -- ETL pipelines for WHOOP (recovery, sleep, workouts, cycles) and Withings (weight, body composition, heart rate)
 - **REST API** -- FastAPI backend with interactive Swagger docs
@@ -14,7 +17,7 @@ A health data platform that integrates WHOOP and Withings devices. Includes ETL 
 - **Chat Agent** -- LangGraph-based agent for natural language queries against your health data
 - **Dashboard** -- Web UI with charts, MLR coefficient tables, partial correlation charts, and correlation heatmaps
 
-## Public Surface Model
+## How it works
 
 - **`data`** -- Raw health records, context resources, and provider status under `/api/v1/data/*`
 - **`insights`** -- Derived dashboards, analytics, scenarios, plans, and reports under `/api/v1/insights/*`
