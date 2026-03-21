@@ -13,6 +13,179 @@ from datetime import datetime, timedelta
 
 from whoopdata.models.models import Recovery, Sleep, Workout, Cycle, WithingsWeight
 
+MINUTES_PER_DAY = 24 * 60
+
+
+def _fill_missing_from_fallback(
+    df: pd.DataFrame, mask: pd.Series, destination_col: str, fallback_values: pd.Series
+) -> None:
+    """Fill missing values for rows selected by mask using aligned fallback values."""
+    fill_mask = mask & df[destination_col].isna() & fallback_values.notna()
+    if fill_mask.any():
+        df.loc[fill_mask, destination_col] = fallback_values.loc[fill_mask]
+
+
+def _safe_divide(a: pd.Series, b: pd.Series) -> pd.Series:
+    """Divide two aligned series while guarding against zero and inf."""
+    out = a / b.replace(0, np.nan)
+    return out.replace([np.inf, -np.inf], np.nan)
+
+
+def _datetime_to_clock_minutes(series: pd.Series) -> pd.Series:
+    ts = pd.to_datetime(series, errors="coerce")
+    return ts.dt.hour * 60 + ts.dt.minute
+
+
+def _circular_minute_delta(current: pd.Series, reference: pd.Series) -> pd.Series:
+    raw = current - reference
+    return ((raw + MINUTES_PER_DAY / 2) % MINUTES_PER_DAY) - (MINUTES_PER_DAY / 2)
+
+
+def _circular_distance_minutes(current: pd.Series, reference: pd.Series) -> pd.Series:
+    return _circular_minute_delta(current, reference).abs()
+
+
+def _circular_rolling_std(series: pd.Series, window: int) -> pd.Series:
+    radians = (series / MINUTES_PER_DAY) * 2 * np.pi
+    min_periods = max(2, window // 2)
+    sin_mean = np.sin(radians).shift(1).rolling(window, min_periods=min_periods).mean()
+    cos_mean = np.cos(radians).shift(1).rolling(window, min_periods=min_periods).mean()
+    resultant = np.sqrt(sin_mean**2 + cos_mean**2).clip(lower=1e-9, upper=1)
+    circ_std = np.sqrt(-2 * np.log(resultant))
+    return circ_std * (MINUTES_PER_DAY / (2 * np.pi))
+
+
+def _add_shared_recovery_modeling_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Add stable normalized recovery-modeling features shared by notebook and pipeline consumers."""
+    modeled = df.copy()
+    modeled["sleep_start_clock_min"] = _datetime_to_clock_minutes(modeled["sleep_start"])
+    modeled["sleep_end_clock_min"] = _datetime_to_clock_minutes(modeled["sleep_end"])
+    modeled["sleep_midpoint_clock_min"] = (
+        modeled["sleep_start_clock_min"] + (modeled["sleep_hours"] * 60 / 2)
+    ) % MINUTES_PER_DAY
+    modeled["bedtime_hour_float"] = modeled["sleep_start_clock_min"] / 60.0
+    modeled["wake_hour_float"] = modeled["sleep_end_clock_min"] / 60.0
+    modeled["sleep_midpoint_hour_float"] = modeled["sleep_midpoint_clock_min"] / 60.0
+    modeled["workout_start_hour_numeric"] = pd.to_numeric(
+        modeled["workout_start_hour"], errors="coerce"
+    )
+
+    for base_name, source_col in [
+        ("bedtime", "sleep_start_clock_min"),
+        ("wake_time", "sleep_end_clock_min"),
+        ("sleep_midpoint", "sleep_midpoint_clock_min"),
+    ]:
+        modeled[f"{base_name}_delta_prev_day_min"] = _circular_minute_delta(
+            modeled[source_col], modeled[source_col].shift(1)
+        )
+        modeled[f"abs_{base_name}_delta_prev_day_min"] = modeled[
+            f"{base_name}_delta_prev_day_min"
+        ].abs()
+        for window in (3, 7):
+            baseline = modeled[source_col].shift(1).rolling(window, min_periods=2).mean()
+            modeled[f"{base_name}_delta_{window}d_avg_min"] = _circular_minute_delta(
+                modeled[source_col], baseline
+            )
+            modeled[f"abs_{base_name}_delta_{window}d_avg_min"] = (
+                _circular_distance_minutes(modeled[source_col], baseline)
+            )
+            modeled[f"{base_name}_variability_{window}d_min"] = _circular_rolling_std(
+                modeled[source_col], window
+            )
+
+    for window in (3, 7):
+        modeled[f"sleep_hours_variability_{window}d"] = (
+            modeled["sleep_hours"].shift(1).rolling(window, min_periods=2).std()
+        )
+        modeled[f"sleep_deficit_rolling_{window}d"] = (
+            modeled["sleep_deficit"].shift(1).rolling(window, min_periods=2).mean()
+        )
+        modeled[f"sleep_deficit_sum_{window}d"] = (
+            modeled["sleep_deficit"].shift(1).rolling(window, min_periods=1).sum()
+        )
+
+    modeled["sleep_need_met"] = (modeled["sleep_deficit"] <= 0).astype(int)
+    modeled["sleep_deficit_abs"] = modeled["sleep_deficit"].abs()
+    modeled["sleep_achieved_to_needed_ratio"] = _safe_divide(
+        modeled["sleep_hours"], modeled["total_sleep_need_hours"]
+    )
+    modeled["sleep_achieved_to_baseline_need_ratio"] = _safe_divide(
+        modeled["sleep_hours"], modeled["baseline_sleep_needed_hours"]
+    )
+    modeled["mild_sleep_deficit_flag"] = (
+        (modeled["sleep_deficit"] > 0.25) & (modeled["sleep_deficit"] <= 0.75)
+    ).astype(int)
+    modeled["moderate_sleep_deficit_flag"] = (
+        (modeled["sleep_deficit"] > 0.75) & (modeled["sleep_deficit"] <= 1.5)
+    ).astype(int)
+    modeled["severe_sleep_deficit_flag"] = (modeled["sleep_deficit"] > 1.5).astype(int)
+
+    consecutive_deficit = []
+    run = 0
+    for val in modeled["sleep_deficit"].fillna(0):
+        run = run + 1 if val > 0 else 0
+        consecutive_deficit.append(run)
+    modeled["consecutive_sleep_deficit_days"] = consecutive_deficit
+
+    modeled["restorative_sleep_hours"] = (
+        modeled["rem_sleep_hours"] + modeled["slow_wave_sleep_hours"]
+    )
+    modeled["restorative_sleep_ratio"] = _safe_divide(
+        modeled["restorative_sleep_hours"], modeled["sleep_hours"]
+    )
+    modeled["rem_to_deep_ratio"] = _safe_divide(
+        modeled["rem_sleep_hours"], modeled["slow_wave_sleep_hours"]
+    )
+    modeled["disturbances_per_hour"] = _safe_divide(
+        modeled["disturbance_count"], modeled["sleep_hours"]
+    )
+    modeled["awake_fraction_of_time_in_bed"] = _safe_divide(
+        modeled["awake_time_hours"], modeled["time_in_bed_hours"]
+    )
+    modeled["late_bedtime_after_23"] = (
+        modeled["sleep_start_clock_min"] >= 23 * 60
+    ).astype(int)
+    modeled["late_bedtime_after_midnight"] = (
+        modeled["sleep_start_clock_min"] < 5 * 60
+    ).astype(int)
+    modeled["bedtime_shift_gt_60m_7d"] = (
+        modeled["abs_bedtime_delta_7d_avg_min"] > 60
+    ).astype(int)
+    modeled["wake_shift_gt_60m_7d"] = (
+        modeled["abs_wake_time_delta_7d_avg_min"] > 60
+    ).astype(int)
+    modeled["is_weekday"] = (~modeled["is_weekend"]).astype(int)
+    modeled["zone_4_5_minutes"] = (
+        modeled["zone_four_minutes"] + modeled["zone_five_minutes"]
+    )
+    modeled["zone_0_2_minutes"] = (
+        modeled["zone_zero_minutes"]
+        + modeled["zone_one_minutes"]
+        + modeled["zone_two_minutes"]
+    )
+    modeled["late_workout_flag"] = (
+        modeled["workout_start_hour_numeric"] >= 19
+    ).fillna(False).astype(int)
+    modeled["has_workout_flag"] = (modeled["total_zone_minutes"] > 0).astype(int)
+    modeled["high_intensity_workout_flag"] = (
+        modeled["high_intensity_pct"] >= 20
+    ).astype(int)
+    modeled["row_grain"] = "one row per recovery day"
+
+    return modeled
+
+
+def get_recovery_modeling_dataset(
+    db: Session, limit: Optional[int] = None, days_back: Optional[int] = 365
+) -> pd.DataFrame:
+    """Return the stable normalized recovery-modeling dataset used by notebooks and analytics.
+
+    Row grain: one row per recovery record / recovery day.
+    """
+    return _add_shared_recovery_modeling_features(
+        get_recovery_with_features(db=db, limit=limit, days_back=days_back)
+    )
+
 
 def get_recovery_with_features(
     db: Session, limit: Optional[int] = None, days_back: Optional[int] = 365
@@ -191,9 +364,12 @@ def get_recovery_with_features(
             }
 
             for dest_col, src_col in sleep_fill_map.items():
-                df.loc[missing_sleep_mask.values, dest_col] = df.loc[
-                    missing_sleep_mask.values, dest_col
-                ].combine_first(fallback_sleep_merge[src_col])
+                _fill_missing_from_fallback(
+                    df=df,
+                    mask=missing_sleep_mask,
+                    destination_col=dest_col,
+                    fallback_values=fallback_sleep_merge[src_col],
+                )
 
             df = df.reset_index()
 
@@ -240,27 +416,21 @@ def get_recovery_with_features(
             fallback_merge = fallback_merge.set_index("id")
             df = df.set_index("id")
 
-            df.loc[missing_cycle_mask.values, "cycle_db_id"] = df.loc[
-                missing_cycle_mask.values, "cycle_db_id"
-            ].combine_first(fallback_merge["fallback_cycle_db_id"])
-            df.loc[missing_cycle_mask.values, "cycle_strain"] = df.loc[
-                missing_cycle_mask.values, "cycle_strain"
-            ].combine_first(fallback_merge["fallback_cycle_strain"])
-            df.loc[missing_cycle_mask.values, "cycle_average_heart_rate"] = df.loc[
-                missing_cycle_mask.values, "cycle_average_heart_rate"
-            ].combine_first(fallback_merge["fallback_cycle_average_heart_rate"])
-            df.loc[missing_cycle_mask.values, "cycle_max_heart_rate"] = df.loc[
-                missing_cycle_mask.values, "cycle_max_heart_rate"
-            ].combine_first(fallback_merge["fallback_cycle_max_heart_rate"])
-            df.loc[missing_cycle_mask.values, "cycle_kilojoule"] = df.loc[
-                missing_cycle_mask.values, "cycle_kilojoule"
-            ].combine_first(fallback_merge["fallback_cycle_kilojoule"])
-            df.loc[missing_cycle_mask.values, "cycle_start"] = df.loc[
-                missing_cycle_mask.values, "cycle_start"
-            ].combine_first(fallback_merge["fallback_cycle_start"])
-            df.loc[missing_cycle_mask.values, "cycle_end"] = df.loc[
-                missing_cycle_mask.values, "cycle_end"
-            ].combine_first(fallback_merge["fallback_cycle_end"])
+            for destination_col, source_col in {
+                "cycle_db_id": "fallback_cycle_db_id",
+                "cycle_strain": "fallback_cycle_strain",
+                "cycle_average_heart_rate": "fallback_cycle_average_heart_rate",
+                "cycle_max_heart_rate": "fallback_cycle_max_heart_rate",
+                "cycle_kilojoule": "fallback_cycle_kilojoule",
+                "cycle_start": "fallback_cycle_start",
+                "cycle_end": "fallback_cycle_end",
+            }.items():
+                _fill_missing_from_fallback(
+                    df=df,
+                    mask=missing_cycle_mask,
+                    destination_col=destination_col,
+                    fallback_values=fallback_merge[source_col],
+                )
 
             df = df.reset_index()
 

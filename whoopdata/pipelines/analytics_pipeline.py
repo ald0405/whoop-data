@@ -23,6 +23,7 @@ from whoopdata.analytics.engine import (
     TimeSeriesAnalyzer,
 )
 from whoopdata.analytics.data_prep import (
+    get_recovery_modeling_dataset,
     get_recovery_with_features,
     get_sleep_with_features,
     get_sleep_quality_features,
@@ -103,7 +104,7 @@ class AnalyticsPipeline:
             console.print("[cyan]  🔄 Training Recovery Predictor...[/cyan]")
 
             db = SessionLocal()
-            df = get_recovery_with_features(db, days_back=self.days_back)
+            df = get_recovery_modeling_dataset(db, days_back=self.days_back)
             db.close()
 
             if len(df) < 50:
