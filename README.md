@@ -196,11 +196,13 @@ make telegram-bot
 - Rejects non-private chats
 - Uses Telegram-only HTML formatting for better rendering without changing Studio/API output
 - Sends agent-generated image artifacts back to Telegram when available
+- **Voice messages**: Send a voice note and the bot transcribes it (Whisper), processes it through the agent, and replies with both a voice note (TTS) and text
+- **Photo messages**: Send a photo (with optional caption) and the bot interprets it using the vision-capable model in the context of your health data
 
 Current limitations:
 
-- Incoming photos/images you send to the bot are not processed yet
 - The bot must be restarted after changing Telegram token or allowlist settings
+- Voice replies use OpenAI TTS which has a ~2000 token input limit; very long responses fall back to text only
 
 The Telegram adapter can silently ignore unauthorized users once the allowlists are set. Rotate any token that was ever pasted into chat, logs, or source control before relying on the bot.
 

@@ -38,6 +38,18 @@ SUPERVISOR_MODEL = "openai:gpt-4o-mini"
 # Default specialist model
 SPECIALIST_MODEL = "openai:gpt-4o-mini"
 
+# Voice transcription (Whisper)
+WHISPER_MODEL = "whisper-1"
+
+# Text-to-Speech
+TTS_MODEL = "gpt-4o-mini-tts"
+TTS_VOICE = os.getenv("TTS_VOICE", "nova")
+TTS_INSTRUCTIONS = (
+    "Speak in a direct, energetic coaching tone. Be concise and sharp — "
+    "like a personal trainer who's also a data scientist with the whit and Charm of Hannah Fry "
+    "Keep it conversational and natural, not robotic."
+)
+
 # Per-specialist overrides (model, temperature, etc.)
 SPECIALIST_CONFIG: dict = {
     # "analytics": {"model": "openai:gpt-4o"},  # Example: use stronger model for analytics

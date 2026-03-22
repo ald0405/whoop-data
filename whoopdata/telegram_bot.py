@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import html
+import io
 import logging
 import os
 import re
@@ -10,8 +11,10 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from dotenv import load_dotenv
+from openai import AsyncOpenAI
 from telegram.constants import ParseMode
 
+from whoopdata.agent import settings as agent_settings
 from whoopdata.agent.conversation_service import ConversationService, get_conversation_service
 
 load_dotenv()
@@ -41,6 +44,7 @@ TELEGRAM_ALLOWED_CHAT_IDS = _parse_int_set(os.getenv("TELEGRAM_ALLOWED_CHAT_IDS"
 class OutboundTelegramMessage:
     text: str | None = None
     photo_bytes: bytes | None = None
+    voice_bytes: bytes | None = None
     caption: str | None = None
     parse_mode: str | None = None
 
@@ -102,6 +106,7 @@ class TelegramConversationGateway:
         user_id: int | None,
         chat_id: int | None,
         chat_type: str | None,
+        image_b64: str | None = None,
     ) -> list[OutboundTelegramMessage]:
         if not self.is_authorized(user_id=user_id, chat_id=chat_id, chat_type=chat_type):
             return []
@@ -111,10 +116,65 @@ class TelegramConversationGateway:
             message=text,
             session_id=binding.session_id,
             thread_id=binding.thread_id,
+            image_b64=image_b64,
         )
         binding.session_id = response.session_id
         binding.thread_id = response.thread_id
         return self._build_response_messages(response.assistant_message, response.artifacts)
+
+    async def handle_voice_message(
+        self,
+        *,
+        voice_bytes: bytes,
+        user_id: int | None,
+        chat_id: int | None,
+        chat_type: str | None,
+    ) -> list[OutboundTelegramMessage]:
+        """Transcribe a voice note with Whisper, get agent response, and return voice + text."""
+        if not self.is_authorized(user_id=user_id, chat_id=chat_id, chat_type=chat_type):
+            return []
+
+        # Transcribe
+        transcribed_text = await _transcribe_voice(voice_bytes)
+        if not transcribed_text:
+            return [
+                OutboundTelegramMessage(text="Sorry, I couldn't understand that voice message. Try again?")
+            ]
+
+        # Get agent response via the normal text path
+        text_responses = await self.handle_text_message(
+            text=transcribed_text,
+            user_id=user_id,
+            chat_id=chat_id,
+            chat_type=chat_type,
+        )
+
+        # Convert text responses to voice + keep text as fallback
+        return await _attach_voice_replies(text_responses)
+
+    async def handle_photo_message(
+        self,
+        *,
+        photo_bytes: bytes,
+        caption: str | None,
+        user_id: int | None,
+        chat_id: int | None,
+        chat_type: str | None,
+    ) -> list[OutboundTelegramMessage]:
+        """Process an incoming photo through the vision-capable agent."""
+        if not self.is_authorized(user_id=user_id, chat_id=chat_id, chat_type=chat_type):
+            return []
+
+        image_b64 = base64.b64encode(photo_bytes).decode("utf-8")
+        text = caption or "What's in this image? Interpret it in the context of my health data."
+
+        return await self.handle_text_message(
+            text=text,
+            user_id=user_id,
+            chat_id=chat_id,
+            chat_type=chat_type,
+            image_b64=image_b64,
+        )
 
     def _build_response_messages(self, assistant_message: str, artifacts: list) -> list[OutboundTelegramMessage]:
         messages: list[OutboundTelegramMessage] = []
@@ -151,6 +211,61 @@ class TelegramConversationGateway:
         return messages
 
 
+async def _transcribe_voice(voice_bytes: bytes) -> str | None:
+    """Transcribe voice bytes using OpenAI Whisper."""
+    try:
+        client = AsyncOpenAI()
+        audio_file = io.BytesIO(voice_bytes)
+        audio_file.name = "voice.ogg"
+        transcription = await client.audio.transcriptions.create(
+            model=agent_settings.WHISPER_MODEL,
+            file=audio_file,
+        )
+        return transcription.text.strip() or None
+    except Exception:
+        logger.exception("Voice transcription failed")
+        return None
+
+
+async def _text_to_speech(text: str) -> bytes | None:
+    """Convert text to speech using OpenAI TTS. Returns opus bytes or None."""
+    try:
+        client = AsyncOpenAI()
+        response = await client.audio.speech.create(
+            model=agent_settings.TTS_MODEL,
+            voice=agent_settings.TTS_VOICE,
+            input=text,
+            instructions=agent_settings.TTS_INSTRUCTIONS,
+            response_format="opus",
+        )
+        return response.content
+    except Exception:
+        logger.exception("Text-to-speech generation failed")
+        return None
+
+
+async def _attach_voice_replies(
+    text_responses: list[OutboundTelegramMessage],
+) -> list[OutboundTelegramMessage]:
+    """For each text response, generate a voice version and include both."""
+    result: list[OutboundTelegramMessage] = []
+    for msg in text_responses:
+        # Only convert pure text messages to voice (not photos/code)
+        if msg.text and msg.photo_bytes is None:
+            plain_text = _strip_html_tags(msg.text)
+            voice_data = await _text_to_speech(plain_text)
+            if voice_data:
+                result.append(OutboundTelegramMessage(voice_bytes=voice_data))
+        # Always include the original message as fallback
+        result.append(msg)
+    return result
+
+
+def _strip_html_tags(text: str) -> str:
+    """Remove HTML tags for TTS input."""
+    return re.sub(r"<[^>]+>", "", text)
+
+
 def _format_text_for_telegram_html(text: str) -> str:
     escaped = html.escape(text)
     escaped = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", escaped)
@@ -175,7 +290,9 @@ async def _reply(update, messages: list[OutboundTelegramMessage]) -> None:
         return
 
     for outbound in messages:
-        if outbound.photo_bytes is not None:
+        if outbound.voice_bytes is not None:
+            await message.reply_voice(voice=outbound.voice_bytes)
+        elif outbound.photo_bytes is not None:
             await message.reply_photo(photo=outbound.photo_bytes, caption=outbound.caption)
         elif outbound.text:
             await message.reply_text(outbound.text, parse_mode=outbound.parse_mode)
@@ -238,6 +355,66 @@ async def text_message(update, context) -> None:
     await _reply(update, responses)
 
 
+async def voice_message(update, context) -> None:
+    gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
+    user = update.effective_user
+    chat = update.effective_chat
+    message = update.effective_message
+
+    voice = getattr(message, "voice", None) or getattr(message, "audio", None)
+    if voice is None:
+        return
+
+    # Send a brief indicator so the user knows we're processing
+    await message.reply_text("🎙️ Transcribing…")
+
+    try:
+        tg_file = await voice.get_file()
+        voice_data = await tg_file.download_as_bytearray()
+    except Exception:
+        logger.exception("Failed to download voice file from Telegram")
+        await message.reply_text("Sorry, I couldn't download that voice message.")
+        return
+
+    responses = await gateway.handle_voice_message(
+        voice_bytes=bytes(voice_data),
+        user_id=getattr(user, "id", None),
+        chat_id=getattr(chat, "id", None),
+        chat_type=getattr(chat, "type", None),
+    )
+    await _reply(update, responses)
+
+
+async def photo_message(update, context) -> None:
+    gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
+    user = update.effective_user
+    chat = update.effective_chat
+    message = update.effective_message
+
+    photos = getattr(message, "photo", None)
+    if not photos:
+        return
+
+    # Use the highest-resolution version (last in the list)
+    try:
+        tg_file = await photos[-1].get_file()
+        photo_data = await tg_file.download_as_bytearray()
+    except Exception:
+        logger.exception("Failed to download photo from Telegram")
+        await message.reply_text("Sorry, I couldn't download that photo.")
+        return
+
+    caption = getattr(message, "caption", None)
+    responses = await gateway.handle_photo_message(
+        photo_bytes=bytes(photo_data),
+        caption=caption,
+        user_id=getattr(user, "id", None),
+        chat_id=getattr(chat, "id", None),
+        chat_type=getattr(chat, "type", None),
+    )
+    await _reply(update, responses)
+
+
 async def error_handler(update, context) -> None:
     logger.exception("Telegram bot error: %s", context.error)
     if getattr(update, "effective_message", None) is not None:
@@ -255,6 +432,8 @@ def build_application(gateway: TelegramConversationGateway | None = None):
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("whoami", whoami_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message))
+    application.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, voice_message))
+    application.add_handler(MessageHandler(filters.PHOTO, photo_message))
     application.add_error_handler(error_handler)
     return application
 
