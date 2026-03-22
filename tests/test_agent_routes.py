@@ -13,16 +13,17 @@ from whoopdata.api.app_factory import create_app
 
 class StubConversationService:
     def __init__(self) -> None:
-        self.started_with: tuple[str | None, str | None] | None = None
-        self.sent_with: tuple[str, str | None, str | None] | None = None
+        self.started_with: tuple[str | None, str | None, str | None] | None = None
+        self.sent_with: tuple[str, str | None, str | None, str | None, str] | None = None
 
     def start_conversation(
         self,
         *,
         session_id: str | None = None,
         thread_id: str | None = None,
+        user_id: str | None = None,
     ) -> AgentConversationHandle:
-        self.started_with = (session_id, thread_id)
+        self.started_with = (session_id, thread_id, user_id)
         return AgentConversationHandle(
             session_id=session_id or "session-test",
             thread_id=thread_id or "thread-test",
@@ -34,8 +35,10 @@ class StubConversationService:
         message: str,
         session_id: str | None = None,
         thread_id: str | None = None,
+        user_id: str | None = None,
+        surface: str = "api",
     ) -> AgentConversationResponse:
-        self.sent_with = (message, session_id, thread_id)
+        self.sent_with = (message, session_id, thread_id, user_id, surface)
         return AgentConversationResponse(
             thread_id=thread_id or "thread-test",
             session_id=session_id or "session-test",
@@ -54,6 +57,8 @@ class FailingConversationService(StubConversationService):
         message: str,
         session_id: str | None = None,
         thread_id: str | None = None,
+        user_id: str | None = None,
+        surface: str = "api",
     ) -> AgentConversationResponse:
         raise RuntimeError("boom")
 
@@ -75,7 +80,7 @@ def test_create_conversation_route_uses_shared_service_dependency():
         "session_id": "session-1",
         "thread_id": "thread-1",
     }
-    assert stub.started_with == ("session-1", "thread-1")
+    assert stub.started_with == ("session-1", "thread-1", None)
 
 
 def test_send_message_route_returns_conversation_response():
@@ -105,7 +110,7 @@ def test_send_message_route_returns_conversation_response():
         ],
         "artifacts": [],
     }
-    assert stub.sent_with == ("Hello", "session-1", "thread-1")
+    assert stub.sent_with == ("Hello", "session-1", "thread-1", None, "api")
 
 
 def test_send_message_route_maps_service_errors_to_http_500():

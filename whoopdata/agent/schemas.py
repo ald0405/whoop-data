@@ -29,6 +29,7 @@ class HealthContextSchema:
     user_id: str = "default_user"
     health_api_base_url: str = "http://localhost:8000"
     preferred_data_range_days: int = 30
+    surface: str = "api"
 
     def __post_init__(self):
         """Initialize any additional context data."""

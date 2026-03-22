@@ -77,6 +77,42 @@ OPENAI_API_KEY=your_openai_api_key
 
 WHOOP uses OAuth 2.0 browser authentication. When first running ingestion, you may be redirected to complete the authorization-code flow in the browser.
 
+### 2a. Optional but recommended: shared Postgres for agent memory
+
+If you want Telegram, API, chat UI, and LangSmith UI to share the same conversational and long-term memory, run a local Postgres instance on the Mac mini and add this to `.env`:
+
+```bash
+AGENT_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/whoop_agent?sslmode=disable
+AGENT_PERSISTENCE_AUTO_SETUP=true
+```
+
+With `AGENT_POSTGRES_URL` set, the agent will use Postgres-backed checkpointing and long-term memory storage. If it is not set, the agent falls back to in-memory persistence for development/tests.
+
+Example local startup with Docker:
+
+```bash
+docker run --name whoop-agent-postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=whoop_agent \
+  -p 5432:5432 \
+  -d postgres:16
+```
+
+Or use the built-in helper:
+
+```bash
+make postgres-up
+```
+
+Or with Homebrew services:
+
+```bash
+brew install postgresql@16
+brew services start postgresql@16
+createdb whoop_agent
+```
+
 ### 3. Ingest data
 
 ```bash
@@ -124,6 +160,56 @@ This is for development and debugging workflows. It is not a separate product su
 - **Swagger UI**: `http://localhost:8000/docs`
 - **ReDoc**: `http://localhost:8000/redoc`
 - **OpenAPI tags**: `data`, `insights`, and `agent`
+
+## Shared memory testing flow
+
+Once `AGENT_POSTGRES_URL` is configured, you can test durable shared memory end-to-end like this:
+
+1. Start the API:
+
+```bash
+make server
+```
+
+2. Start a client surface such as Telegram or chat UI:
+
+```bash
+make telegram-bot
+# or
+make chat
+```
+
+3. In a coaching conversation, tell the agent something durable such as:
+   - “Remember that I’m training for a half marathon in October.”
+   - “Remember that I prefer blunt feedback.”
+
+4. In a later message or from another client surface, ask something that should use that memory:
+   - “What should I focus on this week?”
+   - “What do you remember about my current goal?”
+
+5. Restart the app process and repeat the follow-up question. With Postgres configured, the memory and thread state should survive the restart.
+
+For API testing, you can also hit the agent routes directly:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/agent/messages \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "message": "Remember that I am training for Hyrox in September.",
+    "user_id": "manual-test-user"
+  }'
+```
+
+Then ask a follow-up with the same `user_id`:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/agent/messages \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "message": "What should my training priority be?",
+    "user_id": "manual-test-user"
+  }'
+```
 
 ## Canonical Run Modes
 

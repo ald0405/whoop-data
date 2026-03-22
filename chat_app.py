@@ -24,6 +24,7 @@ async def chat_with_agent(
     history: List[Tuple[str, str]],
     session_id: str | None = None,
     thread_id: str | None = None,
+    user_id: str = "chat_ui_default",
 ) -> Tuple[List[Tuple[str, str]], str, str | None, str]:
     """
     Send a message to the health data agent and get a response.
@@ -48,6 +49,8 @@ async def chat_with_agent(
             message=message,
             session_id=session_id,
             thread_id=thread_id,
+            user_id=user_id,
+            surface="chat_ui",
         )
         session_id = conversation_response.session_id
         thread_id = conversation_response.thread_id

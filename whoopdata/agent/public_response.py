@@ -18,6 +18,7 @@ class AgentArtifact(BaseModel):
 class AgentConversationCreateRequest(BaseModel):
     session_id: str | None = None
     thread_id: str | None = None
+    user_id: str | None = None
 
 
 class AgentConversationHandle(BaseModel):
@@ -34,6 +35,7 @@ class AgentMessageRequest(BaseModel):
     message: str = Field(min_length=1)
     thread_id: str | None = None
     session_id: str | None = None
+    user_id: str | None = None
 
 
 class AgentConversationResponse(BaseModel):

@@ -7,7 +7,7 @@ packages = ["whoopdata"]
 
 [project]
 name = "whoop-data"
-version = "3.1.1"
+version = "3.2.0"
 description = "WHOOP and Withings Health Data Integration Platform"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,6 +36,7 @@ dependencies = [
     "starlette==0.46.2",
     # Database
     "psycopg2-binary==2.9.10",
+    "psycopg[binary,pool]>=3.2.0",
     "SQLAlchemy==2.0.40",
     # HTTP clients
     "httpx==0.28.1",
@@ -60,6 +61,7 @@ dependencies = [
     "langchain>=1.2.0",
     "langchain-openai>=1.0.0",
     "langgraph>=1.0.0",
+    "langgraph-checkpoint-postgres>=2.0.0",
     "langsmith>=0.2.10",
     "langchain-experimental>=0.4.0",
     "langchain-core>=1.2.0",

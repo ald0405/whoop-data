@@ -15,7 +15,7 @@ import chat_app
 class StubConversationService:
     def __init__(self, response: AgentConversationResponse) -> None:
         self.response = response
-        self.calls: list[tuple[str, str | None, str | None]] = []
+        self.calls: list[tuple[str, str | None, str | None, str | None, str]] = []
 
     async def send_message(
         self,
@@ -23,8 +23,10 @@ class StubConversationService:
         message: str,
         session_id: str | None = None,
         thread_id: str | None = None,
+        user_id: str | None = None,
+        surface: str = "api",
     ) -> AgentConversationResponse:
-        self.calls.append((message, session_id, thread_id))
+        self.calls.append((message, session_id, thread_id, user_id, surface))
         return self.response
 
 
@@ -45,7 +47,7 @@ def test_chat_app_defers_conversation_id_creation_to_shared_boundary():
             chat_app.chat_with_agent("Hello", [], None, None)
         )
 
-    assert service.calls == [("Hello", None, None)]
+    assert service.calls == [("Hello", None, None, "chat_ui_default", "chat_ui")]
     assert history == [("Hello", "Hello back.")]
     assert cleared_input == ""
     assert session_id == "session-123"
@@ -74,7 +76,9 @@ def test_chat_app_reuses_existing_conversation_ids_on_follow_up_messages():
             )
         )
 
-    assert service.calls == [("How about now?", "session-123", "thread-123")]
+    assert service.calls == [
+        ("How about now?", "session-123", "thread-123", "chat_ui_default", "chat_ui")
+    ]
     assert history[-1] == ("How about now?", "Follow-up response.")
     assert cleared_input == ""
     assert session_id == "session-123"

@@ -19,9 +19,18 @@ class StubConversationService:
         session_id: str | None = None,
         thread_id: str | None = None,
         image_b64: str | None = None,
+        user_id: str | None = None,
+        surface: str = "api",
     ) -> AgentConversationResponse:
         self.calls.append(
-            {"message": message, "session_id": session_id, "thread_id": thread_id, "image_b64": image_b64}
+            {
+                "message": message,
+                "session_id": session_id,
+                "thread_id": thread_id,
+                "image_b64": image_b64,
+                "user_id": user_id,
+                "surface": surface,
+            }
         )
         return self._responses.pop(0)
 
@@ -71,7 +80,9 @@ def test_gateway_reuses_conversation_binding_per_chat():
     assert first[0].text == "First"
     assert second[0].text == "Second"
     assert service.calls[0]["message"] == "hello"
-    assert service.calls[0]["session_id"] is None
+    assert service.calls[0]["session_id"] == "telegram-chat-7"
+    assert service.calls[0]["thread_id"] == "telegram-thread-7"
+    assert service.calls[0]["user_id"] == "telegram:1"
     assert service.calls[1]["message"] == "again"
     assert service.calls[1]["session_id"] == "session-1"
 

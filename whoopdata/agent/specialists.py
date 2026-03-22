@@ -5,12 +5,17 @@ as tools for the supervisor to call. Each specialist runs in an isolated
 context and returns only its final text response.
 """
 
+from typing import Any
+
 from langchain.agents import create_agent
+from langchain.tools import ToolRuntime
 from langchain_core.tools import StructuredTool
 from langchain_core.messages import AIMessage
+from langgraph.constants import CONFIG_KEY_CHECKPOINTER
 
 from .tools import TOOLS_BY_NAME
 from .registry import AGENT_REGISTRY
+from .schemas import HealthContextSchema
 from . import settings
 
 
@@ -78,10 +83,28 @@ def build_specialist_tools(
 
         # Wrap as a tool — closure captures agent_name, agent, description
         def _make_tool(name: str, desc: str, compiled_agent):
-            async def specialist_fn(query: str) -> str:
+            async def specialist_fn(
+                query: str,
+                runtime: ToolRuntime[HealthContextSchema] = None,
+            ) -> str:
                 """Delegate a query to a specialist subagent."""
+                invoke_kwargs: dict[str, Any] = {}
+                if runtime is not None:
+                    runtime_config = getattr(runtime, "config", None)
+                    configurable: dict[str, Any] = {}
+                    if isinstance(runtime_config, dict):
+                        configurable.update(runtime_config.get("configurable", {}))
+                    if getattr(runtime, "store", None) is not None:
+                        configurable["__store"] = runtime.store
+                    if getattr(runtime, "checkpointer", None) is not None:
+                        configurable[CONFIG_KEY_CHECKPOINTER] = runtime.checkpointer
+                    if configurable:
+                        invoke_kwargs["config"] = {"configurable": configurable}
+                    if getattr(runtime, "context", None) is not None:
+                        invoke_kwargs["context"] = runtime.context
                 result = await compiled_agent.ainvoke(
-                    {"messages": [{"role": "user", "content": query}]}
+                    {"messages": [{"role": "user", "content": query}]},
+                    **invoke_kwargs,
                 )
                 return _extract_final_response(result)
 

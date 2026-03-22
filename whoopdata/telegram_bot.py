@@ -110,13 +110,21 @@ class TelegramConversationGateway:
     ) -> list[OutboundTelegramMessage]:
         if not self.is_authorized(user_id=user_id, chat_id=chat_id, chat_type=chat_type):
             return []
-
+        binding = self._bindings_by_chat.setdefault(
+            chat_id,
+            ConversationBinding(
+                session_id=f"telegram-chat-{chat_id}",
+                thread_id=f"telegram-thread-{chat_id}",
+            ),
+        )
         binding = self._bindings_by_chat.setdefault(chat_id, ConversationBinding())
         response = await self._conversation_service.send_message(
             message=text,
             session_id=binding.session_id,
             thread_id=binding.thread_id,
             image_b64=image_b64,
+            user_id=f"telegram:{user_id}",
+            surface="telegram",
         )
         binding.session_id = response.session_id
         binding.thread_id = response.thread_id

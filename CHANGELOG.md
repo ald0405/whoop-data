@@ -4,6 +4,20 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.2.0] - 2026-03-22
+
+### Added
+
+- Added durable agent memory tools for storing and searching user profile, goal, constraint, commitment, and observation context.
+- Added Postgres-backed agent persistence plumbing so the shared conversation boundary can use durable checkpointing and long-term memory when configured.
+- Added Telegram photo handling through the shared conversation service so image messages can be forwarded into the agent runtime.
+- Added `make postgres-up`, `make postgres-down`, `make postgres-logs`, `make dev-full`, and `make dev-full-stop` to streamline local development and cleanup.
+
+### Changed
+
+- Updated the active supervisor prompt to use memory more deliberately for coaching, exercise planning, and image follow-up conversations.
+- Passed runtime context and memory store access through specialist wrappers so exercise and behaviour-change planning can use saved memories.
+- Extended the shared conversation boundary and public agent responses to carry richer surface context and media-aware interactions across API, chat, and Telegram flows.
 ## [3.1.1] - 2026-03-22
 
 ### Changed

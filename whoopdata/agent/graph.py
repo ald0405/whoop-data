@@ -8,12 +8,28 @@ from typing import Any
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
 from langgraph.constants import CONFIG_KEY_CHECKPOINTER
+from .memory_tools import manage_memory, search_memory
 
 from .prompts import SUPERVISOR_SYSTEM_PROMPT
-from .schemas import AgentConfig
+from .schemas import AgentConfig, HealthContextSchema
 from .specialists import build_specialist_tools
 from .tools import python_repl_tool, get_protein_recommendation_tool
 from . import settings
+
+CONFIG_KEY_STORE = "__store"
+
+
+def _dedupe_tools_by_name(tools: list[Any]) -> list[Any]:
+    seen: set[str] = set()
+    deduped: list[Any] = []
+    for tool in tools:
+        name = getattr(tool, "name", None)
+        if name and name in seen:
+            continue
+        if name:
+            seen.add(name)
+        deduped.append(tool)
+    return deduped
 
 def _resolve_checkpointer(
     config: dict[str, Any] | None,
@@ -25,7 +41,18 @@ def _resolve_checkpointer(
         return None
     return configurable.get(CONFIG_KEY_CHECKPOINTER)
 
-def _create_graph(*, checkpointer: Any | None = None):
+def _resolve_store(
+    config: dict[str, Any] | None,
+) -> Any | None:
+    if not isinstance(config, dict):
+        return None
+    configurable = config.get("configurable")
+    if not isinstance(configurable, dict):
+        return None
+    return configurable.get(CONFIG_KEY_STORE)
+
+
+def _create_graph(*, checkpointer: Any | None = None, store: Any | None = None):
     """Build the compiled health data agent graph.
 
     Creates a supervisor agent (via create_agent) that delegates to
@@ -39,7 +66,12 @@ def _create_graph(*, checkpointer: Any | None = None):
     specialist_tools = build_specialist_tools()
 
     # Supervisor gets specialist tools + python REPL + protein tool for direct use
-    all_tools = specialist_tools + [python_repl_tool, get_protein_recommendation_tool]
+    all_tools = _dedupe_tools_by_name(specialist_tools + [
+        python_repl_tool,
+        get_protein_recommendation_tool,
+        search_memory,
+        manage_memory,
+    ])
 
     # Create the supervisor agent
     # create_agent returns a compiled LangGraph graph that handles
@@ -49,9 +81,12 @@ def _create_graph(*, checkpointer: Any | None = None):
         "tools": all_tools,
         "system_prompt": SUPERVISOR_SYSTEM_PROMPT,
         "name": "health_coach",
+        "context_schema": HealthContextSchema,
     }
     if checkpointer is not None:
         graph_kwargs["checkpointer"] = checkpointer
+    if store is not None:
+        graph_kwargs["store"] = store
 
     graph = create_agent(
         **graph_kwargs,
@@ -70,7 +105,10 @@ def build_graph(config: dict[str, Any] | None = None):
     Returns:
         Compiled LangGraph graph ready for .invoke() / .ainvoke()
     """
-    return _create_graph(checkpointer=_resolve_checkpointer(config))
+    return _create_graph(
+        checkpointer=_resolve_checkpointer(config),
+        store=_resolve_store(config),
+    )
 
 
 async def run_agent(message: str, thread_id: str = "default") -> dict:
