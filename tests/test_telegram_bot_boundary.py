@@ -10,7 +10,7 @@ from whoopdata.telegram_bot import TelegramConversationGateway
 class StubConversationService:
     def __init__(self, responses: list[AgentConversationResponse]) -> None:
         self._responses = list(responses)
-        self.calls: list[tuple[str, str | None, str | None]] = []
+        self.calls: list[dict] = []
 
     async def send_message(
         self,
@@ -18,8 +18,11 @@ class StubConversationService:
         message: str,
         session_id: str | None = None,
         thread_id: str | None = None,
+        image_b64: str | None = None,
     ) -> AgentConversationResponse:
-        self.calls.append((message, session_id, thread_id))
+        self.calls.append(
+            {"message": message, "session_id": session_id, "thread_id": thread_id, "image_b64": image_b64}
+        )
         return self._responses.pop(0)
 
 
@@ -67,10 +70,10 @@ def test_gateway_reuses_conversation_binding_per_chat():
 
     assert first[0].text == "First"
     assert second[0].text == "Second"
-    assert service.calls == [
-        ("hello", None, None),
-        ("again", "session-1", "thread-1"),
-    ]
+    assert service.calls[0]["message"] == "hello"
+    assert service.calls[0]["session_id"] is None
+    assert service.calls[1]["message"] == "again"
+    assert service.calls[1]["session_id"] == "session-1"
 
 
 def test_gateway_formats_code_and_image_artifacts_for_telegram():
@@ -116,6 +119,150 @@ def test_whoami_message_includes_ids_for_first_run_setup():
     assert "456" in messages[0].text
     assert "TELEGRAM_ALLOWED_USER_IDS" in messages[0].text
     assert messages[0].parse_mode is None
+
+
+def test_gateway_photo_message_sends_image_b64():
+    """Photo handler should base64-encode the image and pass it to the conversation service."""
+    service = StubConversationService(
+        [_response(assistant_message="Looks like a healthy meal!")]
+    )
+    gateway = TelegramConversationGateway(conversation_service=service)
+
+    photo_bytes = b"fake-jpeg-bytes"
+    messages = asyncio.run(
+        gateway.handle_photo_message(
+            photo_bytes=photo_bytes,
+            caption="What do you think of this meal?",
+            user_id=1,
+            chat_id=10,
+            chat_type="private",
+        )
+    )
+
+    assert len(messages) == 1
+    assert "healthy meal" in messages[0].text
+    assert service.calls[0]["message"] == "What do you think of this meal?"
+    assert service.calls[0]["image_b64"] == base64.b64encode(photo_bytes).decode("utf-8")
+
+
+def test_gateway_photo_message_uses_default_caption_when_none():
+    """Photo without caption should use a default prompt."""
+    service = StubConversationService(
+        [_response(assistant_message="I see an image.")]
+    )
+    gateway = TelegramConversationGateway(conversation_service=service)
+
+    messages = asyncio.run(
+        gateway.handle_photo_message(
+            photo_bytes=b"img",
+            caption=None,
+            user_id=1,
+            chat_id=10,
+            chat_type="private",
+        )
+    )
+
+    assert len(messages) == 1
+    assert "What's in this image?" in service.calls[0]["message"]
+
+
+def test_gateway_photo_message_rejected_for_unauthorized_user():
+    service = StubConversationService([])
+    gateway = TelegramConversationGateway(
+        conversation_service=service, allowed_user_ids=[999]
+    )
+
+    messages = asyncio.run(
+        gateway.handle_photo_message(
+            photo_bytes=b"img",
+            caption=None,
+            user_id=1,
+            chat_id=10,
+            chat_type="private",
+        )
+    )
+
+    assert messages == []
+    assert service.calls == []
+
+
+def test_gateway_voice_message_returns_error_on_transcription_failure(monkeypatch):
+    """When transcription returns None, the gateway should return an error message."""
+    import whoopdata.telegram_bot as tb
+
+    async def _mock_transcribe(voice_bytes: bytes):
+        return None
+
+    monkeypatch.setattr(tb, "_transcribe_voice", _mock_transcribe)
+
+    service = StubConversationService([])
+    gateway = TelegramConversationGateway(conversation_service=service)
+
+    messages = asyncio.run(
+        gateway.handle_voice_message(
+            voice_bytes=b"fake-ogg",
+            user_id=1,
+            chat_id=10,
+            chat_type="private",
+        )
+    )
+
+    assert len(messages) == 1
+    assert "couldn't understand" in messages[0].text
+    assert service.calls == []
+
+
+def test_gateway_voice_message_transcribes_and_delegates(monkeypatch):
+    """Successful voice transcription should feed text into the text pipeline and attach voice replies."""
+    import whoopdata.telegram_bot as tb
+
+    async def _mock_transcribe(voice_bytes: bytes):
+        return "How is my recovery today?"
+
+    async def _mock_tts(text: str):
+        return b"fake-opus-audio"
+
+    monkeypatch.setattr(tb, "_transcribe_voice", _mock_transcribe)
+    monkeypatch.setattr(tb, "_text_to_speech", _mock_tts)
+
+    service = StubConversationService(
+        [_response(assistant_message="Your recovery is 82%. Green zone.")]
+    )
+    gateway = TelegramConversationGateway(conversation_service=service)
+
+    messages = asyncio.run(
+        gateway.handle_voice_message(
+            voice_bytes=b"fake-ogg",
+            user_id=1,
+            chat_id=10,
+            chat_type="private",
+        )
+    )
+
+    # Should have voice reply + text fallback
+    assert len(messages) == 2
+    assert messages[0].voice_bytes == b"fake-opus-audio"
+    assert messages[1].text is not None
+    assert "82%" in messages[1].text
+    assert service.calls[0]["message"] == "How is my recovery today?"
+
+
+def test_gateway_voice_message_rejected_for_unauthorized_user(monkeypatch):
+    service = StubConversationService([])
+    gateway = TelegramConversationGateway(
+        conversation_service=service, allowed_user_ids=[999]
+    )
+
+    messages = asyncio.run(
+        gateway.handle_voice_message(
+            voice_bytes=b"fake-ogg",
+            user_id=1,
+            chat_id=10,
+            chat_type="private",
+        )
+    )
+
+    assert messages == []
 
 
 def test_gateway_formats_markdownish_assistant_text_for_telegram_html():

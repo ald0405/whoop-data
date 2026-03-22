@@ -60,10 +60,12 @@ class ConversationService:
         message: str,
         session_id: str | None = None,
         thread_id: str | None = None,
+        image_b64: str | None = None,
     ) -> AgentConversationResponse:
         handle = self.start_conversation(session_id=session_id, thread_id=thread_id)
+        human_message = self._build_human_message(message, image_b64=image_b64)
         result = await self._graph.ainvoke(
-            {"messages": [HumanMessage(content=message)]},
+            {"messages": [human_message]},
             {"configurable": {"thread_id": handle.thread_id}},
         )
         return build_agent_conversation_response(
@@ -71,6 +73,28 @@ class ConversationService:
             thread_id=handle.thread_id,
             session_id=handle.session_id,
             user_message=message,
+        )
+
+    @staticmethod
+    def _build_human_message(
+        text: str,
+        *,
+        image_b64: str | None = None,
+    ) -> HumanMessage:
+        """Build a HumanMessage, optionally with an embedded image."""
+        if image_b64 is None:
+            return HumanMessage(content=text)
+
+        return HumanMessage(
+            content=[
+                {"type": "text", "text": text},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{image_b64}",
+                    },
+                },
+            ]
         )
 
     def _resolve_conversation(
