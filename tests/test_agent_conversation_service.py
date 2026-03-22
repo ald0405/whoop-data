@@ -9,11 +9,10 @@ from whoopdata.agent.conversation_service import ConversationService
 
 class FakeGraph:
     def __init__(self, result: dict | None = None) -> None:
-        self.calls: list[tuple[dict, dict]] = []
+        self.calls: list[tuple[dict, dict, object | None]] = []
         self._result = result or {"messages": [AIMessage(content="Default response.")]}
-
-    async def ainvoke(self, input: dict, config: dict) -> dict:
-        self.calls.append((input, config))
+    async def ainvoke(self, input: dict, config: dict, *, context=None) -> dict:
+        self.calls.append((input, config, context))
         return self._result
 
 
@@ -67,9 +66,10 @@ def test_send_message_uses_existing_session_thread_and_shapes_response():
     assert any(artifact.kind == "python_code" for artifact in response.artifacts)
     assert any(artifact.kind == "image" for artifact in response.artifacts)
     assert len(graph.calls) == 1
-    call_input, call_config = graph.calls[0]
+    call_input, call_config, call_context = graph.calls[0]
     assert call_config == {"configurable": {"thread_id": handle.thread_id}}
     assert call_input["messages"][0].content == "Show me a chart"
+    assert call_context.user_id == "default_user"
 
 
 def test_send_message_respects_explicit_thread_id_without_existing_session():

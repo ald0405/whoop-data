@@ -31,6 +31,10 @@ TFL_KEY_LINES = ["Jubilee", "DLR", "Elizabeth line", "Northern"]  # Lines near S
 # Agent Configuration
 AGENT_TIMEOUT_SECONDS = 30.0
 MAX_ITERATIONS = 10
+AGENT_POSTGRES_URL = os.getenv("AGENT_POSTGRES_URL")
+AGENT_PERSISTENCE_AUTO_SETUP = (
+    os.getenv("AGENT_PERSISTENCE_AUTO_SETUP", "true").strip().lower() == "true"
+)
 
 # Supervisor model (delegates to specialists)
 SUPERVISOR_MODEL = "openai:gpt-4o-mini"

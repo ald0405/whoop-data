@@ -129,6 +129,7 @@ AGENT_REGISTRY: dict[str, dict] = {
             "get_weight_data",
             "get_workout_data",
             "get_recovery_data",
+            "search_memory",
         ],
     },
     "behaviour_change": {
@@ -144,6 +145,7 @@ AGENT_REGISTRY: dict[str, dict] = {
             "get_recovery_data",
             "get_weight_data",
             "get_workout_data",
+            "search_memory",
         ],
     },
     "nutrition": {

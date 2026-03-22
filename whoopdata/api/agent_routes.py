@@ -22,6 +22,7 @@ async def create_conversation(
     return conversation_service.start_conversation(
         session_id=request.session_id,
         thread_id=request.thread_id,
+        user_id=request.user_id,
     )
 
 
@@ -35,6 +36,8 @@ async def send_message(
             message=payload.message,
             session_id=payload.session_id,
             thread_id=payload.thread_id,
+            user_id=payload.user_id,
+            surface="api",
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error processing agent message: {str(exc)}")

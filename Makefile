@@ -1,4 +1,4 @@
-.PHONY: help install dev sync run server etl chat telegram-bot analytics langgraph-dev dev-all test format lint typecheck clean verify
+.PHONY: help install dev sync run server etl chat telegram-bot analytics langgraph-dev dev-all dev-full dev-full-stop postgres-up postgres-down postgres-logs test format lint typecheck clean verify
 
 # Default target
 help:
@@ -19,6 +19,11 @@ help:
 	@echo "  make analytics   - Primary analytics pipeline command"
 	@echo "  make langgraph-dev - Development-only LangGraph dev server"
 	@echo "  make dev-all     - Convenience FastAPI + LangGraph dev launcher"
+	@echo "  make dev-full    - FastAPI + Telegram bot + LangGraph dev launcher"
+	@echo "  make dev-full-stop - Stop FastAPI, Telegram bot, and LangGraph dev leftovers"
+	@echo "  make postgres-up - Start local Docker Postgres for shared agent memory"
+	@echo "  make postgres-down - Stop local Docker Postgres container"
+	@echo "  make postgres-logs - Tail local Docker Postgres logs"
 	@echo ""
 	@echo "Development:"
 	@echo "  make test        - Run tests with pytest"
@@ -53,7 +58,7 @@ run:
 
 server:
 	@echo "🌐 Starting FastAPI server..."
-	uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+	uv run uvicorn main:app --host localhost --port 8000 --reload
 
 etl:
 	@echo "📊 Running ETL pipeline (incremental)..."
@@ -83,12 +88,64 @@ langgraph-dev:
 
 dev-all:
 	@echo "🚀 Starting FastAPI server + LangGraph dev server..."
-	uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
+	uv run uvicorn main:app --host localhost --port 8000 --reload &
 	@sleep 3
 	@echo "📍 FastAPI: http://0.0.0.0:8000"
 	@echo "📍 LangGraph API: http://127.0.0.1:2024"
 	@echo "🎨 Studio: https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024"
 	uv run langgraph dev --allow-blocking
+
+dev-full:
+	@echo "🚀 Starting FastAPI server + Telegram bot + LangGraph dev server..."
+	uv run uvicorn main:app --host localhost --port 8000 --reload &
+	@echo $$! > .dev-full-server.pid
+	@sleep 3
+	uv run whoop-telegram-bot &
+	@echo $$! > .dev-full-telegram.pid
+	@sleep 3
+	@echo "📍 FastAPI: http://localhost:8000"
+	@echo "📍 LangGraph API: http://localhost:2024"
+	@echo "🎨 Studio: https://smith.langchain.com/studio/?baseUrl=http://localhost:2024"
+	@echo "📨 Telegram bot started in background"
+	uv run langgraph dev --allow-blocking
+
+dev-full-stop:
+	@echo "🛑 Stopping local dev processes..."
+	@for pidfile in .dev-full-server.pid .dev-full-telegram.pid; do \
+		if [ -f $$pidfile ] && [ -s $$pidfile ]; then \
+			pid=$$(tr -d '[:space:]' < $$pidfile); \
+			if [ -n "$$pid" ] && kill -0 $$pid 2>/dev/null; then \
+				kill $$pid 2>/dev/null || true; \
+			fi; \
+		fi; \
+		rm -f $$pidfile; \
+	done
+	@pkill -f 'uv run whoop-telegram-bot' 2>/dev/null || true
+	@pkill -f '/.venv/bin/whoop-telegram-bot' 2>/dev/null || true
+	@pkill -f 'uvicorn main:app --host localhost --port 8000 --reload' 2>/dev/null || true
+	@pkill -f 'langgraph dev --allow-blocking' 2>/dev/null || true
+	@echo "✅ Local dev processes stopped"
+
+postgres-up:
+	@echo "🐘 Ensuring local Postgres container is running..."
+	@if docker ps -a --format '{{.Names}}' | grep -qx 'whoop-agent-postgres'; then \
+		docker start whoop-agent-postgres; \
+	else \
+		docker run --name whoop-agent-postgres \
+			-e POSTGRES_USER=postgres \
+			-e POSTGRES_PASSWORD=postgres \
+			-e POSTGRES_DB=whoop_agent \
+			-p 5432:5432 \
+			-d postgres:16; \
+	fi
+	@echo "✅ Postgres available for AGENT_POSTGRES_URL on localhost:5432"
+
+postgres-down:
+	@echo "🛑 Stopping local Postgres container..."
+	@docker stop whoop-agent-postgres
+
+postgres-logs:
+	@docker logs -f whoop-agent-postgres
 
 # Development targets
 test:
