@@ -3,6 +3,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![UV](https://img.shields.io/badge/package%20manager-UV-orange.svg)](https://github.com/astral-sh/uv)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![gitcgr](https://gitcgr.com/badge/ald0405/whoop-data.svg)](https://gitcgr.com/ald0405/whoop-data)
 
 ![WHOOP Health Data Platform product snapshot](docs/assets/readme-hero.png)
 
