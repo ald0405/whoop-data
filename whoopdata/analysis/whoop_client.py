@@ -172,7 +172,7 @@ class Whoop:
             "grant_type": "client_credentials",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
-            "scope": "read:recovery read:cycles read:sleep read:workout read:profile read:body_measurement",
+            "scope": "offline read:recovery read:cycles read:sleep read:workout read:profile read:body_measurement",
         }
 
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
@@ -187,6 +187,12 @@ class Whoop:
 
         response_data = r.json()
         self.access_token = response_data["access_token"]
+        if "refresh_token" in response_data:
+            self.refresh_token = response_data["refresh_token"]
+        if "expires_in" in response_data:
+            expires_in = int(response_data["expires_in"])
+            self.token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+        self._save_tokens()
         self.logger.info("User Authenticated successfully with client credentials")
         print("User Authenticated with OAuth 2.0")
 
@@ -277,7 +283,7 @@ class Whoop:
         server_thread.start()
 
         # Create authorization URL - use the exact same callback_url format for both auth and token exchange
-        auth_url = f"https://api.prod.whoop.com/oauth/oauth2/auth?response_type=code&client_id={self.client_id}&redirect_uri={urllib.parse.quote(callback_url, safe='')}&scope=read:recovery%20read:cycles%20read:sleep%20read:workout%20read:profile%20read:body_measurement&state={state}"
+        auth_url = f"https://api.prod.whoop.com/oauth/oauth2/auth?response_type=code&client_id={self.client_id}&redirect_uri={urllib.parse.quote(callback_url, safe='')}&scope=offline%20read:recovery%20read:cycles%20read:sleep%20read:workout%20read:profile%20read:body_measurement&state={state}"
 
         print(f"\nPlease visit this URL to authorize the application: {auth_url}")
         print("Opening browser...")

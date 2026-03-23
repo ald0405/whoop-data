@@ -4,6 +4,16 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.4.0] - 2026-03-23
+
+### Added
+
+- Added a recurring macOS `launchd` ETL job, dedicated Make targets, and append-only ETL audit logging so headless health-data refresh runs can be scheduled and audited cleanly.
+- Added focused regression coverage for WHOOP offline-scope auth, token persistence, and scheduled ETL audit-log output.
+
+### Changed
+
+- Updated WHOOP authentication flows to request the `offline` scope and persist token expiry metadata, enabling one-time re-authorization followed by headless token refresh on subsequent ETL runs.
 ## [3.3.0] - 2026-03-23
 
 ### Added
