@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.whoopdata.server</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/home/.local/bin/uv</string>
+        <string>run</string>
+        <string>--project</string>
+        <string>/Users/home/Documents/Projects/whoop-data</string>
+        <string>uvicorn</string>
+        <string>main:app</string>
+        <string>--host</string>
+        <string>localhost</string>
+        <string>--port</string>
+        <string>8000</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/home/Documents/Projects/whoop-data</string>
+
+    <!-- Keep it running: restart on crash, start at boot -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Logs -->
+    <key>StandardOutPath</key>
+    <string>/Users/home/Documents/Projects/whoop-data/logs/server-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/home/Documents/Projects/whoop-data/logs/server-stderr.log</string>
+
+    <!-- Environment -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/home/.local/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/home</string>
+    </dict>
+</dict>
+</plist>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.whoopdata.morning</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/home/.local/bin/uv</string>
+        <string>run</string>
+        <string>--project</string>
+        <string>/Users/home/Documents/Projects/whoop-data</string>
+        <string>python</string>
+        <string>/Users/home/Documents/Projects/whoop-data/scripts/scheduled_morning.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/home/Documents/Projects/whoop-data</string>
+
+    <!-- 07:30 UTC daily. launchd uses local time, so adjust if your
+         Mac Mini is not set to UTC. For BST (UTC+1) this would be 08:30. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>7</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+
+    <!-- Logs for debugging -->
+    <key>StandardOutPath</key>
+    <string>/Users/home/Documents/Projects/whoop-data/logs/morning-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/home/Documents/Projects/whoop-data/logs/morning-stderr.log</string>
+
+    <!-- Environment variables (launchd doesn't inherit your shell env) -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/home/.local/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/home</string>
+    </dict>
+</dict>
+</plist>

@@ -1,4 +1,4 @@
-.PHONY: help install dev sync run server etl chat telegram-bot analytics langgraph-dev dev-all dev-full dev-full-stop postgres-up postgres-down postgres-logs test format lint typecheck clean verify
+.PHONY: help install dev sync run server etl chat telegram-bot analytics langgraph-dev dev-all dev-full dev-full-stop postgres-up postgres-down postgres-logs test format lint typecheck clean verify schedule-up schedule-down schedule-test morning-now services-up services-down services-test
 
 # Default target
 help:
@@ -24,6 +24,13 @@ help:
 	@echo "  make postgres-up - Start local Docker Postgres for shared agent memory"
 	@echo "  make postgres-down - Stop local Docker Postgres container"
 	@echo "  make postgres-logs - Tail local Docker Postgres logs"
+	@echo "  make services-up   - Install persistent launchd services for API + Telegram bot + morning job"
+	@echo "  make services-down - Uninstall persistent launchd services"
+	@echo "  make services-test - Check persistent service status"
+	@echo "  make schedule-up   - Install launchd schedule (daily morning ETL + push)"
+	@echo "  make schedule-down - Uninstall launchd schedule"
+	@echo "  make schedule-test - Check if the schedule is loaded"
+	@echo "  make morning-now   - Run the morning ETL + push immediately"
 	@echo ""
 	@echo "Development:"
 	@echo "  make test        - Run tests with pytest"
@@ -58,6 +65,7 @@ run:
 
 server:
 	@echo "🌐 Starting FastAPI server..."
+	@launchctl unload ~/Library/LaunchAgents/com.whoopdata.server.plist 2>/dev/null || true
 	uv run uvicorn main:app --host localhost --port 8000 --reload
 
 etl:
@@ -88,6 +96,7 @@ langgraph-dev:
 
 dev-all:
 	@echo "🚀 Starting FastAPI server + LangGraph dev server..."
+	@launchctl unload ~/Library/LaunchAgents/com.whoopdata.server.plist 2>/dev/null || true
 	uv run uvicorn main:app --host localhost --port 8000 --reload &
 	@sleep 3
 	@echo "📍 FastAPI: http://0.0.0.0:8000"
@@ -97,6 +106,8 @@ dev-all:
 
 dev-full:
 	@echo "🚀 Starting FastAPI server + Telegram bot + LangGraph dev server..."
+	@launchctl unload ~/Library/LaunchAgents/com.whoopdata.server.plist 2>/dev/null || true
+	@echo "  (paused launchd server for dev mode)"
 	uv run uvicorn main:app --host localhost --port 8000 --reload &
 	@echo $$! > .dev-full-server.pid
 	@sleep 3
@@ -125,6 +136,10 @@ dev-full-stop:
 	@pkill -f 'uvicorn main:app --host localhost --port 8000 --reload' 2>/dev/null || true
 	@pkill -f 'langgraph dev --allow-blocking' 2>/dev/null || true
 	@echo "✅ Local dev processes stopped"
+	@if [ -f ~/Library/LaunchAgents/com.whoopdata.server.plist ]; then \
+		launchctl load ~/Library/LaunchAgents/com.whoopdata.server.plist 2>/dev/null || true; \
+		echo "  (resumed launchd server)"; \
+	fi
 
 postgres-up:
 	@echo "🐘 Ensuring local Postgres container is running..."
@@ -146,6 +161,42 @@ postgres-down:
 
 postgres-logs:
 	@docker logs -f whoop-agent-postgres
+
+schedule-up:
+	@echo "📅 Installing launchd services..."
+	@mkdir -p logs
+	@cp schedules/com.whoopdata.server.plist ~/Library/LaunchAgents/com.whoopdata.server.plist
+	@cp schedules/com.whoopdata.telegram.plist ~/Library/LaunchAgents/com.whoopdata.telegram.plist
+	@cp schedules/com.whoopdata.morning.plist ~/Library/LaunchAgents/com.whoopdata.morning.plist
+	@launchctl load ~/Library/LaunchAgents/com.whoopdata.server.plist
+	@launchctl load ~/Library/LaunchAgents/com.whoopdata.telegram.plist
+	@launchctl load ~/Library/LaunchAgents/com.whoopdata.morning.plist
+	@echo "✅ Installed: persistent FastAPI server + Telegram bot + daily 07:30 morning job"
+	@echo "   Check with: make schedule-test"
+
+schedule-down:
+	@echo "🛑 Removing launchd services..."
+	@launchctl unload ~/Library/LaunchAgents/com.whoopdata.server.plist 2>/dev/null || true
+	@launchctl unload ~/Library/LaunchAgents/com.whoopdata.telegram.plist 2>/dev/null || true
+	@launchctl unload ~/Library/LaunchAgents/com.whoopdata.morning.plist 2>/dev/null || true
+	@rm -f ~/Library/LaunchAgents/com.whoopdata.server.plist
+	@rm -f ~/Library/LaunchAgents/com.whoopdata.telegram.plist
+	@rm -f ~/Library/LaunchAgents/com.whoopdata.morning.plist
+	@echo "✅ All whoopdata services removed"
+
+schedule-test:
+	@echo "📋 Checking schedule status..."
+	@launchctl list | grep whoopdata || echo "No whoopdata schedules loaded"
+
+services-up: schedule-up
+
+services-down: schedule-down
+
+services-test: schedule-test
+
+morning-now:
+	@echo "☀️ Running morning ETL + push now..."
+	uv run python scripts/scheduled_morning.py
 
 # Development targets
 test:

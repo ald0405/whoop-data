@@ -274,11 +274,25 @@ make telegram-bot
 
 `make dev-all` starts FastAPI and LangGraph dev tooling, but it does not start the Telegram bot.
 
+For an always-on local setup on macOS, use the persistent service helpers instead:
+
+```bash
+make services-up
+make services-test
+```
+
+That installs `launchd` jobs for the API server, Telegram bot, and the scheduled morning summary push. Remove them with:
+
+```bash
+make services-down
+```
+
 ### Current Telegram behavior
 
 - Supports `/start` and `/whoami`
 - Supports normal text chat with the shared health-data agent
 - Reuses conversation context per Telegram chat
+- Supports proactive pushes into the same shared Telegram conversation thread via `/api/v1/agent/telegram/push`
 - Rejects non-private chats
 - Uses Telegram-only HTML formatting for better rendering without changing Studio/API output
 - Sends agent-generated image artifacts back to Telegram when available
@@ -291,6 +305,20 @@ Current limitations:
 - Voice replies use OpenAI TTS which has a ~2000 token input limit; very long responses fall back to text only
 
 The Telegram adapter can silently ignore unauthorized users once the allowlists are set. Rotate any token that was ever pasted into chat, logs, or source control before relying on the bot.
+
+### Proactive Telegram smoke test
+
+You can send yourself a proactive Telegram message that goes through the shared conversation service:
+
+```bash
+uv run -m scripts.telegram_hello --prompt "set me up for the day"
+```
+
+Or route the same flow through the running API server:
+
+```bash
+uv run -m scripts.telegram_hello --api --prompt "set me up for the day"
+```
 
 ## Rollout Verification Checklist
 

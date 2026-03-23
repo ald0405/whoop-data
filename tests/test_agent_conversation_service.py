@@ -3,14 +3,17 @@ from __future__ import annotations
 import asyncio
 
 from langchain_core.messages import AIMessage, ToolMessage
+from langgraph.constants import CONFIG_KEY_CHECKPOINTER
 
 from whoopdata.agent.conversation_service import ConversationService
+from whoopdata.agent.graph import CONFIG_KEY_STORE
 
 
 class FakeGraph:
     def __init__(self, result: dict | None = None) -> None:
         self.calls: list[tuple[dict, dict, object | None]] = []
         self._result = result or {"messages": [AIMessage(content="Default response.")]}
+
     async def ainvoke(self, input: dict, config: dict, *, context=None) -> dict:
         self.calls.append((input, config, context))
         return self._result
@@ -115,3 +118,34 @@ def test_send_message_isolates_distinct_conversations_by_thread():
     assert first_response.session_id != second_response.session_id
     assert first_response.thread_id != second_response.thread_id
     assert graph.calls[0][1] != graph.calls[1][1]
+
+
+def test_ensure_graph_passes_checkpointer_and_store_with_langgraph_keys(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def _fake_get_agent_persistence():
+        return "checkpointer", "store"
+
+    def _fake_build_graph(config):
+        captured["config"] = config
+        return FakeGraph()
+
+    monkeypatch.setattr(
+        "whoopdata.agent.conversation_service.get_agent_persistence",
+        _fake_get_agent_persistence,
+    )
+    monkeypatch.setattr(
+        "whoopdata.agent.conversation_service.build_graph",
+        _fake_build_graph,
+    )
+
+    service = ConversationService()
+
+    asyncio.run(service._ensure_graph())
+
+    assert captured["config"] == {
+        "configurable": {
+            CONFIG_KEY_CHECKPOINTER: "checkpointer",
+            CONFIG_KEY_STORE: "store",
+        }
+    }

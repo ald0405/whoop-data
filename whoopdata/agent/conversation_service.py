@@ -5,6 +5,7 @@ from typing import Any, Protocol
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from langchain_core.messages import HumanMessage
+from langgraph.constants import CONFIG_KEY_CHECKPOINTER
 
 from whoopdata.agent import settings
 from whoopdata.agent.graph import CONFIG_KEY_STORE, build_graph
@@ -127,7 +128,6 @@ class ConversationService:
             return session_id, self._session_threads[session_id]
         resolved_session_id = session_id or self._new_session_id(user_id=user_id)
         resolved_thread_id = thread_id or self._thread_id_for_session(resolved_session_id)
-        resolved_session_id = session_id or self._new_session_id()
         self._session_threads[resolved_session_id] = resolved_thread_id
         return resolved_session_id, resolved_thread_id
 
@@ -150,7 +150,7 @@ class ConversationService:
         self._graph = build_graph(
             {
                 "configurable": {
-                    "__checkpointer": checkpointer,
+                    CONFIG_KEY_CHECKPOINTER: checkpointer,
                     CONFIG_KEY_STORE: store,
                 }
             }

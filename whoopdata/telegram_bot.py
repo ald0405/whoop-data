@@ -49,6 +49,16 @@ class OutboundTelegramMessage:
     parse_mode: str | None = None
 
 
+def thread_id_for_chat(chat_id: int) -> str:
+    """Canonical thread ID for a Telegram chat. Used by both the bot and proactive push."""
+    return f"telegram-thread-{chat_id}"
+
+
+def session_id_for_chat(chat_id: int) -> str:
+    """Canonical session ID for a Telegram chat. Used by both the bot and proactive push."""
+    return f"telegram-chat-{chat_id}"
+
+
 @dataclass
 class ConversationBinding:
     session_id: str | None = None
@@ -113,11 +123,10 @@ class TelegramConversationGateway:
         binding = self._bindings_by_chat.setdefault(
             chat_id,
             ConversationBinding(
-                session_id=f"telegram-chat-{chat_id}",
-                thread_id=f"telegram-thread-{chat_id}",
+                session_id=session_id_for_chat(chat_id),
+                thread_id=thread_id_for_chat(chat_id),
             ),
         )
-        binding = self._bindings_by_chat.setdefault(chat_id, ConversationBinding())
         response = await self._conversation_service.send_message(
             message=text,
             session_id=binding.session_id,
@@ -190,7 +199,7 @@ class TelegramConversationGateway:
         if assistant_message:
             messages.append(
                 OutboundTelegramMessage(
-                    text=_format_text_for_telegram_html(assistant_message),
+                    text=format_text_for_telegram_html(assistant_message),
                     parse_mode=ParseMode.HTML,
                 )
             )
@@ -274,7 +283,7 @@ def _strip_html_tags(text: str) -> str:
     return re.sub(r"<[^>]+>", "", text)
 
 
-def _format_text_for_telegram_html(text: str) -> str:
+def format_text_for_telegram_html(text: str) -> str:
     escaped = html.escape(text)
     escaped = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", escaped)
     escaped = re.sub(r"\*\*([^\n*][^*]*?)\*\*", r"<b>\1</b>", escaped)
