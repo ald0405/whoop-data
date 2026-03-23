@@ -1,8 +1,8 @@
-"""Scheduled morning job: incremental ETL then proactive Telegram push.
+"""Scheduled morning job: incremental ETL then planner-driven Telegram push.
 
 Designed to be invoked by launchd (or cron). Runs two steps:
 1. Incremental ETL — pull latest WHOOP + Withings data
-2. Morning push  — send a health summary to Telegram via the agent
+2. Morning push  — let the proactive planner decide the morning nudge
 
 Each step is independent: if the ETL fails, the push still fires
 (with slightly stale data).  Logs go to stdout/stderr for launchd
@@ -33,11 +33,6 @@ logging.basicConfig(
 logger = logging.getLogger("scheduled_morning")
 
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_ALLOWED_CHAT_IDS", "").split(",")[0].strip()
-MORNING_PROMPT = (
-    "Good morning! Please give me a concise morning health briefing based on "
-    "my latest WHOOP and Withings data. Include recovery score, sleep quality, "
-    "and any notable trends or recommendations for today."
-)
 
 
 def run_etl() -> bool:
@@ -60,21 +55,40 @@ def run_etl() -> bool:
 
 
 async def run_morning_push() -> bool:
-    """Push morning summary to Telegram. Returns True on success."""
+    """Push planner-driven morning message to Telegram. Returns True on success."""
     if not TELEGRAM_CHAT_ID:
         logger.error("No TELEGRAM_ALLOWED_CHAT_IDS set — skipping push")
         return False
-
-    logger.info("Sending morning summary to chat_id=%s", TELEGRAM_CHAT_ID)
+    logger.info("Evaluating morning proactive nudge for chat_id=%s", TELEGRAM_CHAT_ID)
     try:
+        from whoopdata.database.database import SessionLocal, engine
+        from whoopdata.models.models import Base
+        from whoopdata.services.proactive_coach import (
+            ProactiveCoachPlanner,
+            ProactiveMode,
+            dispatch_proactive_message,
+        )
         from whoopdata.telegram_push import push_to_telegram
 
-        result = await push_to_telegram(
-            chat_id=int(TELEGRAM_CHAT_ID),
-            prompt=MORNING_PROMPT,
-        )
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        try:
+            planner = ProactiveCoachPlanner(db)
+            decision, result = await dispatch_proactive_message(
+                planner=planner,
+                chat_id=int(TELEGRAM_CHAT_ID),
+                mode=ProactiveMode.MORNING,
+                push_fn=push_to_telegram,
+            )
+        finally:
+            db.close()
+
+        if result is None:
+            logger.info("Morning planner skipped send: %s", decision.reason)
+            return True
         logger.info(
-            "Morning push sent (message_id=%s): %s",
+            "Morning push sent (intent=%s, message_id=%s): %s",
+            decision.intent,
             result.telegram_message_id,
             result.assistant_message[:120],
         )

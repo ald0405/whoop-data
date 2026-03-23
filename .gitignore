@@ -23,6 +23,7 @@ db/
 
 # Data files (e.g., raw CSVs)
 data/
+weakness.md
 
 # Logs
 *.log

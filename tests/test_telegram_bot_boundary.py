@@ -4,7 +4,7 @@ import asyncio
 import base64
 
 from whoopdata.agent.public_response import AgentArtifact, AgentConversationResponse, AgentConversationTurn
-from whoopdata.telegram_bot import TelegramConversationGateway
+from whoopdata.telegram_bot import TelegramConversationGateway, format_text_for_telegram_plain
 
 
 class StubConversationService:
@@ -295,3 +295,43 @@ def test_gateway_formats_markdownish_assistant_text_for_telegram_html():
     assert "<b>Great</b>" in messages[0].text
     assert "<code>make server</code>" in messages[0].text
     assert "<i>Italic note</i>" in messages[0].text
+
+
+def test_plain_formatter_flattens_markdown_tables_for_chat_style_delivery():
+    formatted = format_text_for_telegram_plain(
+        "# Morning check-in\n"
+        "| Metric | Value |\n"
+        "| --- | --- |\n"
+        "| Strain | 11.2 |\n"
+        "| Action | 10 min walk |\n"
+        "\n"
+        "**Today:** keep it easy.\n"
+        "*Energy later?*"
+    )
+
+    assert formatted == (
+        "Morning check-in\n"
+        "Strain: 11.2\n"
+        "Action: 10 min walk\n"
+        "Today: keep it easy.…"
+    )
+
+
+def test_plain_formatter_limits_length_and_line_count():
+    formatted = format_text_for_telegram_plain(
+        "\n".join(
+            [
+                "Line one with plenty of extra words for truncation",
+                "Line two with plenty of extra words for truncation",
+                "Line three with plenty of extra words for truncation",
+                "Line four with plenty of extra words for truncation",
+                "Line five with plenty of extra words for truncation",
+            ]
+        ),
+        max_chars=90,
+        max_lines=3,
+    )
+
+    assert formatted.count("\n") <= 2
+    assert len(formatted) <= 90
+    assert formatted.endswith("…")
