@@ -321,7 +321,6 @@ uv run -m scripts.telegram_hello --api --prompt "set me up for the day"
 ```
 
 ### Weakness reminder preview
-
 You can send yourself a manual preview of the annual-review weakness reminder without consuming the once-per-workday scheduled send:
 
 ```bash
@@ -333,6 +332,15 @@ Optionally preview a specific top-level bullet from `weakness.md`:
 ```bash
 uv run python scripts/telegram_weakness_preview.py --point-number 2
 ```
+
+If you prefer richer Telegram formatting (bold/italics/bullets), you can request HTML formatting for the preview:
+
+```bash
+uv run python scripts/telegram_weakness_preview.py --point-number 2 --format html
+```
+
+To enable HTML formatting for all proactive pushes by default, set `TELEGRAM_PROACTIVE_FORMAT=html` in `.env`.
+To rename the coach in proactive prompts, set `COACH_NAME` in `.env`.
 
 ## Rollout Verification Checklist
 
