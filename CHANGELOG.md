@@ -4,6 +4,17 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.3.0] - 2026-03-23
+
+### Added
+
+- Added a proactive Telegram push flow, API endpoint, and helper scripts so the morning summary and manual smoke tests can send agent responses into the same shared conversation thread the Telegram bot uses.
+- Added persistent `launchd` service definitions and Make helpers for the API server, Telegram bot, and scheduled morning summary job on macOS.
+
+### Changed
+
+- Fixed Telegram conversation continuity so repeated messages in the same private chat reuse the canonical session/thread binding and correctly load LangGraph checkpoint state from the configured persistent checkpointer.
+- Updated the Telegram bot transport and related tests to cover stable chat-bound session/thread reuse and the shared persistence path used by runtime services.
 ## [3.2.0] - 2026-03-22
 
 ### Added
