@@ -1,4 +1,4 @@
-.PHONY: help install dev sync run server etl chat telegram-bot analytics langgraph-dev dev-all dev-full dev-full-stop postgres-up postgres-down postgres-logs test format lint typecheck clean verify schedule-up schedule-down schedule-test morning-now services-up services-down services-test
+.PHONY: help install dev sync run server etl etl-full etl-now etl-up etl-down etl-test chat telegram-bot analytics langgraph-dev dev-all dev-full dev-full-stop postgres-up postgres-down postgres-logs test format lint typecheck clean verify schedule-up schedule-down schedule-test morning-now services-up services-down services-test
 
 # Default target
 help:
@@ -24,9 +24,13 @@ help:
 	@echo "  make postgres-up - Start local Docker Postgres for shared agent memory"
 	@echo "  make postgres-down - Stop local Docker Postgres container"
 	@echo "  make postgres-logs - Tail local Docker Postgres logs"
-	@echo "  make services-up   - Install persistent launchd services for API + Telegram bot + morning job"
+	@echo "  make services-up   - Install persistent launchd services for API + Telegram bot + recurring ETL + morning job"
 	@echo "  make services-down - Uninstall persistent launchd services"
 	@echo "  make services-test - Check persistent service status"
+	@echo "  make etl-up        - Install recurring ETL launchd job"
+	@echo "  make etl-down      - Uninstall recurring ETL launchd job"
+	@echo "  make etl-test      - Check recurring ETL launchd job"
+	@echo "  make etl-now       - Run recurring ETL job immediately"
 	@echo "  make schedule-up   - Install launchd schedule (daily morning ETL + push)"
 	@echo "  make schedule-down - Uninstall launchd schedule"
 	@echo "  make schedule-test - Check if the schedule is loaded"
@@ -167,20 +171,24 @@ schedule-up:
 	@mkdir -p logs
 	@cp schedules/com.whoopdata.server.plist ~/Library/LaunchAgents/com.whoopdata.server.plist
 	@cp schedules/com.whoopdata.telegram.plist ~/Library/LaunchAgents/com.whoopdata.telegram.plist
+	@cp schedules/com.whoopdata.etl.plist ~/Library/LaunchAgents/com.whoopdata.etl.plist
 	@cp schedules/com.whoopdata.morning.plist ~/Library/LaunchAgents/com.whoopdata.morning.plist
 	@launchctl load ~/Library/LaunchAgents/com.whoopdata.server.plist
 	@launchctl load ~/Library/LaunchAgents/com.whoopdata.telegram.plist
+	@launchctl load ~/Library/LaunchAgents/com.whoopdata.etl.plist
 	@launchctl load ~/Library/LaunchAgents/com.whoopdata.morning.plist
-	@echo "✅ Installed: persistent FastAPI server + Telegram bot + daily 07:30 morning job"
+	@echo "✅ Installed: persistent FastAPI server + Telegram bot + recurring ETL + daily morning job"
 	@echo "   Check with: make schedule-test"
 
 schedule-down:
 	@echo "🛑 Removing launchd services..."
 	@launchctl unload ~/Library/LaunchAgents/com.whoopdata.server.plist 2>/dev/null || true
 	@launchctl unload ~/Library/LaunchAgents/com.whoopdata.telegram.plist 2>/dev/null || true
+	@launchctl unload ~/Library/LaunchAgents/com.whoopdata.etl.plist 2>/dev/null || true
 	@launchctl unload ~/Library/LaunchAgents/com.whoopdata.morning.plist 2>/dev/null || true
 	@rm -f ~/Library/LaunchAgents/com.whoopdata.server.plist
 	@rm -f ~/Library/LaunchAgents/com.whoopdata.telegram.plist
+	@rm -f ~/Library/LaunchAgents/com.whoopdata.etl.plist
 	@rm -f ~/Library/LaunchAgents/com.whoopdata.morning.plist
 	@echo "✅ All whoopdata services removed"
 
@@ -193,6 +201,27 @@ services-up: schedule-up
 services-down: schedule-down
 
 services-test: schedule-test
+etl-up:
+	@echo "📅 Installing recurring ETL launchd job..."
+	@mkdir -p logs
+	@cp schedules/com.whoopdata.etl.plist ~/Library/LaunchAgents/com.whoopdata.etl.plist
+	@launchctl load ~/Library/LaunchAgents/com.whoopdata.etl.plist
+	@echo "✅ Installed recurring ETL job (every 45 minutes)"
+	@echo "   Check with: make etl-test"
+
+etl-down:
+	@echo "🛑 Removing recurring ETL launchd job..."
+	@launchctl unload ~/Library/LaunchAgents/com.whoopdata.etl.plist 2>/dev/null || true
+	@rm -f ~/Library/LaunchAgents/com.whoopdata.etl.plist
+	@echo "✅ Recurring ETL job removed"
+
+etl-test:
+	@echo "📋 Checking recurring ETL launchd job..."
+	@launchctl list | grep 'com.whoopdata.etl' || echo "Recurring ETL job not loaded"
+
+etl-now:
+	@echo "🔄 Running recurring ETL job now..."
+	@uv run python scripts/scheduled_etl.py
 
 morning-now:
 	@echo "☀️ Running morning ETL + push now..."

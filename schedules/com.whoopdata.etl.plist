@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.whoopdata.etl</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/home/.local/bin/uv</string>
+        <string>run</string>
+        <string>--project</string>
+        <string>/Users/home/Documents/Projects/whoop-data</string>
+        <string>python</string>
+        <string>/Users/home/Documents/Projects/whoop-data/scripts/scheduled_etl.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/home/Documents/Projects/whoop-data</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StartInterval</key>
+    <integer>2700</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/home/Documents/Projects/whoop-data/logs/etl-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/home/Documents/Projects/whoop-data/logs/etl-stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/home/.local/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/home</string>
+    </dict>
+</dict>
+</plist>
