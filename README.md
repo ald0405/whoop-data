@@ -387,7 +387,7 @@ Development:
   make test           Run tests with pytest
   make test-cov       Run tests with coverage report
   make format         Format code with black
-  make lint           Lint with flake8
+  make lint           Lint with ruff (including docstrings) and flake8
   make typecheck      Type check with mypy
   make verify         Run system verification
 

@@ -24,6 +24,16 @@ _MARKDOWN_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{
 
 
 def _parse_int_set(raw: str | None) -> set[int]:
+    """ parse int set.
+
+    Args:
+        raw: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    
+    """
     if not raw:
         return set()
 
@@ -43,6 +53,10 @@ TELEGRAM_ALLOWED_CHAT_IDS = _parse_int_set(os.getenv("TELEGRAM_ALLOWED_CHAT_IDS"
 
 @dataclass
 class OutboundTelegramMessage:
+    """OutboundTelegramMessage data structure or service type.
+
+    
+    """
     text: str | None = None
     photo_bytes: bytes | None = None
     voice_bytes: bytes | None = None
@@ -62,11 +76,19 @@ def session_id_for_chat(chat_id: int) -> str:
 
 @dataclass
 class ConversationBinding:
+    """ConversationBinding data structure or service type.
+
+    
+    """
     session_id: str | None = None
     thread_id: str | None = None
 
 
 class TelegramConversationGateway:
+    """TelegramConversationGateway data structure or service type.
+
+    
+    """
     def __init__(
         self,
         *,
@@ -82,6 +104,23 @@ class TelegramConversationGateway:
     def is_authorized(
         self, *, user_id: int | None, chat_id: int | None, chat_type: str | None
     ) -> bool:
+        """Is authorized.
+
+        Args:
+            user_id: Input parameter used by this routine.
+            chat_id: Input parameter used by this routine.
+            chat_type: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = is_authorized(user_id=..., chat_id=..., chat_type=...)
+            _ = result
+
+        
+        """
         if user_id is None or chat_id is None:
             return False
 
@@ -99,6 +138,23 @@ class TelegramConversationGateway:
     def build_whoami_messages(
         self, *, user_id: int | None, chat_id: int | None, chat_type: str | None
     ) -> list[OutboundTelegramMessage]:
+        """Build whoami messages.
+
+        Args:
+            user_id: Input parameter used by this routine.
+            chat_id: Input parameter used by this routine.
+            chat_type: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = build_whoami_messages(user_id=..., chat_id=..., chat_type=...)
+            _ = result
+
+        
+        """
         return [
             OutboundTelegramMessage(
                 text=(
@@ -121,6 +177,25 @@ class TelegramConversationGateway:
         chat_type: str | None,
         image_b64: str | None = None,
     ) -> list[OutboundTelegramMessage]:
+        """Handle text message.
+
+        Args:
+            text: Input parameter used by this routine.
+            user_id: Input parameter used by this routine.
+            chat_id: Input parameter used by this routine.
+            chat_type: Input parameter used by this routine.
+            image_b64: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = await handle_text_message(text=..., user_id=..., chat_id=..., chat_type=..., image_b64=...)
+            _ = result
+
+        
+        """
         if not self.is_authorized(user_id=user_id, chat_id=chat_id, chat_type=chat_type):
             return []
         binding = self._bindings_by_chat.setdefault(
@@ -201,6 +276,17 @@ class TelegramConversationGateway:
     def _build_response_messages(
         self, assistant_message: str, artifacts: list
     ) -> list[OutboundTelegramMessage]:
+        """ build response messages.
+
+        Args:
+            assistant_message: Input parameter used by this routine.
+            artifacts: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        
+        """
         messages: list[OutboundTelegramMessage] = []
 
         if assistant_message:
@@ -291,6 +377,16 @@ def _strip_html_tags(text: str) -> str:
 
 
 def _strip_markdown_inline_markup(text: str) -> str:
+    """ strip markdown inline markup.
+
+    Args:
+        text: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    
+    """
     text = re.sub(r"`([^`\n]+)`", r"\1", text)
     text = re.sub(r"\*\*([^\n*][^*]*?)\*\*", r"\1", text)
     text = re.sub(r"(?<!\*)\*([^\n*][^*]*?)\*(?!\*)", r"\1", text)
@@ -300,6 +396,16 @@ def _strip_markdown_inline_markup(text: str) -> str:
 
 
 def _normalize_telegram_plain_line(text: str) -> str:
+    """ normalize telegram plain line.
+
+    Args:
+        text: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    
+    """
     line = text.strip()
     if not line:
         return ""
@@ -313,6 +419,16 @@ def _normalize_telegram_plain_line(text: str) -> str:
 
 
 def _flatten_markdown_table_row(line: str) -> str:
+    """ flatten markdown table row.
+
+    Args:
+        line: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    
+    """
     cells = [_normalize_telegram_plain_line(cell) for cell in line.strip().strip("|").split("|")]
     cells = [cell for cell in cells if cell]
     if not cells:
@@ -323,6 +439,17 @@ def _flatten_markdown_table_row(line: str) -> str:
 
 
 def _truncate_telegram_plain_text(text: str, *, max_chars: int) -> str:
+    """ truncate telegram plain text.
+
+    Args:
+        text: Input parameter used by this routine.
+        max_chars: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    
+    """
     if len(text) <= max_chars:
         return text
 
@@ -352,6 +479,23 @@ def format_text_for_telegram_plain(
     max_chars: int = 450,
     max_lines: int = 4,
 ) -> str:
+    """Format text for telegram plain.
+
+    Args:
+        text: Input parameter used by this routine.
+        max_chars: Input parameter used by this routine.
+        max_lines: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    Example:
+        # Example usage
+        result = format_text_for_telegram_plain(text=..., max_chars=..., max_lines=...)
+        _ = result
+
+    
+    """
     raw_lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     cleaned_lines: list[str] = []
     in_code_block = False
@@ -417,6 +561,21 @@ def format_text_for_telegram_plain(
 
 
 def format_text_for_telegram_html(text: str) -> str:
+    """Format text for telegram html.
+
+    Args:
+        text: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    Example:
+        # Example usage
+        result = format_text_for_telegram_html(text=...)
+        _ = result
+
+    
+    """
     escaped = html.escape(text)
     escaped = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", escaped)
     escaped = re.sub(r"\*\*([^\n*][^*]*?)\*\*", r"<b>\1</b>", escaped)
@@ -428,6 +587,13 @@ def format_text_for_telegram_html(text: str) -> str:
 
 
 def _build_gateway() -> TelegramConversationGateway:
+    """ build gateway.
+
+    Returns:
+        Computed result for this routine.
+
+    
+    """
     return TelegramConversationGateway(
         allowed_user_ids=TELEGRAM_ALLOWED_USER_IDS,
         allowed_chat_ids=TELEGRAM_ALLOWED_CHAT_IDS,
@@ -435,6 +601,14 @@ def _build_gateway() -> TelegramConversationGateway:
 
 
 async def _reply(update, messages: list[OutboundTelegramMessage]) -> None:
+    """ reply.
+
+    Args:
+        update: Input parameter used by this routine.
+        messages: Input parameter used by this routine.
+
+    
+    """
     message = update.effective_message
     if message is None:
         return
@@ -449,6 +623,19 @@ async def _reply(update, messages: list[OutboundTelegramMessage]) -> None:
 
 
 async def start_command(update, context) -> None:
+    """Start command.
+
+    Args:
+        update: Input parameter used by this routine.
+        context: Input parameter used by this routine.
+
+    Example:
+        # Example usage
+        result = await start_command(update=..., context=...)
+        _ = result
+
+    
+    """
     gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
     user = update.effective_user
     chat = update.effective_chat
@@ -474,6 +661,19 @@ async def start_command(update, context) -> None:
 
 
 async def whoami_command(update, context) -> None:
+    """Whoami command.
+
+    Args:
+        update: Input parameter used by this routine.
+        context: Input parameter used by this routine.
+
+    Example:
+        # Example usage
+        result = await whoami_command(update=..., context=...)
+        _ = result
+
+    
+    """
     gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
     user = update.effective_user
     chat = update.effective_chat
@@ -488,6 +688,19 @@ async def whoami_command(update, context) -> None:
 
 
 async def text_message(update, context) -> None:
+    """Text message.
+
+    Args:
+        update: Input parameter used by this routine.
+        context: Input parameter used by this routine.
+
+    Example:
+        # Example usage
+        result = await text_message(update=..., context=...)
+        _ = result
+
+    
+    """
     gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
     user = update.effective_user
     chat = update.effective_chat
@@ -506,6 +719,19 @@ async def text_message(update, context) -> None:
 
 
 async def voice_message(update, context) -> None:
+    """Voice message.
+
+    Args:
+        update: Input parameter used by this routine.
+        context: Input parameter used by this routine.
+
+    Example:
+        # Example usage
+        result = await voice_message(update=..., context=...)
+        _ = result
+
+    
+    """
     gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
     user = update.effective_user
     chat = update.effective_chat
@@ -536,6 +762,19 @@ async def voice_message(update, context) -> None:
 
 
 async def photo_message(update, context) -> None:
+    """Photo message.
+
+    Args:
+        update: Input parameter used by this routine.
+        context: Input parameter used by this routine.
+
+    Example:
+        # Example usage
+        result = await photo_message(update=..., context=...)
+        _ = result
+
+    
+    """
     gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
     user = update.effective_user
     chat = update.effective_chat
@@ -566,12 +805,40 @@ async def photo_message(update, context) -> None:
 
 
 async def error_handler(update, context) -> None:
+    """Error handler.
+
+    Args:
+        update: Input parameter used by this routine.
+        context: Input parameter used by this routine.
+
+    Example:
+        # Example usage
+        result = await error_handler(update=..., context=...)
+        _ = result
+
+    
+    """
     logger.exception("Telegram bot error: %s", context.error)
     if getattr(update, "effective_message", None) is not None:
         await update.effective_message.reply_text("Sorry, I hit an error processing that message.")
 
 
 def build_application(gateway: TelegramConversationGateway | None = None):
+    """Build application.
+
+    Args:
+        gateway: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    Example:
+        # Example usage
+        result = build_application(gateway=...)
+        _ = result
+
+    
+    """
     if not TELEGRAM_BOT_TOKEN:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is required to start the Telegram bot")
 
@@ -589,6 +856,15 @@ def build_application(gateway: TelegramConversationGateway | None = None):
 
 
 async def run_bot() -> None:
+    """Run bot.
+
+    Example:
+        # Example usage
+        result = await run_bot()
+        _ = result
+
+    
+    """
     application = build_application()
     await application.initialize()
     await application.start()
@@ -603,5 +879,14 @@ async def run_bot() -> None:
 
 
 def main() -> None:
+    """Main.
+
+    Example:
+        # Example usage
+        result = main()
+        _ = result
+
+    
+    """
     logging.basicConfig(level=logging.INFO)
     asyncio.run(run_bot())

@@ -176,6 +176,10 @@ class CorrelationMatrixResponse(BaseModel):
 
 
 class RecoveryActionabilityRule(BaseModel):
+    """RecoveryActionabilityRule type definition.
+
+    
+    """
     rule: str
     recommendation: str
     feature: str
@@ -195,6 +199,10 @@ class RecoveryActionabilityRule(BaseModel):
 
 
 class RecoveryActionabilityResponse(BaseModel):
+    """RecoveryActionabilityResponse type definition.
+
+    
+    """
     version: int
     computed_at: datetime
     days_back: int
@@ -202,3 +210,23 @@ class RecoveryActionabilityResponse(BaseModel):
     rules: List[RecoveryActionabilityRule]
     best_thresholds: Dict[str, float | str]
     notes: List[str]
+    current_state: Optional[Dict[str, float | str | None]] = None
+    baseline_prediction: Optional[Dict[str, float | str | tuple[float, float]]] = None
+    scenario_prediction: Optional[Dict[str, float | str | tuple[float, float]]] = None
+    top_adjustments: Optional[List[Dict[str, float | str]]] = None
+    reliability_summary: Optional[str] = None
+    model_available: bool = False
+
+
+class RecoveryActionabilityRequest(BaseModel):
+    """RecoveryActionabilityRequest type definition.
+
+    
+    """
+    sleep_hours: Optional[float] = Field(None, ge=0, le=14, description="Hours of sleep")
+    sleep_efficiency: Optional[float] = Field(
+        None, ge=0, le=100, description="Sleep efficiency percentage"
+    )
+    strain: Optional[float] = Field(None, ge=0, le=21, description="Strain score")
+    hrv: Optional[float] = Field(None, ge=0, description="HRV in milliseconds")
+    rhr: Optional[float] = Field(None, ge=30, le=120, description="Resting heart rate")

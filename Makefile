@@ -43,7 +43,7 @@ help:
 	@echo "  make test        - Run tests with pytest"
 	@echo "  make test-cov    - Run tests with coverage report"
 	@echo "  make format      - Format code with black"
-	@echo "  make lint        - Lint code with flake8"
+	@echo "  make lint        - Lint code with ruff (including docstrings) and flake8"
 	@echo "  make typecheck   - Type check with mypy"
 	@echo "  make verify      - Run system verification checks"
 	@echo ""
@@ -264,7 +264,8 @@ format:
 	uv run black .
 
 lint:
-	@echo "🔍 Linting with flake8..."
+	@echo "🔍 Linting with ruff and flake8..."
+	uv run ruff check whoopdata tests
 	uv run flake8 whoopdata tests
 
 typecheck:

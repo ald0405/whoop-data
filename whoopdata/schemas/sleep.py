@@ -4,6 +4,10 @@ from datetime import datetime
 
 class SleepSchema(BaseModel):
 
+    """SleepSchema type definition.
+
+    
+    """
     start: datetime
     end: datetime
 

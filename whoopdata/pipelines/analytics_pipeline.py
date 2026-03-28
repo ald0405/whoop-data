@@ -159,6 +159,32 @@ class AnalyticsPipeline:
                 # Temporal
                 "day_of_week",
                 "is_weekend",
+                # Behavioral timing consistency (from shared modeling dataset)
+                "sleep_start_clock_min",
+                "sleep_midpoint_clock_min",
+                "bedtime_hour_float",
+                "workout_start_hour_numeric",
+                "abs_bedtime_delta_prev_day_min",
+                "abs_bedtime_delta_7d_avg_min",
+                "bedtime_variability_7d_min",
+                "sleep_hours_variability_7d",
+                # Sleep need adequacy
+                "sleep_need_met",
+                "sleep_deficit_abs",
+                "sleep_achieved_to_needed_ratio",
+                "sleep_achieved_to_baseline_need_ratio",
+                "consecutive_sleep_deficit_days",
+                # Sleep architecture quality
+                "restorative_sleep_hours",
+                "restorative_sleep_ratio",
+                "disturbances_per_hour",
+                # Actionability flags
+                "late_bedtime_after_23",
+                "late_bedtime_after_midnight",
+                "bedtime_shift_gt_60m_7d",
+                "late_workout_flag",
+                "high_intensity_workout_flag",
+                "zone_4_5_minutes",
             ]
 
             # Filter to records with complete rolling features (need 14+ days of history)
@@ -169,22 +195,24 @@ class AnalyticsPipeline:
                     f"No records with sufficient history for rolling features. Need at least 14 consecutive days of data. Found {len(df)} total records."
                 )
 
-            df_clean = df_with_history[feature_cols + ["recovery_score"]].dropna()
-
+            df_clean = df_with_history[feature_cols + ["recovery_score"]].copy()
             if len(df_clean) == 0:
                 raise ValueError(
                     f"No valid data after cleaning. Had {len(df_with_history)} records with history, but all had missing values in required features. Check data completeness."
                 )
+            usable_feature_cols = [c for c in feature_cols if df_clean[c].notna().any()]
+            if len(usable_feature_cols) == 0:
+                raise ValueError("No usable recovery features available after filtering all-null columns.")
 
             X_train, X_test, y_train, y_test, _, _ = get_training_data(
                 df_clean,
                 target_col="recovery_score",
-                feature_cols=feature_cols,
+                feature_cols=usable_feature_cols,
                 scale_features=False,
             )
 
             predictor = RecoveryPredictor()
-            predictor.train(X_train, y_train, X_test, y_test, feature_names=feature_cols)
+            predictor.train(X_train, y_train, X_test, y_test, feature_names=usable_feature_cols)
 
             model_path = self.models_dir / "recovery_predictor.pkl"
             predictor.save(str(model_path))
@@ -288,7 +316,7 @@ class AnalyticsPipeline:
             console.print("[cyan]  🔄 Training Factor Analyzer...[/cyan]")
 
             db = SessionLocal()
-            df = get_recovery_with_features(db, days_back=self.days_back)
+            df = get_recovery_modeling_dataset(db, days_back=self.days_back)
             db.close()
 
             if len(df) < 50:
@@ -342,6 +370,32 @@ class AnalyticsPipeline:
                 # Temporal
                 "day_of_week",
                 "is_weekend",
+                # Behavioral timing consistency
+                "sleep_start_clock_min",
+                "sleep_midpoint_clock_min",
+                "bedtime_hour_float",
+                "workout_start_hour_numeric",
+                "abs_bedtime_delta_prev_day_min",
+                "abs_bedtime_delta_7d_avg_min",
+                "bedtime_variability_7d_min",
+                "sleep_hours_variability_7d",
+                # Sleep need adequacy
+                "sleep_need_met",
+                "sleep_deficit_abs",
+                "sleep_achieved_to_needed_ratio",
+                "sleep_achieved_to_baseline_need_ratio",
+                "consecutive_sleep_deficit_days",
+                # Sleep architecture quality
+                "restorative_sleep_hours",
+                "restorative_sleep_ratio",
+                "disturbances_per_hour",
+                # Actionability flags
+                "late_bedtime_after_23",
+                "late_bedtime_after_midnight",
+                "bedtime_shift_gt_60m_7d",
+                "late_workout_flag",
+                "high_intensity_workout_flag",
+                "zone_4_5_minutes",
             ]
 
             # Filter to records with complete rolling features (need 14+ days of history)
@@ -352,22 +406,26 @@ class AnalyticsPipeline:
                     f"No records with sufficient history for rolling features. Need at least 14 consecutive days of data. Found {len(df)} total records."
                 )
 
-            df_clean = df_with_history[feature_cols + ["recovery_score"]].dropna()
-
+            df_clean = df_with_history[feature_cols + ["recovery_score"]].copy()
             if len(df_clean) == 0:
                 raise ValueError(
                     f"No valid data after cleaning. Had {len(df_with_history)} records with history, but all had missing values in required features. Check data completeness."
+                )
+            usable_feature_cols = [c for c in feature_cols if df_clean[c].notna().any()]
+            if len(usable_feature_cols) == 0:
+                raise ValueError(
+                    "No usable factor-analyzer features available after filtering all-null columns."
                 )
 
             X_train, X_test, y_train, y_test, _, _ = get_training_data(
                 df_clean,
                 target_col="recovery_score",
-                feature_cols=feature_cols,
+                feature_cols=usable_feature_cols,
                 scale_features=False,
             )
 
             predictor = RecoveryPredictor()
-            predictor.train(X_train, y_train, X_test, y_test)
+            predictor.train(X_train, y_train, X_test, y_test, feature_names=usable_feature_cols)
 
             model_path = self.models_dir / "factor_analyzer.pkl"
             predictor.save(str(model_path))

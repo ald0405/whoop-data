@@ -4,6 +4,10 @@ from datetime import datetime
 
 
 class Workouts(BaseModel):
+    """Workouts type definition.
+
+    
+    """
     user_id: Optional[str]
     created_at: datetime
     start: datetime
@@ -40,4 +44,8 @@ class Workouts(BaseModel):
         return get_sport_category(self.sport_id)
 
     class Config:
+        """Config type definition.
+
+        
+        """
         from_attributes = True
