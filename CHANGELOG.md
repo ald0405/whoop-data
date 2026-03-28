@@ -4,6 +4,17 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [3.5.0] - 2026-03-28
+
+### Added
+- Expanded proactive coaching flows (morning and in-window nudges) and strengthened Telegram support for pushing agent responses.
+- Added richer analytics outputs and supporting pipeline changes so insights can be served more reliably.
+
+### Changed
+- Improved the public API surface contracts and legacy route handling to make integrations clearer and easier to test.
+- Broadened verification and test coverage around the agent boundary, analytics, and scheduled workflows.
+
 ## [3.4.0] - 2026-03-23
 
 ### Added
