@@ -11,6 +11,7 @@ from whoopdata.services.insight_context_service import DEFAULT_LOCATION
 insights_router = APIRouter(prefix="/api/v1/insights/dashboard", tags=["insights"])
 legacy_insights_router = APIRouter(prefix="/dashboard", tags=["insights"])
 
+
 @legacy_insights_router.get("/daily", deprecated=True)
 @insights_router.get("/daily")
 async def get_daily_dashboard(

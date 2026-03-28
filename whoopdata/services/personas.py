@@ -8,7 +8,6 @@ Defines different coaching tones and styles that can be applied to:
 
 from typing import Dict, Optional
 
-
 # Persona definitions
 PERSONAS: Dict[str, Dict] = {
     "direct_coach": {

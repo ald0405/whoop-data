@@ -4,16 +4,14 @@ All analyzers return plain English explanations alongside statistical results.
 """
 
 import pandas as pd
-import numpy as np
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 from scipy.stats import pearsonr
-from datetime import datetime, timedelta
+from datetime import datetime
 from sqlalchemy.orm import Session
 
-from .models import RecoveryPredictor, SleepPredictor
+from .models import RecoveryPredictor
 from .data_prep import (
     get_recovery_with_features,
-    get_sleep_quality_features,
     calculate_rolling_features,
 )
 
@@ -1206,44 +1204,56 @@ class InsightGenerator:
         top_sleep = top_quarter["sleep_hours"].mean()
         bottom_sleep = bottom_quarter["sleep_hours"].mean()
         if not pd.isna(top_sleep) and not pd.isna(bottom_sleep) and top_sleep > bottom_sleep + 0.3:
-            results.append({
-                "behaviour": "Longer sleep",
-                "detail": f"Your best days averaged {top_sleep:.1f}h sleep vs {bottom_sleep:.1f}h on worst days.",
-                "impact": "positive",
-            })
+            results.append(
+                {
+                    "behaviour": "Longer sleep",
+                    "detail": f"Your best days averaged {top_sleep:.1f}h sleep vs {bottom_sleep:.1f}h on worst days.",
+                    "impact": "positive",
+                }
+            )
 
         # Sleep efficiency
         top_eff = top_quarter["sleep_efficiency_percentage"].mean()
         bottom_eff = bottom_quarter["sleep_efficiency_percentage"].mean()
         if not pd.isna(top_eff) and not pd.isna(bottom_eff) and top_eff > bottom_eff + 2:
-            results.append({
-                "behaviour": "Higher sleep efficiency",
-                "detail": f"Best recovery days had {top_eff:.0f}% efficiency vs {bottom_eff:.0f}%.",
-                "impact": "positive",
-            })
+            results.append(
+                {
+                    "behaviour": "Higher sleep efficiency",
+                    "detail": f"Best recovery days had {top_eff:.0f}% efficiency vs {bottom_eff:.0f}%.",
+                    "impact": "positive",
+                }
+            )
 
         # Strain comparison
         top_strain = top_quarter["strain"].mean()
         bottom_strain = bottom_quarter["strain"].mean()
         if not pd.isna(top_strain) and not pd.isna(bottom_strain):
             if top_strain < bottom_strain - 1:
-                results.append({
-                    "behaviour": "Lower previous-day strain",
-                    "detail": f"Best recoveries followed {top_strain:.1f} strain vs {bottom_strain:.1f}.",
-                    "impact": "positive",
-                })
+                results.append(
+                    {
+                        "behaviour": "Lower previous-day strain",
+                        "detail": f"Best recoveries followed {top_strain:.1f} strain vs {bottom_strain:.1f}.",
+                        "impact": "positive",
+                    }
+                )
 
         # Bedtime consistency
         if "bedtime_hour" in df.columns:
             top_bedtime_std = top_quarter["bedtime_hour"].std()
             overall_std = df["bedtime_hour"].std()
-            if not pd.isna(top_bedtime_std) and not pd.isna(overall_std) and top_bedtime_std < overall_std:
+            if (
+                not pd.isna(top_bedtime_std)
+                and not pd.isna(overall_std)
+                and top_bedtime_std < overall_std
+            ):
                 avg_bedtime = top_quarter["bedtime_hour"].mean()
-                results.append({
-                    "behaviour": "Consistent bedtime",
-                    "detail": f"Top recoveries had bedtime around {int(avg_bedtime):02d}:00 with less variation.",
-                    "impact": "positive",
-                })
+                results.append(
+                    {
+                        "behaviour": "Consistent bedtime",
+                        "detail": f"Top recoveries had bedtime around {int(avg_bedtime):02d}:00 with less variation.",
+                        "impact": "positive",
+                    }
+                )
 
         return results[:3]  # Top 3
 
@@ -1257,25 +1267,29 @@ class InsightGenerator:
             avg_deficit = df["sleep_deficit"].mean()
             if not pd.isna(avg_deficit) and avg_deficit > 0.5:
                 optimal = avg_sleep + avg_deficit
-                recommendations.append({
-                    "recommendation": f"Increase sleep to {optimal:.1f}h",
-                    "reasoning": f"You're averaging {avg_deficit:.1f}h below your sleep need. "
-                                 f"Closing this gap would improve recovery.",
-                    "priority": 1,
-                })
+                recommendations.append(
+                    {
+                        "recommendation": f"Increase sleep to {optimal:.1f}h",
+                        "reasoning": f"You're averaging {avg_deficit:.1f}h below your sleep need. "
+                        f"Closing this gap would improve recovery.",
+                        "priority": 1,
+                    }
+                )
 
         # Check strain vs recovery balance
         high_strain_low_recovery = df[
-            (df["strain"] > df["strain"].quantile(0.75)) &
-            (df["recovery_score"] < df["recovery_score"].quantile(0.25))
+            (df["strain"] > df["strain"].quantile(0.75))
+            & (df["recovery_score"] < df["recovery_score"].quantile(0.25))
         ]
         if len(high_strain_low_recovery) >= 2:
-            recommendations.append({
-                "recommendation": "Add a rest day after high-strain sessions",
-                "reasoning": f"You had {len(high_strain_low_recovery)} days with high strain and low recovery. "
-                             f"Your body isn't recovering between hard efforts.",
-                "priority": 1,
-            })
+            recommendations.append(
+                {
+                    "recommendation": "Add a rest day after high-strain sessions",
+                    "reasoning": f"You had {len(high_strain_low_recovery)} days with high strain and low recovery. "
+                    f"Your body isn't recovering between hard efforts.",
+                    "priority": 1,
+                }
+            )
 
         # Check HRV trend
         if len(df) >= 7:
@@ -1284,12 +1298,14 @@ class InsightGenerator:
             if not pd.isna(hrv_early) and not pd.isna(hrv_late):
                 hrv_change = ((hrv_late - hrv_early) / hrv_early) * 100 if hrv_early > 0 else 0
                 if hrv_change < -10:
-                    recommendations.append({
-                        "recommendation": "Prioritise recovery this week",
-                        "reasoning": f"HRV dropped {abs(hrv_change):.0f}% over the period, "
-                                     f"indicating accumulated fatigue.",
-                        "priority": 1,
-                    })
+                    recommendations.append(
+                        {
+                            "recommendation": "Prioritise recovery this week",
+                            "reasoning": f"HRV dropped {abs(hrv_change):.0f}% over the period, "
+                            f"indicating accumulated fatigue.",
+                            "priority": 1,
+                        }
+                    )
 
         return recommendations[:2]  # Max 2
 

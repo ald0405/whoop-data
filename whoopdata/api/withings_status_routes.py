@@ -4,7 +4,6 @@ from whoopdata.clients.withings_client import WithingsClient
 from whoopdata.database.database import SessionLocal
 from whoopdata.models.models import WithingsHeartRate, WithingsWeight
 
-
 data_router = APIRouter(prefix="/api/v1/data", tags=["data"])
 legacy_data_router = APIRouter(tags=["data"])
 

@@ -14,8 +14,7 @@ def create_analytics_results_table():
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
 
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS analytics_results (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             result_type TEXT NOT NULL,
@@ -24,16 +23,13 @@ def create_analytics_results_table():
             days_back INTEGER,
             UNIQUE(result_type, days_back)
         )
-    """
-    )
+    """)
 
     # Create index for faster lookups
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_result_type 
         ON analytics_results(result_type)
-    """
-    )
+    """)
 
     conn.commit()
     conn.close()

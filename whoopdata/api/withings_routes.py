@@ -4,7 +4,6 @@ from whoopdata.database.database import get_db
 from whoopdata.models.models import WithingsWeight, WithingsHeartRate
 from typing import List, Optional, Union
 from datetime import datetime, timedelta
-import pandas as pd
 
 data_router = APIRouter(prefix="/api/v1/data", tags=["data"])
 legacy_data_router = APIRouter(tags=["data"])
@@ -203,7 +202,9 @@ async def get_weight_stats(
         raise HTTPException(status_code=500, detail=f"Error calculating weight stats: {str(e)}")
 
 
-@legacy_data_router.get("/withings/heart-rate", response_model=Union[List[dict], dict], deprecated=True)
+@legacy_data_router.get(
+    "/withings/heart-rate", response_model=Union[List[dict], dict], deprecated=True
+)
 @data_router.get("/withings/heart-rate", response_model=Union[List[dict], dict])
 async def get_heart_rate_data(
     latest: bool = Query(False, description="Get only the latest record"),
@@ -379,7 +380,6 @@ async def get_withings_summary(
 # ============================================================================
 
 
-
 @legacy_insights_router.get("/withings/weight/stats", deprecated=True)
 async def get_weight_stats_compat(
     db: Session = Depends(get_db),
@@ -434,5 +434,3 @@ async def get_weight_stats_compat(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error calculating weight stats: {str(e)}")
-
-

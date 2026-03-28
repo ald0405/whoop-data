@@ -10,7 +10,6 @@ These tests use synthetic DataFrames (no live DB required) to verify:
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from whoopdata.analytics.mlr import (
     _build_recovery_mlr_df,
@@ -23,7 +22,6 @@ from whoopdata.analytics.mlr import (
     get_hrv_model_results,
     HRV_CORE_FEATURES,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers to build synthetic DataFrames mimicking ORM output
@@ -116,9 +114,9 @@ class TestBuildRecoveryMLR:
             _make_cycles(), _make_recoveries(), _make_sleeps(), _make_workouts()
         )
         for col in RECOVERY_FEATURE_COLS:
-            assert pd.api.types.is_numeric_dtype(df[col]), (
-                f"Column {col} has dtype {df[col].dtype}, expected numeric"
-            )
+            assert pd.api.types.is_numeric_dtype(
+                df[col]
+            ), f"Column {col} has dtype {df[col].dtype}, expected numeric"
 
     def test_no_nan_in_core_features(self):
         df = _build_recovery_mlr_df(
@@ -151,9 +149,7 @@ class TestBuildRecoveryMLR:
         """Simulate NaN/None in ORM columns."""
         recoveries = _make_recoveries()
         recoveries.loc[0:2, "recovery_score"] = None
-        df = _build_recovery_mlr_df(
-            _make_cycles(), recoveries, _make_sleeps(), _make_workouts()
-        )
+        df = _build_recovery_mlr_df(_make_cycles(), recoveries, _make_sleeps(), _make_workouts())
         # Should still produce a DataFrame (NaN rows will be dropped during fit)
         assert len(df) > 0
 
@@ -208,8 +204,15 @@ class TestGetRecoveryResults:
         model, df_model = self._fit()
         results = get_recovery_model_results(model, df_model)
         expected = {
-            "model", "y", "y_pred", "residuals", "coef_df",
-            "partial_corr_df", "n_observations", "r_squared", "adj_r_squared",
+            "model",
+            "y",
+            "y_pred",
+            "residuals",
+            "coef_df",
+            "partial_corr_df",
+            "n_observations",
+            "r_squared",
+            "adj_r_squared",
         }
         assert expected.issubset(results.keys())
 
@@ -217,7 +220,16 @@ class TestGetRecoveryResults:
         model, df_model = self._fit()
         results = get_recovery_model_results(model, df_model)
         coef_df = results["coef_df"]
-        for col in ["Feature", "Coefficient", "Std Error", "t-value", "P-value", "Significant", "CI Lower", "CI Upper"]:
+        for col in [
+            "Feature",
+            "Coefficient",
+            "Std Error",
+            "t-value",
+            "P-value",
+            "Significant",
+            "CI Lower",
+            "CI Upper",
+        ]:
             assert col in coef_df.columns, f"Missing coef_df column: {col}"
 
     def test_p_values_in_range(self):
@@ -290,9 +302,7 @@ class TestBuildHRVMLR:
             assert col in df.columns, f"Missing column: {col}"
 
     def test_workout_aggregation(self):
-        df = _build_hrv_mlr_df(
-            _make_cycles(), _make_recoveries(), _make_sleeps(), _make_workouts()
-        )
+        df = _build_hrv_mlr_df(_make_cycles(), _make_recoveries(), _make_sleeps(), _make_workouts())
         assert "workout_strain" in df.columns
         assert pd.api.types.is_numeric_dtype(df["workout_strain"])
 
@@ -323,9 +333,7 @@ class TestFitHRVMLR:
 
 class TestGetHRVResults:
     def test_result_keys(self):
-        df = _build_hrv_mlr_df(
-            _make_cycles(), _make_recoveries(), _make_sleeps(), _make_workouts()
-        )
+        df = _build_hrv_mlr_df(_make_cycles(), _make_recoveries(), _make_sleeps(), _make_workouts())
         model, df_model, available_optional = fit_hrv_mlr_model(df)
         results = get_hrv_model_results(model, df_model, available_optional)
         assert "coef_df" in results
@@ -336,9 +344,7 @@ class TestGetHRVResults:
     def test_serialisation(self):
         import json
 
-        df = _build_hrv_mlr_df(
-            _make_cycles(), _make_recoveries(), _make_sleeps(), _make_workouts()
-        )
+        df = _build_hrv_mlr_df(_make_cycles(), _make_recoveries(), _make_sleeps(), _make_workouts())
         model, df_model, available_optional = fit_hrv_mlr_model(df)
         results = get_hrv_model_results(model, df_model, available_optional)
         serialised = mlr_results_to_dict(results)
@@ -360,9 +366,7 @@ class TestEdgeCases:
         """
         sleeps = _make_sleeps()
         sleeps["total_slow_wave_sleep_time_milli"] = np.nan
-        df = _build_recovery_mlr_df(
-            _make_cycles(), _make_recoveries(), sleeps, _make_workouts()
-        )
+        df = _build_recovery_mlr_df(_make_cycles(), _make_recoveries(), sleeps, _make_workouts())
         # deep_sleep_hrs will be 0 (constant) due to fillna(0)
         model, df_model = fit_recovery_mlr_model(df)
         assert model is not None
@@ -372,9 +376,7 @@ class TestEdgeCases:
         """ORM can return Integer columns as object dtype."""
         sleeps = _make_sleeps()
         sleeps["total_rem_sleep_time_milli"] = sleeps["total_rem_sleep_time_milli"].astype(object)
-        df = _build_recovery_mlr_df(
-            _make_cycles(), _make_recoveries(), sleeps, _make_workouts()
-        )
+        df = _build_recovery_mlr_df(_make_cycles(), _make_recoveries(), sleeps, _make_workouts())
         assert pd.api.types.is_numeric_dtype(df["rem_sleep_hrs"])
 
     def test_empty_dataframes(self):

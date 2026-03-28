@@ -272,13 +272,15 @@ class WithingsClient:
 
         auth_url = f"{self.AUTH_URL}?" + urllib.parse.urlencode(auth_params)
 
-        print(f"\n🌐 Please visit this URL to authorize the Withings application:")
+        print("\n🌐 Please visit this URL to authorize the Withings application:")
         print(f"🔗 {auth_url}")
         print("🌐 Opening browser...")
         try:
             opened = webbrowser.open(auth_url)
             if not opened:
-                print("⚠️ Could not open browser automatically. Copy the URL above into your browser.")
+                print(
+                    "⚠️ Could not open browser automatically. Copy the URL above into your browser."
+                )
         except Exception:
             print("⚠️ Could not open browser automatically. Copy the URL above into your browser.")
 

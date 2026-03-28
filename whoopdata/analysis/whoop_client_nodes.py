@@ -2,7 +2,7 @@ import requests
 import json
 import os
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+from typing import Dict, Any
 from dotenv import load_dotenv
 
 load_dotenv()

@@ -75,9 +75,7 @@ PUBLIC_RESPONSE_CONTRACT: dict[CanonicalSurface, SurfaceResponseContract] = {
     "web": SurfaceResponseContract(
         surface="web",
         summary="HTML page shells that consume the API surfaces rather than defining an API response contract of their own.",
-        primary_shapes=(
-            "server-rendered HTML page",
-        ),
+        primary_shapes=("server-rendered HTML page",),
         invariants=(
             "Web routes remain page shells and should not become parallel JSON product surfaces.",
             "Page code may compose multiple data and insight contracts, but the page itself is not part of the API response surface.",

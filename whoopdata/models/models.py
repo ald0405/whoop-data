@@ -259,3 +259,19 @@ class RecommendationOutcome(Base):
     recorded_at = Column(DateTime, default=datetime.utcnow)
 
     recommendation = relationship("Recommendation", back_populates="outcomes")
+
+
+class ProactiveMessageLog(Base):
+    """Tracks proactive nudges so the planner can apply cooldowns and escalation."""
+    __tablename__ = "proactive_message_log"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    chat_id = Column(Integer, nullable=False)
+    mode = Column(String, nullable=False)
+    intent = Column(String, nullable=False)
+    trigger_fingerprint = Column(String)
+    reason = Column(String)
+    evidence_json = Column(String)
+    prompt = Column(String, nullable=False)
+    telegram_message_id = Column(Integer)
+    sent_at = Column(DateTime, default=datetime.utcnow, nullable=False)

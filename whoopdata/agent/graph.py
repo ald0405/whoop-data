@@ -3,6 +3,7 @@
 Builds a supervisor agent using create_agent with specialist subagents
 wrapped as tools. All user-visible responses come from the supervisor.
 """
+
 from typing import Any
 
 from langchain.agents import create_agent
@@ -31,6 +32,7 @@ def _dedupe_tools_by_name(tools: list[Any]) -> list[Any]:
         deduped.append(tool)
     return deduped
 
+
 def _resolve_checkpointer(
     config: dict[str, Any] | None,
 ) -> Any | None:
@@ -40,6 +42,7 @@ def _resolve_checkpointer(
     if not isinstance(configurable, dict):
         return None
     return configurable.get(CONFIG_KEY_CHECKPOINTER)
+
 
 def _resolve_store(
     config: dict[str, Any] | None,
@@ -66,12 +69,15 @@ def _create_graph(*, checkpointer: Any | None = None, store: Any | None = None):
     specialist_tools = build_specialist_tools()
 
     # Supervisor gets specialist tools + python REPL + protein tool for direct use
-    all_tools = _dedupe_tools_by_name(specialist_tools + [
-        python_repl_tool,
-        get_protein_recommendation_tool,
-        search_memory,
-        manage_memory,
-    ])
+    all_tools = _dedupe_tools_by_name(
+        specialist_tools
+        + [
+            python_repl_tool,
+            get_protein_recommendation_tool,
+            search_memory,
+            manage_memory,
+        ]
+    )
 
     # Create the supervisor agent
     # create_agent returns a compiled LangGraph graph that handles

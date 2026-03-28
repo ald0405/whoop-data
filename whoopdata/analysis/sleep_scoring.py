@@ -20,7 +20,6 @@ import matplotlib.pyplot as plt
 plt.ioff()  # Turn off interactive mode
 import seaborn as sns
 import os
-from datetime import datetime, timedelta
 from whoop_functions import (
     whoop_authentication,
     make_paginated_request,
@@ -37,8 +36,8 @@ password = os.getenv("PASSWORD")
 access_token = whoop_authentication(username=username, password=password)
 headers = {"Authorization": f"Bearer {access_token}"}
 # API Endpoints
-url_sleep = f"https://api.prod.whoop.com/developer/v2/activity/sleep/"
-url_recovery = f"https://api.prod.whoop.com/developer/v2/recovery/"
+url_sleep = "https://api.prod.whoop.com/developer/v2/activity/sleep/"
+url_recovery = "https://api.prod.whoop.com/developer/v2/recovery/"
 
 
 # Get recovery data
@@ -75,7 +74,6 @@ df["score_sleep_consistency_percentage"] = imputer.fit_transform(
 
 print(df["score_state"].unique())
 
-from datetime import datetime
 
 df["sleep_time_hr"] = df["sleep_end_ts"] - df["sleep_start_ts"]
 

@@ -194,6 +194,16 @@ AGENT_ROUTE_MIGRATION_MATRIX: tuple[RouteMigrationEntry, ...] = (
         current_role="conversation",
         notes="Canonical public route for submitting user messages through the shared conversation boundary.",
     ),
+    route(
+        "/api/v1/agent/telegram/push",
+        methods=("POST",),
+        handler_names=("telegram_push",),
+        source_refs=("whoopdata/api/agent_routes.py:57-84",),
+        canonical_surface="agent",
+        target_path="/api/v1/agent/telegram/push",
+        current_role="conversation",
+        notes="Canonical public route for proactive Telegram pushes through the shared conversation boundary.",
+    ),
 )
 
 
@@ -753,6 +763,14 @@ INSIGHT_ROUTE_MIGRATION_MATRIX: tuple[RouteMigrationEntry, ...] = (
         current_role="derived_output",
     ),
     route(
+        "/api/v1/insights/analytics/recovery/actionability",
+        handler_names=("get_recovery_actionability",),
+        source_refs=("whoopdata/api/analytics_routes.py:500-533",),
+        canonical_surface="insights",
+        target_path="/api/v1/insights/analytics/recovery/actionability",
+        current_role="derived_output",
+    ),
+    route(
         "/api/v1/insights/tides/forecast",
         handler_names=("get_tide_forecast",),
         source_refs=("whoopdata/api/tide_routes.py:73-108",),
@@ -1149,6 +1167,15 @@ ENTRYPOINT_MIGRATION_MATRIX: tuple[EntrypointMigrationEntry, ...] = (
         current_role="provider_auth",
         primary_surface="data",
         target="Canonical provider-auth utility for the Withings integration.",
+        migration_action="keep_primary",
+    ),
+    entrypoint(
+        "whoop-telegram-bot",
+        kind="project_script",
+        source_refs=("pyproject.toml:90-94", "whoopdata/telegram_bot.py:1-999"),
+        current_role="chat_ui",
+        primary_surface="agent",
+        target="Canonical Telegram bot runtime backed by the shared /api/v1/agent/* conversation boundary.",
         migration_action="keep_primary",
     ),
     entrypoint(

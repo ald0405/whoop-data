@@ -9,8 +9,6 @@ Complete Health Data Application Launcher
 import os
 import sys
 import subprocess
-import time
-from pathlib import Path
 
 # Add current directory to path
 sys.path.append(os.path.abspath("."))
@@ -68,9 +66,7 @@ def check_dependencies():
         )
         console.print(
             "💡 Install with: pip install "
-            + " ".join(
-                "scikit-learn" if pkg == "sklearn" else pkg for pkg in missing_analytics
-            )
+            + " ".join("scikit-learn" if pkg == "sklearn" else pkg for pkg in missing_analytics)
         )
     else:
         console.print("✅ [bold green]Analytics dependencies found[/bold green]")
@@ -139,7 +135,7 @@ def run_data_pipeline(incremental=True):
         total_success = sum(stats["success"] for stats in results.values())
         total_errors = sum(stats["errors"] for stats in results.values())
 
-        console.print(f"\n🎉 [bold green]Data Pipeline Complete![/bold green]")
+        console.print("\n🎉 [bold green]Data Pipeline Complete![/bold green]")
         console.print(f"📈 Records loaded: {total_success}")
         console.print(f"❌ Errors: {total_errors}")
 
@@ -187,7 +183,7 @@ def show_available_endpoints():
 
     console.print(table)
 
-    console.print(f"\n💡 [bold]Quick test URLs:[/bold]")
+    console.print("\n💡 [bold]Quick test URLs:[/bold]")
     console.print("   • Latest recovery: http://localhost:8000/recovery/latest")
     console.print("   • Latest weight: http://localhost:8000/withings/weight/latest")
     console.print("   • API docs: http://localhost:8000/docs")
@@ -270,6 +266,7 @@ def withings_auth_main():
     except Exception as e:
         print(f"❌ Re-authentication failed: {e}")
         return 1
+
 
 def main():
     """Main application launcher"""

@@ -81,14 +81,16 @@ class AdherenceTracker:
             outcome = self._check_recommendation(rec, actual_data)
             if outcome:
                 self.db.add(outcome)
-                results.append({
-                    "recommendation": rec.action_text,
-                    "category": rec.category,
-                    "followed": outcome.followed,
-                    "actual_value": outcome.actual_value,
-                    "target_value": rec.target_value,
-                    "recovery_score": outcome.recovery_score,
-                })
+                results.append(
+                    {
+                        "recommendation": rec.action_text,
+                        "category": rec.category,
+                        "followed": outcome.followed,
+                        "actual_value": outcome.actual_value,
+                        "target_value": rec.target_value,
+                        "recovery_score": outcome.recovery_score,
+                    }
+                )
 
         self.db.commit()
         return results

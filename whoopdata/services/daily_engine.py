@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session
 
 from whoopdata.crud.recovery import get_recoveries
 from whoopdata.crud.sleep import get_sleep
-from whoopdata.analytics.model_manager import model_manager
 from whoopdata.analytics.data_prep import get_recovery_with_features
 from whoopdata.analytics.results_loader import results_loader
 from whoopdata.schemas.daily import (
@@ -79,6 +78,9 @@ class DailyEngine:
 
         # Build sleep target from historical patterns
         sleep_target = self._build_sleep_target(sleep_patterns, baselines)
+
+        # Optionally augment with persisted recovery actionability thresholds.
+        sleep_target = self._inject_actionability_thresholds(sleep_target)
 
         # Build context summary
         context = self._build_context(weather_data, transport_data, tide_data)
@@ -462,9 +464,7 @@ class DailyEngine:
             # Adjust to 30-min precision
             bedtime_str = f"{optimal_bedtime_hour:02d}:30"
 
-        reasoning_parts = [
-            f"Your best recoveries come with {optimal_hours:.1f}+ hours of sleep"
-        ]
+        reasoning_parts = [f"Your best recoveries come with {optimal_hours:.1f}+ hours of sleep"]
         if optimal_efficiency and optimal_efficiency > 80:
             reasoning_parts.append(f"at {optimal_efficiency:.0f}%+ efficiency")
 
@@ -473,6 +473,41 @@ class DailyEngine:
             target_hours=optimal_hours,
             reasoning=". ".join(reasoning_parts) + ".",
         )
+
+    def _inject_actionability_thresholds(self, sleep_target: SleepTarget) -> SleepTarget:
+        """Add strain/bedtime thresholds to the plan when available.
+
+        Keeps output compact by appending a single sentence to sleep_target.reasoning.
+        """
+        try:
+            result = results_loader.load_result("recovery_actionability", days_back=365)
+            if not result:
+                return sleep_target
+
+            best = result.get("best_thresholds") or {}
+            strain_max = best.get("strain_3d_sum_max")
+            bedtime_before = best.get("bedtime_before")
+
+            parts = []
+            if strain_max is not None:
+                try:
+                    parts.append(f"keep recent 3-day strain ≤ {float(strain_max):.1f}")
+                except Exception:
+                    pass
+            if bedtime_before:
+                parts.append(f"bedtime by ~{bedtime_before}")
+
+            if not parts:
+                return sleep_target
+
+            extra = "To target green tomorrow: " + " and ".join(parts) + "."
+            return SleepTarget(
+                target_bedtime=sleep_target.target_bedtime,
+                target_hours=sleep_target.target_hours,
+                reasoning=(sleep_target.reasoning.rstrip(".") + ". " + extra),
+            )
+        except Exception:
+            return sleep_target
 
     # =================== Context ===================
 
@@ -513,11 +548,14 @@ class DailyEngine:
         if transport_data and not transport_data.get("error"):
             lines = transport_data if isinstance(transport_data, list) else []
             disrupted = [
-                line for line in lines
+                line
+                for line in lines
                 if isinstance(line, dict) and line.get("status", "").lower() != "good service"
             ]
             if disrupted:
-                issues = [f"{l.get('name', 'Line')}: {l.get('status', 'disrupted')}" for l in disrupted]
+                issues = [
+                    f"{l.get('name', 'Line')}: {l.get('status', 'disrupted')}" for l in disrupted
+                ]
                 transport_str = "; ".join(issues)
             elif lines:
                 transport_str = "All lines running normally"
@@ -532,9 +570,7 @@ class DailyEngine:
             outdoor_window=outdoor_window,
         )
 
-    def _compute_outdoor_window(
-        self, weather_data: Dict, tide_data: Dict
-    ) -> Optional[str]:
+    def _compute_outdoor_window(self, weather_data: Dict, tide_data: Dict) -> Optional[str]:
         """Find best outdoor activity window from weather and tide data."""
         # Simple heuristic: use sunrise/sunset from weather if available
         current = weather_data.get("current", {})

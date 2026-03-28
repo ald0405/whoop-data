@@ -5,8 +5,6 @@ Provides endpoints for factor analysis, correlations, predictions, and insights.
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import Optional
-from datetime import datetime
 
 from whoopdata.database.database import get_db
 from whoopdata.analytics.results_loader import results_loader
@@ -22,26 +20,20 @@ from whoopdata.schemas.analytics import (
     AnalyticsSummaryResponse,
     MLRModelResponse,
     CorrelationMatrixResponse,
+    RecoveryActionabilityResponse,
 )
-from whoopdata.analytics.engine import (
-    RecoveryFactorAnalyzer,
-    CorrelationAnalyzer,
-    InsightGenerator,
-    TimeSeriesAnalyzer,
-)
-from whoopdata.analytics.models import RecoveryPredictor, SleepPredictor
 from whoopdata.analytics.model_manager import model_manager
 from whoopdata.analytics.data_prep import (
     get_recovery_with_features,
-    get_sleep_with_features,
-    get_training_data,
 )
 
 insights_router = APIRouter(prefix="/api/v1/insights/analytics", tags=["insights"])
 legacy_insights_router = APIRouter(prefix="/analytics", tags=["insights"])
 
 
-@legacy_insights_router.get("/recovery/factors", response_model=FactorImportanceResponse, deprecated=True)
+@legacy_insights_router.get(
+    "/recovery/factors", response_model=FactorImportanceResponse, deprecated=True
+)
 @insights_router.get("/recovery/factors", response_model=FactorImportanceResponse)
 async def analyze_recovery_factors(
     days_back: int = Query(365, description="Days of historical data to analyze"),
@@ -115,7 +107,9 @@ async def analyze_sleep_quality_factors(
         )
 
 
-@legacy_insights_router.get("/correlations", response_model=CorrelationAnalysisResponse, deprecated=True)
+@legacy_insights_router.get(
+    "/correlations", response_model=CorrelationAnalysisResponse, deprecated=True
+)
 @insights_router.get("/correlations", response_model=CorrelationAnalysisResponse)
 async def analyze_correlations(
     days_back: int = Query(365, description="Days of historical data"),
@@ -149,7 +143,9 @@ async def analyze_correlations(
         raise HTTPException(status_code=500, detail=f"Error loading correlations: {str(e)}")
 
 
-@legacy_insights_router.post("/predict/recovery", response_model=RecoveryPredictionResponse, deprecated=True)
+@legacy_insights_router.post(
+    "/predict/recovery", response_model=RecoveryPredictionResponse, deprecated=True
+)
 @insights_router.post("/predict/recovery", response_model=RecoveryPredictionResponse)
 async def predict_recovery(request: RecoveryPredictionRequest, db: Session = Depends(get_db)):
     """Predict recovery score from input metrics using pre-trained model.
@@ -221,7 +217,9 @@ async def predict_recovery(request: RecoveryPredictionRequest, db: Session = Dep
         raise HTTPException(status_code=500, detail=f"Error predicting recovery: {str(e)}")
 
 
-@legacy_insights_router.post("/predict/sleep", response_model=SleepPredictionResponse, deprecated=True)
+@legacy_insights_router.post(
+    "/predict/sleep", response_model=SleepPredictionResponse, deprecated=True
+)
 @insights_router.post("/predict/sleep", response_model=SleepPredictionResponse)
 async def predict_sleep_performance(request: SleepPredictionRequest, db: Session = Depends(get_db)):
     """Predict sleep performance from sleep metrics using pre-trained model.
@@ -298,7 +296,9 @@ async def get_weekly_insights(
         raise HTTPException(status_code=500, detail=f"Error loading insights: {str(e)}")
 
 
-@legacy_insights_router.get("/patterns/{metric}", response_model=PatternDetectionResponse, deprecated=True)
+@legacy_insights_router.get(
+    "/patterns/{metric}", response_model=PatternDetectionResponse, deprecated=True
+)
 @insights_router.get("/patterns/{metric}", response_model=PatternDetectionResponse)
 async def analyze_metric_pattern(
     metric: str,
@@ -497,6 +497,39 @@ async def get_strain_patterns(
         raise HTTPException(status_code=500, detail=f"Error loading strain pattern data: {str(e)}")
 
 
+@insights_router.get(
+    "/recovery/actionability",
+    response_model=RecoveryActionabilityResponse,
+)
+async def get_recovery_actionability(
+    days_back: int = Query(365, description="Days of historical data"),
+):
+    """Get pre-computed recovery actionability rules.
+
+    Returns interpretable threshold-style rules (e.g. bedtime before X, keep strain under Y)
+    derived from historical patterns.
+
+    Requires the analytics pipeline to have been run.
+    """
+    try:
+        result = results_loader.load_result("recovery_actionability", days_back=days_back)
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Recovery actionability not yet computed. Run the analytics pipeline first (option 6 in CLI).",
+            )
+
+        result.pop("_computed_at", None)
+        return RecoveryActionabilityResponse(**result)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error loading recovery actionability: {str(e)}"
+        )
+
+
 @legacy_insights_router.get("/summary", response_model=AnalyticsSummaryResponse, deprecated=True)
 @insights_router.get("/summary", response_model=AnalyticsSummaryResponse)
 async def get_analytics_summary(
@@ -591,7 +624,9 @@ async def get_hrv_mlr(
         raise HTTPException(status_code=500, detail=f"Error loading HRV MLR: {str(e)}")
 
 
-@legacy_insights_router.get("/correlations/matrix", response_model=CorrelationMatrixResponse, deprecated=True)
+@legacy_insights_router.get(
+    "/correlations/matrix", response_model=CorrelationMatrixResponse, deprecated=True
+)
 @insights_router.get("/correlations/matrix", response_model=CorrelationMatrixResponse)
 async def get_correlation_matrix(
     days_back: int = Query(365, description="Days of historical data"),
@@ -616,6 +651,4 @@ async def get_correlation_matrix(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error loading correlation matrix: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error loading correlation matrix: {str(e)}")

@@ -4,9 +4,8 @@ Date filtering utilities for consistent datetime handling across different data 
 Handles the complexity of different datetime fields and timezone considerations.
 """
 
-from datetime import datetime, date
+from datetime import datetime
 from typing import Optional, Tuple
-from sqlalchemy import and_
 from sqlalchemy.orm import Query
 
 

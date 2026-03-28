@@ -92,7 +92,7 @@ class WeatherAPI:
 
         data = response.json()
         forecasts = []
-        
+
         # Extract sunrise and sunset from city data
         city_data = data.get("city", {})
         sunrise = city_data.get("sunrise")

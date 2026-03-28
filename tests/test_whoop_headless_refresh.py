@@ -126,4 +126,3 @@ def test_scheduled_etl_appends_json_line(tmp_path, monkeypatch):
     lines = audit_path.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 1
     assert json.loads(lines[0]) == {"job": "scheduled_etl", "status": "success"}
-

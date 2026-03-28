@@ -20,6 +20,7 @@ from whoopdata.agent.conversation_service import ConversationService, get_conver
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+_MARKDOWN_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$")
 
 
 def _parse_int_set(raw: str | None) -> set[int]:
@@ -78,7 +79,9 @@ class TelegramConversationGateway:
         self._allowed_chat_ids = set(allowed_chat_ids or ())
         self._bindings_by_chat: dict[int, ConversationBinding] = {}
 
-    def is_authorized(self, *, user_id: int | None, chat_id: int | None, chat_type: str | None) -> bool:
+    def is_authorized(
+        self, *, user_id: int | None, chat_id: int | None, chat_type: str | None
+    ) -> bool:
         if user_id is None or chat_id is None:
             return False
 
@@ -155,7 +158,9 @@ class TelegramConversationGateway:
         transcribed_text = await _transcribe_voice(voice_bytes)
         if not transcribed_text:
             return [
-                OutboundTelegramMessage(text="Sorry, I couldn't understand that voice message. Try again?")
+                OutboundTelegramMessage(
+                    text="Sorry, I couldn't understand that voice message. Try again?"
+                )
             ]
 
         # Get agent response via the normal text path
@@ -193,7 +198,9 @@ class TelegramConversationGateway:
             image_b64=image_b64,
         )
 
-    def _build_response_messages(self, assistant_message: str, artifacts: list) -> list[OutboundTelegramMessage]:
+    def _build_response_messages(
+        self, assistant_message: str, artifacts: list
+    ) -> list[OutboundTelegramMessage]:
         messages: list[OutboundTelegramMessage] = []
 
         if assistant_message:
@@ -281,6 +288,132 @@ async def _attach_voice_replies(
 def _strip_html_tags(text: str) -> str:
     """Remove HTML tags for TTS input."""
     return re.sub(r"<[^>]+>", "", text)
+
+
+def _strip_markdown_inline_markup(text: str) -> str:
+    text = re.sub(r"`([^`\n]+)`", r"\1", text)
+    text = re.sub(r"\*\*([^\n*][^*]*?)\*\*", r"\1", text)
+    text = re.sub(r"(?<!\*)\*([^\n*][^*]*?)\*(?!\*)", r"\1", text)
+    text = re.sub(r"__([^\n_][^_]*?)__", r"\1", text)
+    text = re.sub(r"(?<!_)_([^\n_][^_]*?)_(?!_)", r"\1", text)
+    return text
+
+
+def _normalize_telegram_plain_line(text: str) -> str:
+    line = text.strip()
+    if not line:
+        return ""
+
+    line = re.sub(r"^#{1,6}\s+", "", line)
+    line = re.sub(r"^\s*[-*]\s+", "• ", line)
+    line = re.sub(r"^\s*\d+[.)]\s+", "• ", line)
+    line = _strip_markdown_inline_markup(line)
+    line = re.sub(r"\s+", " ", line).strip()
+    return line
+
+
+def _flatten_markdown_table_row(line: str) -> str:
+    cells = [_normalize_telegram_plain_line(cell) for cell in line.strip().strip("|").split("|")]
+    cells = [cell for cell in cells if cell]
+    if not cells:
+        return ""
+    if len(cells) == 2:
+        return f"{cells[0]}: {cells[1]}"
+    return " • ".join(cells)
+
+
+def _truncate_telegram_plain_text(text: str, *, max_chars: int) -> str:
+    if len(text) <= max_chars:
+        return text
+
+    truncated = text[:max_chars].rstrip()
+    preferred_cutoff = max_chars // 2
+    cut_positions = (
+        truncated.rfind("\n"),
+        truncated.rfind(". "),
+        truncated.rfind("? "),
+        truncated.rfind("! "),
+        truncated.rfind(" "),
+    )
+    cut_at = max((pos for pos in cut_positions if pos >= preferred_cutoff), default=-1)
+    if cut_at >= 0:
+        pair = truncated[cut_at : cut_at + 2]
+        if pair in {". ", "? ", "! "}:
+            truncated = truncated[: cut_at + 1]
+        else:
+            truncated = truncated[:cut_at]
+
+    return truncated.rstrip(" ,;:-") + "…"
+
+
+def format_text_for_telegram_plain(
+    text: str,
+    *,
+    max_chars: int = 450,
+    max_lines: int = 4,
+) -> str:
+    raw_lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    cleaned_lines: list[str] = []
+    in_code_block = False
+    index = 0
+
+    while index < len(raw_lines):
+        raw_line = raw_lines[index]
+        stripped = raw_line.strip()
+
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+            index += 1
+            continue
+
+        if in_code_block:
+            line = _normalize_telegram_plain_line(raw_line)
+            if line:
+                cleaned_lines.append(line)
+            index += 1
+            continue
+
+        if (
+            stripped.count("|") >= 2
+            and index + 1 < len(raw_lines)
+            and _MARKDOWN_TABLE_SEPARATOR_RE.match(raw_lines[index + 1].strip())
+        ):
+            index += 2
+            while index < len(raw_lines):
+                table_line = raw_lines[index].strip()
+                if not table_line or table_line.count("|") < 2:
+                    break
+                flattened = _flatten_markdown_table_row(table_line)
+                if flattened:
+                    cleaned_lines.append(flattened)
+                index += 1
+            continue
+
+        if _MARKDOWN_TABLE_SEPARATOR_RE.match(stripped):
+            index += 1
+            continue
+
+        if stripped.count("|") >= 2:
+            flattened = _flatten_markdown_table_row(stripped)
+            if flattened:
+                cleaned_lines.append(flattened)
+            index += 1
+            continue
+
+        line = _normalize_telegram_plain_line(raw_line)
+        if line:
+            cleaned_lines.append(line)
+        index += 1
+
+    if not cleaned_lines:
+        fallback = _normalize_telegram_plain_line(text) or text.strip()
+        return _truncate_telegram_plain_text(fallback, max_chars=max_chars)
+
+    compact_lines = cleaned_lines[:max_lines]
+    compact = "\n".join(compact_lines)
+    if len(cleaned_lines) > max_lines:
+        compact = compact.rstrip(" ,;:-") + "…"
+    return _truncate_telegram_plain_text(compact, max_chars=max_chars)
 
 
 def format_text_for_telegram_html(text: str) -> str:

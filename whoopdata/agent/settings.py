@@ -37,7 +37,7 @@ AGENT_PERSISTENCE_AUTO_SETUP = (
 )
 
 # Supervisor model (delegates to specialists)
-SUPERVISOR_MODEL = "openai:gpt-4o-mini"
+SUPERVISOR_MODEL = "openai:gpt-5.2"
 
 # Default specialist model
 SPECIALIST_MODEL = "openai:gpt-4o-mini"

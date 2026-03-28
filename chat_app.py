@@ -62,16 +62,22 @@ async def chat_with_agent(
                 agent_response += f"\n\n{img_html}"
 
         python_artifact = next(
-            (artifact for artifact in conversation_response.artifacts if artifact.kind == "python_code"),
+            (
+                artifact
+                for artifact in conversation_response.artifacts
+                if artifact.kind == "python_code"
+            ),
             None,
         )
         if python_artifact and python_artifact.content:
-            code_block = f"\n\n**Generated Python Code:**\n```python\n{python_artifact.content}\n```\n\n"
+            code_block = (
+                f"\n\n**Generated Python Code:**\n```python\n{python_artifact.content}\n```\n\n"
+            )
             agent_response = code_block + agent_response
 
         # Convert markdown image syntax to HTML for Gradio
         # Pattern: ![alt text](data:image/png;base64,...)
-        markdown_image_pattern = r'!\[([^\]]*)\]\((data:image/[^;]+;base64,[^)]+)\)'
+        markdown_image_pattern = r"!\[([^\]]*)\]\((data:image/[^;]+;base64,[^)]+)\)"
 
         def replace_markdown_image(match):
             alt_text = match.group(1)
@@ -125,8 +131,7 @@ def create_chat_interface():
     with gr.Blocks(title="Health Data Agent", theme=gr.themes.Soft(), css=custom_css) as interface:
 
         # Header
-        gr.Markdown(
-            """
+        gr.Markdown("""
         # 🏥 Health Data Agent Chat
         
         **Your AI-powered health data assistant!** Ask me anything about:
@@ -143,8 +148,7 @@ def create_chat_interface():
         - "What's my weight trend over the last 30 days?"
         - "How has my recovery been this month?"
         - "Get my latest sleep data and analyze my patterns"
-        """
-        )
+        """)
 
         # Chat interface
         chatbot = gr.Chatbot(
@@ -208,8 +212,7 @@ def create_chat_interface():
 
         # Info section
         with gr.Accordion("ℹ️ About Your Health Data", open=False):
-            gr.Markdown(
-                """
+            gr.Markdown("""
             ### Data Sources
             - **WHOOP**: Recovery, workouts, sleep data (2023-2025)
             - **Withings**: Weight, body composition, heart rate, blood pressure
@@ -224,8 +227,7 @@ def create_chat_interface():
             - Be specific with your questions (e.g., "tennis workouts in October 2025")
             - Ask for trends over specific time periods
             - Request actionable insights for better health outcomes
-            """
-            )
+            """)
 
     return interface
 

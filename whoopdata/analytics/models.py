@@ -5,12 +5,10 @@ Includes recovery and sleep prediction models with explainability.
 
 import pickle
 import numpy as np
-import pandas as pd
 from pathlib import Path
 from typing import Dict, Tuple, Optional
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-from sklearn.model_selection import cross_val_score
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score, mean_absolute_error
 import xgboost as xgb
 
 # Try to import SHAP for explainability (optional dependency)

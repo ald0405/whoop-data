@@ -5,7 +5,6 @@ Run this to test the Withings integration
 """
 
 from whoopdata.clients.withings_client import WithingsClient
-import json
 
 
 def main():
@@ -72,7 +71,7 @@ def main():
 
             # Show latest measurements
             latest_by_type = df.groupby("measure_type_name")["datetime"].max()
-            print(f"\n🕒 Latest measurements by type:")
+            print("\n🕒 Latest measurements by type:")
             for measure_type, latest_date in latest_by_type.items():
                 latest_row = df[
                     (df["measure_type_name"] == measure_type) & (df["datetime"] == latest_date)

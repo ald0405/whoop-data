@@ -76,7 +76,10 @@ def test_manage_memory_create_update_delete_and_search():
             runtime=runtime,
         )
         assert "Updated memory" in updated
-        assert store.data[memory_namespace][memory_id]["content"] == "Complete four strength sessions this week."
+        assert (
+            store.data[memory_namespace][memory_id]["content"]
+            == "Complete four strength sessions this week."
+        )
 
         found = await search_memory.coroutine(
             query="four strength",

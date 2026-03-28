@@ -11,7 +11,6 @@ from whoopdata.api.legacy_route_deprecation import (
 from whoopdata.api.public_surface_contract import LEGACY_COMPATIBILITY_REMOVAL_DATE_ISO
 from whoopdata.api.public_surface_inventory import ROUTE_MIGRATION_MATRIX
 
-
 REPRESENTATIVE_LEGACY_ROUTES = (
     ("/recovery/latest", "GET"),
     ("/workouts/latest", "GET"),
@@ -57,6 +56,5 @@ def test_legacy_route_responses_emit_deprecation_headers(path: str, method: str)
     assert response.headers["Link"] == f'<{target_path}>; rel="successor-version"'
     assert response.headers["X-Canonical-Route"] == target_path
     assert (
-        response.headers["X-Deprecated-Route-Removal-Date"]
-        == LEGACY_COMPATIBILITY_REMOVAL_DATE_ISO
+        response.headers["X-Deprecated-Route-Removal-Date"] == LEGACY_COMPATIBILITY_REMOVAL_DATE_ISO
     )

@@ -3,8 +3,7 @@
 import json
 import sqlite3
 from pathlib import Path
-from typing import Optional, Dict
-from datetime import datetime
+from typing import Optional, Dict, Iterable
 
 
 class AnalyticsResultsLoader:
@@ -44,6 +43,33 @@ class AnalyticsResultsLoader:
             return data
 
         return None
+
+    def latest_computed_at(
+        self, *, result_types: Iterable[str], days_back: int = 365
+    ) -> Optional[str]:
+        """Return the most recent computed_at timestamp across result types.
+
+        Returned value is the raw SQLite value (typically a string).
+        """
+        result_types = list(result_types)
+        if not result_types:
+            return None
+
+        placeholders = ",".join(["?"] * len(result_types))
+        conn = sqlite3.connect(str(self.db_path))
+        cursor = conn.cursor()
+        cursor.execute(
+            f"""SELECT computed_at FROM analytics_results
+                WHERE days_back = ? AND result_type IN ({placeholders})
+                ORDER BY computed_at DESC
+                LIMIT 1""",
+            (days_back, *result_types),
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        return row[0]
 
     def result_exists(self, result_type: str, days_back: int = 365) -> bool:
         """Check if a result exists.

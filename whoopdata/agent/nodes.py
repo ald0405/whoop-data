@@ -1,9 +1,9 @@
 """Agent nodes for health data processing."""
 
-from langchain_core.messages import SystemMessage, AIMessage
+from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import ToolNode
-from .schemas import HealthAgentState, HealthContextSchema
+from .schemas import HealthAgentState
 from .tools import AVAILABLE_TOOLS
 from . import settings
 

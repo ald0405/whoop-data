@@ -44,12 +44,12 @@ async def get_daily_plan(db: Session = Depends(get_db)):
         return await GuidanceService(db).build_daily_plan()
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error generating daily plan: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error generating daily plan: {str(e)}")
 
 
-@legacy_insights_router.post("/scenarios/recovery", response_model=ScenarioResponse, deprecated=True)
+@legacy_insights_router.post(
+    "/scenarios/recovery", response_model=ScenarioResponse, deprecated=True
+)
 @insights_router.post("/scenarios/recovery", response_model=ScenarioResponse)
 async def predict_scenario(request: ScenarioRequest, db: Session = Depends(get_db)):
     """Predict recovery for a hypothetical scenario.
@@ -68,9 +68,7 @@ async def predict_scenario(request: ScenarioRequest, db: Session = Depends(get_d
     except ValueError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error predicting scenario: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error predicting scenario: {str(e)}")
 
 
 @legacy_insights_router.post("/scenarios/compare", response_model=CompareResponse, deprecated=True)
@@ -91,9 +89,7 @@ async def compare_scenarios(request: CompareRequest, db: Session = Depends(get_d
     except ValueError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error comparing scenarios: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error comparing scenarios: {str(e)}")
 
 
 @legacy_insights_router.get("/reports/weekly", deprecated=True)
@@ -114,6 +110,4 @@ async def get_weekly_coaching_report(
         return GuidanceService(db).get_weekly_coaching_report(weeks=weeks)
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error generating coaching report: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error generating coaching report: {str(e)}")

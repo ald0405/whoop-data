@@ -14,9 +14,13 @@ from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
-from whoopdata.agent.conversation_service import ConversationService, get_conversation_service
+from whoopdata.agent.conversation_service import (
+    ConversationService,
+    get_conversation_service,
+)
 from whoopdata.telegram_bot import (
     format_text_for_telegram_html,
+    format_text_for_telegram_plain,
     session_id_for_chat,
     thread_id_for_chat,
 )
@@ -26,6 +30,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_PROACTIVE_FORMAT = os.getenv("TELEGRAM_PROACTIVE_FORMAT", "plain").strip().lower()
 
 
 @dataclass
@@ -40,6 +45,7 @@ async def push_to_telegram(
     prompt: str,
     conversation_service: ConversationService | None = None,
     bot_token: str | None = None,
+    telegram_format: str | None = None,
 ) -> PushResult:
     """Send a proactive agent message to a Telegram chat.
 
@@ -71,27 +77,28 @@ async def push_to_telegram(
         surface="telegram",
     )
 
-    # Deliver the agent's response to Telegram
+    # Deliver the agent's response to Telegram.
     from telegram import Bot
     from telegram.constants import ParseMode
 
     bot = Bot(token=token)
-    formatted = format_text_for_telegram_html(response.assistant_message)
-    try:
+
+    raw_fmt = telegram_format or "plain"
+    fmt = raw_fmt.strip().lower()
+    if fmt == "html":
+        formatted = format_text_for_telegram_html(response.assistant_message)
         msg = await bot.send_message(
             chat_id=chat_id,
             text=formatted,
             parse_mode=ParseMode.HTML,
         )
-        telegram_message_id = msg.message_id
-    except Exception:
-        # Fall back to plain text if HTML formatting causes issues
-        logger.warning("HTML send failed, retrying as plain text")
+    else:
+        formatted = format_text_for_telegram_plain(response.assistant_message)
         msg = await bot.send_message(
             chat_id=chat_id,
-            text=response.assistant_message,
+            text=formatted,
         )
-        telegram_message_id = msg.message_id
+    telegram_message_id = msg.message_id
 
     logger.info(
         "Proactive push sent to chat_id=%s, message_id=%s",
@@ -100,6 +107,6 @@ async def push_to_telegram(
     )
 
     return PushResult(
-        assistant_message=response.assistant_message,
+        assistant_message=formatted,
         telegram_message_id=telegram_message_id,
     )
