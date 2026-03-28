@@ -17,32 +17,26 @@ async def example_direct_usage():
     print("=" * 70)
     print("EXAMPLE 1: Direct Tool Usage")
     print("=" * 70)
-    
+
     # Scenario: User doing resistance training
     print("\n📋 Scenario: User doing resistance/strength training")
     print("-" * 70)
-    
-    result = await get_protein_recommendation_tool(
-        activity_level="resistance/strength training"
-    )
+
+    result = await get_protein_recommendation_tool(activity_level="resistance/strength training")
     print(f"Recommendation: {result}")
-    
+
     # Scenario: User doing endurance training
     print("\n📋 Scenario: User doing endurance training")
     print("-" * 70)
-    
-    result = await get_protein_recommendation_tool(
-        activity_level="endurance training"
-    )
+
+    result = await get_protein_recommendation_tool(activity_level="endurance training")
     print(f"Recommendation: {result}")
-    
+
     # Scenario: Normal activity level
     print("\n📋 Scenario: User with normal activity level")
     print("-" * 70)
-    
-    result = await get_protein_recommendation_tool(
-        activity_level="normal"
-    )
+
+    result = await get_protein_recommendation_tool(activity_level="normal")
     print(f"Recommendation: {result}")
 
 
@@ -51,20 +45,18 @@ async def example_with_weight_context():
     print("\n\n" + "=" * 70)
     print("EXAMPLE 2: Understanding the Weight Data")
     print("=" * 70)
-    
+
     # First, let's see what weight data looks like
     print("\n📊 Fetching current weight data...")
     print("-" * 70)
-    
+
     weight_result = await get_weight_data_tool(latest=True)
     print(f"Latest weight data:\n{weight_result[:300]}...")
-    
+
     print("\n💪 Now calculating protein recommendation...")
     print("-" * 70)
-    
-    result = await get_protein_recommendation_tool(
-        activity_level="resistance/strength training"
-    )
+
+    result = await get_protein_recommendation_tool(activity_level="resistance/strength training")
     print(f"Recommendation: {result}")
 
 
@@ -73,11 +65,11 @@ async def example_error_handling():
     print("\n\n" + "=" * 70)
     print("EXAMPLE 3: Error Handling")
     print("=" * 70)
-    
+
     # Invalid activity level
     print("\n❌ Testing with invalid activity level...")
     print("-" * 70)
-    
+
     result = await get_protein_recommendation_tool(
         activity_level="yoga"  # Not a valid activity level
     )
@@ -89,7 +81,7 @@ def example_agent_integration():
     print("\n\n" + "=" * 70)
     print("EXAMPLE 4: Agent Integration Flow")
     print("=" * 70)
-    
+
     print("""
     User Query Examples:
     -------------------
@@ -126,7 +118,7 @@ async def main():
     await example_with_weight_context()
     await example_error_handling()
     example_agent_integration()
-    
+
     print("\n" + "=" * 70)
     print("✅ All examples complete!")
     print("=" * 70)

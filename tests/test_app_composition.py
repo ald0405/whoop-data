@@ -5,7 +5,6 @@ from pathlib import Path
 from main import app
 from whoopdata.api.app_factory import ROUTER_GROUPS, ROUTER_REGISTRATION_ORDER
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 

@@ -6,7 +6,6 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.openapi.utils import get_openapi
-from fastapi.routing import APIRoute
 from starlette.responses import PlainTextResponse
 
 from whoopdata.api.public_surface_contract import (
@@ -39,7 +38,7 @@ LEGACY_ROUTE_RESPONSE_HEADERS: dict[str, dict[str, Any]] = {
         "schema": {"type": "string"},
     },
     "Link": {
-        "description": f"Canonical replacement route advertised with rel=\"{SUCCESSOR_VERSION_REL}\".",
+        "description": f'Canonical replacement route advertised with rel="{SUCCESSOR_VERSION_REL}".',
         "schema": {"type": "string"},
     },
     "X-Canonical-Route": {

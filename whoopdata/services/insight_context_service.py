@@ -54,9 +54,7 @@ class InsightContextService:
 
         today_forecast = forecast.get("forecast", [])[:8]
         temps = [item["temperature"] for item in today_forecast if "temperature" in item]
-        forecast_summary = (
-            f"High {max(temps):.0f}°C, Low {min(temps):.0f}°C" if temps else None
-        )
+        forecast_summary = f"High {max(temps):.0f}°C, Low {min(temps):.0f}°C" if temps else None
 
         return {
             "current": {
@@ -172,9 +170,7 @@ class InsightContextService:
                 "max_score": 7,
                 "tide_height": round(spot["tide_height"], 2),
                 "temperature": (
-                    round(spot["temperature"], 1)
-                    if spot["temperature"] is not None
-                    else None
+                    round(spot["temperature"], 1) if spot["temperature"] is not None else None
                 ),
                 "conditions": spot["conditions"],
             }

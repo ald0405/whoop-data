@@ -10,7 +10,9 @@ data_router = APIRouter(prefix="/api/v1/data", tags=["data"])
 legacy_data_router = APIRouter(tags=["data"])
 
 
-@legacy_data_router.get("/sleep", response_model=Union[List[SleepSchema], SleepSchema], deprecated=True)
+@legacy_data_router.get(
+    "/sleep", response_model=Union[List[SleepSchema], SleepSchema], deprecated=True
+)
 @data_router.get("/sleep", response_model=Union[List[SleepSchema], SleepSchema])
 def get_sleep_data(
     latest: bool = Query(False, description="Get only the latest record"),

@@ -1,0 +1,273 @@
+"""Compute simple, user-facing actionability rules for improving recovery.
+
+This is intentionally heuristic and descriptive: it searches for interpretable
+threshold rules (e.g. bedtime before X, keep strain under Y) that correlate with
+better next-day recovery outcomes in the user's historical data.
+
+Outputs are designed to be persisted into analytics_results and served via API.
+"""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from typing import Any, Callable
+
+import pandas as pd
+from sqlalchemy.orm import Session
+
+from whoopdata.analytics.data_prep import get_recovery_modeling_dataset
+
+MINUTES_PER_DAY = 24 * 60
+
+
+@dataclass(frozen=True)
+class RuleSummary:
+    rule: str
+    recommendation: str
+    feature: str
+    threshold: float
+    direction: str  # "le" or "ge"
+    days_in_rule: int
+    days_outside_rule: int
+    avg_recovery_in_rule: float
+    avg_recovery_outside_rule: float
+    green_rate_in_rule: float
+    green_rate_outside_rule: float
+    recovery_delta: float
+    green_rate_delta: float
+
+
+def _format_clock_hours(hours: float) -> str:
+    # hours can exceed 24 when using "extended" bedtime.
+    hours = hours % 24
+    hh = int(hours)
+    mm = int(round((hours - hh) * 60))
+    if mm == 60:
+        hh = (hh + 1) % 24
+        mm = 0
+    return f"{hh:02d}:{mm:02d}"
+
+
+def _bedtime_hour_extended(series_sleep_start_clock_min: pd.Series) -> pd.Series:
+    # Shift post-midnight bedtimes into the following day to preserve ordering.
+    # Same logic as notebook: treat < 12:00 as after midnight.
+    raw = series_sleep_start_clock_min
+    extended_min = raw.where(raw >= 12 * 60, raw + 24 * 60)
+    return extended_min / 60.0
+
+
+def _summarize_rule(
+    df: pd.DataFrame,
+    *,
+    mask: pd.Series,
+    rule_name: str,
+    recommendation: str,
+    feature: str,
+    threshold: float,
+    direction: str,
+    min_group_size: int,
+) -> RuleSummary | None:
+    mask = mask.fillna(False)
+    in_group = df.loc[mask]
+    out_group = df.loc[~mask]
+
+    if len(in_group) < min_group_size or len(out_group) < min_group_size:
+        return None
+
+    avg_in = float(in_group["recovery_score"].mean())
+    avg_out = float(out_group["recovery_score"].mean())
+    green_in = float(in_group["green_flag"].mean())
+    green_out = float(out_group["green_flag"].mean())
+
+    return RuleSummary(
+        rule=rule_name,
+        recommendation=recommendation,
+        feature=feature,
+        threshold=float(threshold),
+        direction=direction,
+        days_in_rule=int(len(in_group)),
+        days_outside_rule=int(len(out_group)),
+        avg_recovery_in_rule=avg_in,
+        avg_recovery_outside_rule=avg_out,
+        green_rate_in_rule=green_in,
+        green_rate_outside_rule=green_out,
+        recovery_delta=float(avg_in - avg_out),
+        green_rate_delta=float(green_in - green_out),
+    )
+
+
+def _search_threshold_rules(
+    df: pd.DataFrame,
+    *,
+    feature: str,
+    thresholds: list[float],
+    direction: str,
+    label_fmt: Callable[[float], str],
+    recommendation_fmt: Callable[[float], str],
+    min_group_size: int,
+) -> list[RuleSummary]:
+    series = df[feature]
+    out: list[RuleSummary] = []
+
+    for threshold in thresholds:
+        if direction == "le":
+            mask = series <= threshold
+        elif direction == "ge":
+            mask = series >= threshold
+        else:
+            raise ValueError(direction)
+
+        summary = _summarize_rule(
+            df,
+            mask=mask,
+            rule_name=label_fmt(threshold),
+            recommendation=recommendation_fmt(threshold),
+            feature=feature,
+            threshold=threshold,
+            direction=direction,
+            min_group_size=min_group_size,
+        )
+        if summary is not None:
+            out.append(summary)
+
+    return out
+
+
+def compute_recovery_actionability(
+    db: Session,
+    *,
+    days_back: int = 365,
+    min_group_size: int = 25,
+) -> dict[str, Any]:
+    """Compute actionability rules for recovery.
+
+    Returns a JSON-serialisable dictionary.
+    """
+    df = get_recovery_modeling_dataset(db, days_back=days_back)
+
+    payload: dict[str, Any] = {
+        "version": 1,
+        "computed_at": datetime.utcnow().isoformat(),
+        "days_back": days_back,
+        "min_group_size": min_group_size,
+        "rules": [],
+        "best_thresholds": {},
+        "notes": [],
+    }
+
+    if df is None or len(df) == 0:
+        payload["notes"].append("No recovery modeling data available")
+        return payload
+
+    required_cols = {
+        "recovery_score",
+        "sleep_hours",
+        "strain_3d_sum",
+        "sleep_start_clock_min",
+        "consecutive_sleep_deficit_days",
+    }
+    missing = sorted(c for c in required_cols if c not in df.columns)
+    if missing:
+        payload["notes"].append(f"Missing required columns: {', '.join(missing)}")
+        return payload
+
+    action_df = df.copy().sort_values("created_at").reset_index(drop=True)
+    action_df["green_flag"] = (action_df["recovery_score"] >= 67).astype(int)
+    action_df["bedtime_hour_extended"] = _bedtime_hour_extended(action_df["sleep_start_clock_min"])
+
+    bedtime_thresholds = [22.0, 22.5, 23.0, 23.5, 24.0, 24.5]
+    sleep_thresholds = [6.5, 7.0, 7.5, 8.0, 8.5]
+    streak_thresholds = [1.0, 2.0, 3.0]
+
+    # Use quantiles from the user's data for strain 3d sum thresholds.
+    strain_series = action_df["strain_3d_sum"].dropna()
+    if len(strain_series) >= max(2 * min_group_size, 50):
+        strain_thresholds = sorted(
+            {round(float(x), 1) for x in strain_series.quantile([0.5, 0.65, 0.75, 0.85]).tolist()}
+        )
+    else:
+        strain_thresholds = []
+        payload["notes"].append(
+            "Insufficient strain history to search data-driven 3-day strain thresholds"
+        )
+
+    candidates: list[RuleSummary] = []
+    candidates.extend(
+        _search_threshold_rules(
+            action_df,
+            feature="bedtime_hour_extended",
+            thresholds=bedtime_thresholds,
+            direction="le",
+            label_fmt=lambda t: f"Bedtime at or before {_format_clock_hours(t)}",
+            recommendation_fmt=lambda t: f"Aim to be asleep by about {_format_clock_hours(t)} or earlier",
+            min_group_size=min_group_size,
+        )
+    )
+    candidates.extend(
+        _search_threshold_rules(
+            action_df,
+            feature="sleep_hours",
+            thresholds=sleep_thresholds,
+            direction="ge",
+            label_fmt=lambda t: f"Sleep at least {t:.1f}h",
+            recommendation_fmt=lambda t: f"Protect at least {t:.1f}h of sleep opportunity",
+            min_group_size=min_group_size,
+        )
+    )
+    candidates.extend(
+        _search_threshold_rules(
+            action_df,
+            feature="consecutive_sleep_deficit_days",
+            thresholds=streak_thresholds,
+            direction="le",
+            label_fmt=lambda t: f"No more than {int(t)} consecutive sleep-deficit night(s)",
+            recommendation_fmt=lambda t: f"Avoid letting sleep deficit extend beyond {int(t)} consecutive night(s)",
+            min_group_size=min_group_size,
+        )
+    )
+    if strain_thresholds:
+        candidates.extend(
+            _search_threshold_rules(
+                action_df,
+                feature="strain_3d_sum",
+                thresholds=strain_thresholds,
+                direction="le",
+                label_fmt=lambda t: f"Keep 3-day strain at or below {t:.1f}",
+                recommendation_fmt=lambda t: f"Keep recent 3-day cumulative strain around {t:.1f} or lower when possible",
+                min_group_size=min_group_size,
+            )
+        )
+
+    if not candidates:
+        payload["notes"].append("No candidate rules met minimum sample size requirements")
+        return payload
+
+    # Score heuristic (same spirit as notebook): prioritize green-rate lift, then recovery lift.
+    def score(rule: RuleSummary) -> float:
+        return rule.green_rate_delta * 100.0 + rule.recovery_delta
+
+    # Best per feature.
+    by_feature: dict[str, RuleSummary] = {}
+    for rule in sorted(candidates, key=score, reverse=True):
+        by_feature.setdefault(rule.feature, rule)
+
+    best_rules = list(by_feature.values())
+    best_rules = sorted(best_rules, key=score, reverse=True)
+
+    payload["rules"] = [asdict(r) for r in best_rules]
+
+    # Extract compact thresholds we expect to surface in product surfaces.
+    best_thresholds: dict[str, Any] = {}
+    if "strain_3d_sum" in by_feature:
+        best_thresholds["strain_3d_sum_max"] = by_feature["strain_3d_sum"].threshold
+    if "bedtime_hour_extended" in by_feature:
+        best_thresholds["bedtime_before"] = _format_clock_hours(
+            by_feature["bedtime_hour_extended"].threshold
+        )
+        best_thresholds["bedtime_before_hour_extended"] = by_feature[
+            "bedtime_hour_extended"
+        ].threshold
+    payload["best_thresholds"] = best_thresholds
+
+    return payload

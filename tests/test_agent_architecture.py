@@ -12,20 +12,22 @@ from langchain_core.tools import BaseTool
 from langchain_core.messages import AIMessage
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Registry tests
 # ---------------------------------------------------------------------------
+
 
 class TestAgentRegistry:
     """Verify registry entries are well-formed."""
 
     def test_registry_has_entries(self):
         from whoopdata.agent.registry import AGENT_REGISTRY
+
         assert len(AGENT_REGISTRY) >= 5
 
     def test_required_keys_present(self):
         from whoopdata.agent.registry import AGENT_REGISTRY
+
         required_keys = {"name", "description", "system_prompt", "tools"}
         for agent_name, config in AGENT_REGISTRY.items():
             missing = required_keys - set(config.keys())
@@ -33,21 +35,27 @@ class TestAgentRegistry:
 
     def test_name_matches_key(self):
         from whoopdata.agent.registry import AGENT_REGISTRY
+
         for key, config in AGENT_REGISTRY.items():
             assert config["name"] == key, f"Registry key '{key}' != name '{config['name']}'"
 
     def test_descriptions_are_non_empty(self):
         from whoopdata.agent.registry import AGENT_REGISTRY
+
         for agent_name, config in AGENT_REGISTRY.items():
             assert len(config["description"]) > 20, f"{agent_name} description too short"
 
     def test_system_prompts_are_non_empty(self):
         from whoopdata.agent.registry import AGENT_REGISTRY
+
         for agent_name, config in AGENT_REGISTRY.items():
-            assert len(config["system_prompt"]) > 10, f"{agent_name} system_prompt is empty or too short"
+            assert (
+                len(config["system_prompt"]) > 10
+            ), f"{agent_name} system_prompt is empty or too short"
 
     def test_tool_lists_are_non_empty(self):
         from whoopdata.agent.registry import AGENT_REGISTRY
+
         for agent_name, config in AGENT_REGISTRY.items():
             assert len(config["tools"]) >= 1, f"{agent_name} has no tools"
 
@@ -68,6 +76,7 @@ class TestAgentRegistry:
 # Tool grouping tests
 # ---------------------------------------------------------------------------
 
+
 class TestToolGrouping:
     """Verify tool assignment across specialists."""
 
@@ -83,9 +92,7 @@ class TestToolGrouping:
                 continue
             for tool_name in AGENT_REGISTRY[name]["tools"]:
                 if tool_name in seen:
-                    pytest.fail(
-                        f"Tool '{tool_name}' in both '{seen[tool_name]}' and '{name}'"
-                    )
+                    pytest.fail(f"Tool '{tool_name}' in both '{seen[tool_name]}' and '{name}'")
                 seen[tool_name] = name
 
     def test_all_api_tools_assigned(self):
@@ -101,34 +108,40 @@ class TestToolGrouping:
         for tool in AVAILABLE_TOOLS:
             name = getattr(tool, "name", None)
             if name and name != "python_interpreter":
-                assert name in registry_tools, (
-                    f"Tool '{name}' not assigned to any specialist"
-                )
+                assert name in registry_tools, f"Tool '{name}' not assigned to any specialist"
 
 
 # ---------------------------------------------------------------------------
 # Tools lookup tests
 # ---------------------------------------------------------------------------
 
+
 class TestToolsLookup:
     """Verify TOOLS_BY_NAME mapping."""
 
     def test_tools_by_name_populated(self):
         from whoopdata.agent.tools import TOOLS_BY_NAME
+
         assert len(TOOLS_BY_NAME) > 0
 
     def test_tools_by_name_matches_available_tools(self):
         from whoopdata.agent.tools import TOOLS_BY_NAME, AVAILABLE_TOOLS
-        assert len(TOOLS_BY_NAME) == len(AVAILABLE_TOOLS)
+
+        available_names = {
+            getattr(tool, "name", None) for tool in AVAILABLE_TOOLS if getattr(tool, "name", None)
+        }
+        assert available_names.issubset(set(TOOLS_BY_NAME.keys()))
 
     def test_python_repl_in_tools_by_name(self):
         from whoopdata.agent.tools import TOOLS_BY_NAME
+
         assert "python_interpreter" in TOOLS_BY_NAME
 
 
 # ---------------------------------------------------------------------------
 # Specialist factory tests
 # ---------------------------------------------------------------------------
+
 
 class TestSpecialistFactory:
     """Test build_specialist_tools with mocked create_agent."""
@@ -191,6 +204,7 @@ class TestSpecialistFactory:
 # Extract final response tests
 # ---------------------------------------------------------------------------
 
+
 class TestExtractFinalResponse:
     """Test _extract_final_response helper."""
 
@@ -199,7 +213,9 @@ class TestExtractFinalResponse:
 
         result = {
             "messages": [
-                AIMessage(content="thinking...", tool_calls=[{"name": "foo", "args": {}, "id": "1"}]),
+                AIMessage(
+                    content="thinking...", tool_calls=[{"name": "foo", "args": {}, "id": "1"}]
+                ),
                 AIMessage(content="Here is the answer."),
             ]
         }
@@ -216,34 +232,46 @@ class TestExtractFinalResponse:
 # Prompt tests
 # ---------------------------------------------------------------------------
 
+
 class TestPrompts:
     """Verify prompts exist and are well-formed."""
 
     def test_supervisor_prompt_exists(self):
         from whoopdata.agent.prompts import SUPERVISOR_SYSTEM_PROMPT
+
         assert len(SUPERVISOR_SYSTEM_PROMPT) > 100
 
     def test_supervisor_prompt_mentions_specialists(self):
         from whoopdata.agent.prompts import SUPERVISOR_SYSTEM_PROMPT
+
         assert "health data" in SUPERVISOR_SYSTEM_PROMPT.lower()
         assert "analytics" in SUPERVISOR_SYSTEM_PROMPT.lower()
         assert "environment" in SUPERVISOR_SYSTEM_PROMPT.lower()
 
     def test_supervisor_prompt_includes_day_of_briefing_instruction(self):
         from whoopdata.agent.prompts import SUPERVISOR_SYSTEM_PROMPT
+
         prompt = SUPERVISOR_SYSTEM_PROMPT.lower()
         assert "set me up for today" in prompt
         assert "recovery score" in prompt
         assert "weather" in prompt
 
     def test_exercise_prompt_file_exists(self):
-        path = Path(__file__).parent.parent / "data" / "prompts" / "agents" / "exercise_sub_agent.md"
+        path = (
+            Path(__file__).parent.parent / "data" / "prompts" / "agents" / "exercise_sub_agent.md"
+        )
         assert path.exists(), f"Exercise prompt not found at {path}"
         content = path.read_text()
         assert len(content) > 100
 
     def test_behaviour_change_prompt_file_exists(self):
-        path = Path(__file__).parent.parent / "data" / "prompts" / "agents" / "behaviour_change_sub_agent.md"
+        path = (
+            Path(__file__).parent.parent
+            / "data"
+            / "prompts"
+            / "agents"
+            / "behaviour_change_sub_agent.md"
+        )
         assert path.exists(), f"Behaviour change prompt not found at {path}"
         content = path.read_text()
         assert len(content) > 100
@@ -252,6 +280,7 @@ class TestPrompts:
 # ---------------------------------------------------------------------------
 # Graph build tests
 # ---------------------------------------------------------------------------
+
 
 class TestGraphBuild:
     """Test that graph builds and compiles without errors."""
@@ -293,15 +322,15 @@ class TestGraphBuild:
             # Positional args
             tools = call_kwargs[0][1] if len(call_kwargs[0]) > 1 else []
 
-        # Should have N specialist tools + python_repl + protein recommendation tool
-        expected_count = len(AGENT_REGISTRY) + 2
-        assert len(tools) == expected_count, (
-            f"Expected {expected_count} tools, got {len(tools)}"
-        )
+        # Should have N specialist tools + direct supervisor tools:
+        # python_repl + protein recommendation + search_memory + manage_memory
+        expected_count = len(AGENT_REGISTRY) + 4
+        assert len(tools) == expected_count, f"Expected {expected_count} tools, got {len(tools)}"
 
     def test_build_graph_has_single_langgraph_config_parameter(self):
 
         from whoopdata.agent.graph import build_graph
+
         parameters = list(inspect.signature(build_graph).parameters.values())
         assert len(parameters) == 1
         assert parameters[0].name == "config"

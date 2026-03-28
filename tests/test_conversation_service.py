@@ -12,9 +12,7 @@ def test_build_human_message_text_only():
 
 
 def test_build_human_message_with_image():
-    msg = ConversationService._build_human_message(
-        "What is this?", image_b64="abc123"
-    )
+    msg = ConversationService._build_human_message("What is this?", image_b64="abc123")
     assert isinstance(msg, HumanMessage)
     assert isinstance(msg.content, list)
     assert len(msg.content) == 2

@@ -17,13 +17,8 @@ os.chdir(PROJECT_ROOT)
 
 load_dotenv()
 
-TELEGRAM_CHAT_ID = (
-    os.getenv("TELEGRAM_ALLOWED_CHAT_IDS", "").split(",")[0].strip()
-)
-DEFAULT_WEAKNESS_FILE = (
-    os.getenv("WEAKNESS_REMINDER_FILE", "weakness.md").strip()
-    or "weakness.md"
-)
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_ALLOWED_CHAT_IDS", "").split(",")[0].strip()
+DEFAULT_WEAKNESS_FILE = os.getenv("WEAKNESS_REMINDER_FILE", "weakness.md").strip() or "weakness.md"
 
 
 async def send_preview(
@@ -47,9 +42,7 @@ async def send_preview(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Push a weakness reminder preview to Telegram"
-    )
+    parser = argparse.ArgumentParser(description="Push a weakness reminder preview to Telegram")
     parser.add_argument(
         "--chat-id",
         default=TELEGRAM_CHAT_ID,
@@ -79,8 +72,7 @@ def main() -> None:
 
     if not args.chat_id:
         raise RuntimeError(
-            "No chat ID — set TELEGRAM_ALLOWED_CHAT_IDS in .env "
-            "or pass --chat-id"
+            "No chat ID — set TELEGRAM_ALLOWED_CHAT_IDS in .env " "or pass --chat-id"
         )
 
     chat_id = int(args.chat_id)

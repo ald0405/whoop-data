@@ -197,7 +197,9 @@ class ProactiveCoachPlanner:
             chat_id=chat_id,
             since=now - timedelta(hours=self.config.global_cooldown_hours),
         ):
-            return ProactiveDecision.skip(mode=mode, reason="Recent proactive message still cooling down")
+            return ProactiveDecision.skip(
+                mode=mode, reason="Recent proactive message still cooling down"
+            )
 
         for builder in (
             self._build_hidden_load_decision,
@@ -257,6 +259,24 @@ class ProactiveCoachPlanner:
             "generated_at": now.isoformat(),
             "mode": mode,
         }
+
+        # Add persisted actionability thresholds when available so the message can
+        # say "keep strain under X and bedtime before Y".
+        try:
+            from whoopdata.analytics.results_loader import results_loader
+
+            actionability = results_loader.load_result("recovery_actionability", days_back=365)
+            if actionability and isinstance(actionability, dict):
+                best = actionability.get("best_thresholds") or {}
+                strain_max = best.get("strain_3d_sum_max")
+                bedtime_before = best.get("bedtime_before")
+                if strain_max is not None or bedtime_before:
+                    evidence["recovery_actionability"] = {
+                        "strain_3d_sum_max": strain_max,
+                        "bedtime_before": bedtime_before,
+                    }
+        except Exception:
+            pass
         return ProactiveDecision(
             should_send=True,
             mode=mode,
@@ -283,7 +303,9 @@ class ProactiveCoachPlanner:
         now: datetime,
         mode: str,
     ) -> ProactiveDecision | None:
-        latest_cycle = self.db.query(Cycle).order_by(Cycle.start.desc(), Cycle.created_at.desc()).first()
+        latest_cycle = (
+            self.db.query(Cycle).order_by(Cycle.start.desc(), Cycle.created_at.desc()).first()
+        )
         if latest_cycle is None or latest_cycle.strain is None:
             return None
         if latest_cycle.strain <= self.config.hidden_load_strain_threshold:
@@ -385,12 +407,11 @@ class ProactiveCoachPlanner:
             return None
 
         escalating = bool(
-            latest_event and latest_event.sent_at <= now - timedelta(days=self.config.escalation_delay_days)
+            latest_event
+            and latest_event.sent_at <= now - timedelta(days=self.config.escalation_delay_days)
         )
         intent = (
-            ProactiveIntent.BARRIER_RESOLUTION
-            if escalating
-            else ProactiveIntent.ACTIVITY_ADHERENCE
+            ProactiveIntent.BARRIER_RESOLUTION if escalating else ProactiveIntent.ACTIVITY_ADHERENCE
         )
         reason = (
             "Running gap persists after an earlier reminder"
@@ -449,7 +470,8 @@ class ProactiveCoachPlanner:
             return None
 
         escalating = bool(
-            latest_event and latest_event.sent_at <= now - timedelta(days=self.config.escalation_delay_days)
+            latest_event
+            and latest_event.sent_at <= now - timedelta(days=self.config.escalation_delay_days)
         )
         intent = (
             ProactiveIntent.BARRIER_RESOLUTION

@@ -8,9 +8,7 @@ Uses mock data (no live DB required) to verify:
 - Lifecycle segment detection
 """
 
-import pytest
 from datetime import datetime
-from unittest.mock import MagicMock, patch
 
 from whoopdata.schemas.daily import (
     RecoveryStatus,
@@ -20,9 +18,7 @@ from whoopdata.schemas.daily import (
     DailyPlanResponse,
     ScenarioInput,
     ScenarioResult,
-    ScenarioResponse,
     CompareRequest,
-    CompareResponse,
 )
 from whoopdata.services.personas import (
     get_persona,
@@ -32,7 +28,6 @@ from whoopdata.services.personas import (
     PERSONAS,
     DEFAULT_PERSONA,
 )
-
 
 # ---------------------------------------------------------------------------
 # Schema tests
@@ -84,9 +79,7 @@ class TestDailySchemas:
 
     def test_daily_plan_response(self):
         plan = DailyPlanResponse(
-            recovery_status=RecoveryStatus(
-                score=60.0, category="yellow", key_driver="HRV"
-            ),
+            recovery_status=RecoveryStatus(score=60.0, category="yellow", key_driver="HRV"),
             actions=[
                 DailyAction(
                     action="Moderate training",
@@ -95,9 +88,7 @@ class TestDailySchemas:
                     priority=1,
                 )
             ],
-            sleep_target=SleepTarget(
-                target_hours=7.5, reasoning="Based on your patterns."
-            ),
+            sleep_target=SleepTarget(target_hours=7.5, reasoning="Based on your patterns."),
             context=ContextSummary(),
             generated_at=datetime.utcnow(),
         )
@@ -193,9 +184,7 @@ class TestActionGeneration:
         # the static-like methods by calling them on an instance with mocked db
         engine = DailyEngine.__new__(DailyEngine)
 
-        recovery = RecoveryStatus(
-            score=80.0, category="green", key_driver="Sleep"
-        )
+        recovery = RecoveryStatus(score=80.0, category="green", key_driver="Sleep")
         action = engine._training_action(recovery, {}, 1)
         assert action is not None
         assert action.category == "training"
@@ -206,9 +195,7 @@ class TestActionGeneration:
 
         engine = DailyEngine.__new__(DailyEngine)
 
-        recovery = RecoveryStatus(
-            score=20.0, category="red", key_driver="HRV"
-        )
+        recovery = RecoveryStatus(score=20.0, category="red", key_driver="HRV")
         action = engine._training_action(recovery, {}, 1)
         assert action is not None
         assert action.category == "recovery"
@@ -219,9 +206,7 @@ class TestActionGeneration:
 
         engine = DailyEngine.__new__(DailyEngine)
 
-        recovery = RecoveryStatus(
-            score=70.0, category="green", hrv=80.0, key_driver="HRV"
-        )
+        recovery = RecoveryStatus(score=70.0, category="green", hrv=80.0, key_driver="HRV")
         baselines = {"hrv_7d": 60.0}  # 33% above average
         action = engine._hrv_action(recovery, baselines, 1)
         assert action is not None
@@ -232,9 +217,7 @@ class TestActionGeneration:
 
         engine = DailyEngine.__new__(DailyEngine)
 
-        recovery = RecoveryStatus(
-            score=45.0, category="yellow", hrv=40.0, key_driver="HRV"
-        )
+        recovery = RecoveryStatus(score=45.0, category="yellow", hrv=40.0, key_driver="HRV")
         baselines = {"hrv_7d": 60.0}  # 33% below average
         action = engine._hrv_action(recovery, baselines, 1)
         assert action is not None
@@ -245,9 +228,7 @@ class TestActionGeneration:
 
         engine = DailyEngine.__new__(DailyEngine)
 
-        recovery = RecoveryStatus(
-            score=50.0, category="yellow", key_driver="Sleep"
-        )
+        recovery = RecoveryStatus(score=50.0, category="yellow", key_driver="Sleep")
         baselines = {"sleep_hours_7d": 6.5}
         sleep_patterns = {"optimal_sleep_hours": 8.0}
         action = engine._sleep_action(recovery, baselines, sleep_patterns, 1)
@@ -259,9 +240,7 @@ class TestActionGeneration:
 
         engine = DailyEngine.__new__(DailyEngine)
 
-        recovery = RecoveryStatus(
-            score=80.0, category="green", key_driver="Sleep"
-        )
+        recovery = RecoveryStatus(score=80.0, category="green", key_driver="Sleep")
         weather = {
             "current": {"conditions": "clear", "temp": 18},
             "air_quality": {"aqi": 5, "description": "Very Poor"},

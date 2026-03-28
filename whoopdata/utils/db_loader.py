@@ -76,10 +76,7 @@ class DBLoader:
         if data.get("user_id") and data.get("start"):
             existing = (
                 self.db.query(Cycle)
-                .filter(
-                    Cycle.user_id == data.get("user_id"),
-                    Cycle.start == data.get("start")
-                )
+                .filter(Cycle.user_id == data.get("user_id"), Cycle.start == data.get("start"))
                 .first()
             )
 
@@ -114,9 +111,7 @@ class DBLoader:
         existing = None
         if data.get("whoop_id"):
             existing = (
-                self.db.query(Workout)
-                .filter(Workout.whoop_id == data.get("whoop_id"))
-                .first()
+                self.db.query(Workout).filter(Workout.whoop_id == data.get("whoop_id")).first()
             )
 
         if existing:
@@ -149,11 +144,7 @@ class DBLoader:
         # Check if record already exists (avoid duplicates) using whoop_id
         existing = None
         if data.get("whoop_id"):
-            existing = (
-                self.db.query(Sleep)
-                .filter(Sleep.whoop_id == data.get("whoop_id"))
-                .first()
-            )
+            existing = self.db.query(Sleep).filter(Sleep.whoop_id == data.get("whoop_id")).first()
 
         if existing:
             # Update existing record

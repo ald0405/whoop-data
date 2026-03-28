@@ -1,5 +1,4 @@
 from whoop_client import Whoop
-import pandas as pd
 import os
 from dotenv import load_dotenv
 
@@ -66,10 +65,8 @@ stg_sleep.info()
 # group_b = df[df["is_pre_eleven"] == False]["score.recovery_score"]
 
 
-import seaborn as sns
 
 from stats_utils import IndependentGroupsAnalysis
-
 
 analyser = IndependentGroupsAnalysis()
 
@@ -99,7 +96,6 @@ api_key = os.getenv("OPENAI_API_KEY")
 
 client = OpenAI(api_key=api_key)
 
-import json
 
 results_to_pass = analyser.results()
 analyser.results_mu()

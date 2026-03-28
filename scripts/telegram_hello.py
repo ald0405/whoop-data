@@ -43,7 +43,9 @@ async def push_via_api(chat_id: int, prompt: str) -> None:
         )
         resp.raise_for_status()
         data = resp.json()
-    print(f"\u2705 Pushed via API to chat_id={chat_id}, message_id={data.get('telegram_message_id')}")
+    print(
+        f"\u2705 Pushed via API to chat_id={chat_id}, message_id={data.get('telegram_message_id')}"
+    )
     print(f"Agent said: {data['assistant_message'][:200]}")
 
 

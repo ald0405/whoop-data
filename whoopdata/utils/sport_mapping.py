@@ -102,13 +102,13 @@ SPORT_ID_MAP = {
 
 def get_sport_name(sport_id: int) -> str:
     """Get human-readable sport name from WHOOP sport ID.
-    
+
     Args:
         sport_id: Integer sport ID from WHOOP API
-        
+
     Returns:
         Human-readable sport name, or "Unknown Sport ({sport_id})" if not found
-        
+
     Examples:
         >>> get_sport_name(0)
         'Running'
@@ -124,13 +124,13 @@ def get_sport_name(sport_id: int) -> str:
 
 def get_sport_id(sport_name: str) -> int | None:
     """Get WHOOP sport ID from sport name (case-insensitive).
-    
+
     Args:
         sport_name: Human-readable sport name
-        
+
     Returns:
         Integer sport ID, or None if not found
-        
+
     Examples:
         >>> get_sport_id("Running")
         0
@@ -146,7 +146,7 @@ def get_sport_id(sport_name: str) -> int | None:
 
 def get_all_sports() -> dict[int, str]:
     """Get complete mapping of all sport IDs to names.
-    
+
     Returns:
         Dictionary mapping sport IDs to sport names
     """
@@ -155,23 +155,37 @@ def get_all_sports() -> dict[int, str]:
 
 def is_cardio_sport(sport_id: int) -> bool:
     """Check if a sport is primarily cardio-based.
-    
+
     Args:
         sport_id: Integer sport ID from WHOOP API
-        
+
     Returns:
         True if sport is cardio-focused, False otherwise
     """
-    cardio_sports = {0, 1, 18, 29, 30, 33, 47, 52, 57, 63, 62, 49, 94}  # Running, Cycling, Rowing, etc.
+    cardio_sports = {
+        0,
+        1,
+        18,
+        29,
+        30,
+        33,
+        47,
+        52,
+        57,
+        63,
+        62,
+        49,
+        94,
+    }  # Running, Cycling, Rowing, etc.
     return sport_id in cardio_sports
 
 
 def is_strength_sport(sport_id: int) -> bool:
     """Check if a sport is primarily strength-based.
-    
+
     Args:
         sport_id: Integer sport ID from WHOOP API
-        
+
     Returns:
         True if sport is strength-focused, False otherwise
     """
@@ -181,36 +195,36 @@ def is_strength_sport(sport_id: int) -> bool:
 
 def get_sport_category(sport_id: int) -> str:
     """Get general category for a sport.
-    
+
     Args:
         sport_id: Integer sport ID from WHOOP API
-        
+
     Returns:
-        Category name: "Cardio", "Strength", "Team Sport", "Racquet Sport", 
+        Category name: "Cardio", "Strength", "Team Sport", "Racquet Sport",
         "Mind-Body", "Recovery", or "Other"
     """
     if sport_id is None:
         return "Unknown"
-        
+
     if is_cardio_sport(sport_id):
         return "Cardio"
     if is_strength_sport(sport_id):
         return "Strength"
-    
+
     # Team sports
     if sport_id in {17, 21, 23, 25, 27, 30, 31, 36, 37, 85, 100, 111, 112}:
         return "Team Sport"
-    
+
     # Racquet sports
     if sport_id in {32, 34, 101, 106}:
         return "Racquet Sport"
-    
+
     # Mind-body
     if sport_id in {43, 44, 70, 230, 231}:
         return "Mind-Body"
-    
+
     # Recovery activities
     if sport_id in {88, 125, 233}:
         return "Recovery"
-    
+
     return "Other"

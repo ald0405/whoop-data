@@ -170,3 +170,35 @@ class CorrelationMatrixResponse(BaseModel):
 
     features: List[str]
     matrix: List[List[float]]
+
+
+# =================== Recovery Actionability Schemas ===================
+
+
+class RecoveryActionabilityRule(BaseModel):
+    rule: str
+    recommendation: str
+    feature: str
+    threshold: float
+    direction: str
+
+    days_in_rule: int
+    days_outside_rule: int
+
+    avg_recovery_in_rule: float
+    avg_recovery_outside_rule: float
+    green_rate_in_rule: float
+    green_rate_outside_rule: float
+
+    recovery_delta: float
+    green_rate_delta: float
+
+
+class RecoveryActionabilityResponse(BaseModel):
+    version: int
+    computed_at: datetime
+    days_back: int
+    min_group_size: int
+    rules: List[RecoveryActionabilityRule]
+    best_thresholds: Dict[str, float | str]
+    notes: List[str]

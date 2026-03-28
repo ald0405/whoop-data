@@ -13,7 +13,6 @@ from whoopdata.analysis.whoop_simple import WhoopSimple
 from whoopdata.clients.whoop_client import Whoop as LegacyWhoop
 from whoopdata.model_transformation import transform_sleep, transform_workout
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 

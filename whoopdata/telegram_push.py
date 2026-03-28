@@ -30,9 +30,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_PROACTIVE_FORMAT = (
-    os.getenv("TELEGRAM_PROACTIVE_FORMAT", "plain").strip().lower()
-)
+TELEGRAM_PROACTIVE_FORMAT = os.getenv("TELEGRAM_PROACTIVE_FORMAT", "plain").strip().lower()
 
 
 @dataclass
@@ -85,7 +83,7 @@ async def push_to_telegram(
 
     bot = Bot(token=token)
 
-    raw_fmt = telegram_format or TELEGRAM_PROACTIVE_FORMAT or "plain"
+    raw_fmt = telegram_format or "plain"
     fmt = raw_fmt.strip().lower()
     if fmt == "html":
         formatted = format_text_for_telegram_html(response.assistant_message)

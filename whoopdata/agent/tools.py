@@ -4,8 +4,8 @@ import httpx
 import json
 from langchain_core.tools import tool
 from langchain_experimental.tools import PythonREPLTool
-from langchain_experimental.utilities import PythonREPL
 from . import settings
+from .memory_tools import search_memory
 
 
 # WHOOP Recovery Tools
@@ -389,7 +389,7 @@ async def get_protein_recommendation_tool(activity_level: str) -> str:
 
     Example:
         - get_protein_recommendation_tool(activity_level="endurance training")
-          Returns: "Based on your current weight of 70.0kg and 'endurance training' 
+          Returns: "Based on your current weight of 70.0kg and 'endurance training'
                     activity level, aim for 84g - 98g protein per day"
     """
     # Activity level to protein multiplier mapping (g/kg bodyweight)
@@ -402,13 +402,13 @@ async def get_protein_recommendation_tool(activity_level: str) -> str:
     try:
         # Get latest weight data using ainvoke
         weight_data = await get_weight_data_tool.ainvoke({"latest": True})
-        
+
         if "Error" in weight_data:
             return weight_data
-        
+
         # Parse weight data
         data = json.loads(weight_data)
-        
+
         # Handle different response formats
         if isinstance(data, dict) and "weight_kg" in data:
             # Single record response (when latest=true)
@@ -425,30 +425,27 @@ async def get_protein_recommendation_tool(activity_level: str) -> str:
                 return "Need more info: No weight data available. Please log your weight first."
         else:
             return "Error: Unexpected weight data format"
-        
+
         if not patient_current_weight or patient_current_weight is None:
             return "Need more info: No weight data available. Please log your weight first."
-        
+
         protein_range = _activity_level_map.get(activity_level.lower())
-        
+
         if protein_range is None:
             valid_levels = ", ".join(f"'{k}'" for k in _activity_level_map.keys())
-            return (
-                f"Need more info: Invalid activity level. "
-                f"Please choose from: {valid_levels}"
-            )
-        
+            return f"Need more info: Invalid activity level. " f"Please choose from: {valid_levels}"
+
         weight_kg: float = float(patient_current_weight)
-        
+
         protein_min = round(weight_kg * protein_range[0])
         protein_max = round(weight_kg * protein_range[1])
-        
+
         # Return recommendation with context
         return (
             f"Based on your current weight of {weight_kg:.1f}kg and '{activity_level}' activity level, "
             f"aim for {protein_min}g - {protein_max}g protein per day"
         )
-        
+
     except (TypeError, ValueError) as e:
         return f"Error calculating protein recommendation: {str(e)}"
     except Exception as e:
@@ -1028,7 +1025,9 @@ async def get_perfect_walk_times_tool(days: int = 3) -> str:
                 data = response.json()
                 return json.dumps(data, indent=2)
             else:
-                return f"Error retrieving walk hotspots: HTTP {response.status_code} - {response.text}"
+                return (
+                    f"Error retrieving walk hotspots: HTTP {response.status_code} - {response.text}"
+                )
 
     except Exception as e:
         return f"Error retrieving walk hotspots: {str(e)}"
@@ -1037,16 +1036,14 @@ async def get_perfect_walk_times_tool(days: int = 3) -> str:
 # Configure matplotlib globally before creating the tool
 import matplotlib
 import base64
-import os
 import glob
-from pathlib import Path
 
 matplotlib.use("Agg", force=True)
 
 
 class PythonREPLWithImages(PythonREPLTool):
     """Enhanced Python REPL that captures generated plot images."""
-    
+
     name: str = "python_interpreter"
     description: str = """Execute Python code to perform data analysis, create visualizations, and statistical computations.
     
@@ -1093,43 +1090,38 @@ class PythonREPLWithImages(PythonREPLTool):
     print('Plot saved as sin_plot.png')
     ```
     """
-    
+
     def _run(self, query: str) -> str:
         """Execute code and capture any generated images."""
         # Get list of existing image files before execution
         before_files = set(glob.glob("*.png") + glob.glob("*.jpg") + glob.glob("*.jpeg"))
-        
+
         # Execute the code using parent class
         result = super()._run(query)
-        
+
         # Get list of image files after execution
         after_files = set(glob.glob("*.png") + glob.glob("*.jpg") + glob.glob("*.jpeg"))
-        
+
         # Find new images
         new_images = after_files - before_files
-        
+
         if new_images:
             # Encode images as base64 and append to result
             image_data = []
             for image_path in sorted(new_images):
                 try:
                     with open(image_path, "rb") as img_file:
-                        encoded = base64.b64encode(img_file.read()).decode('utf-8')
-                        image_data.append({
-                            "filename": image_path,
-                            "data": encoded
-                        })
+                        encoded = base64.b64encode(img_file.read()).decode("utf-8")
+                        image_data.append({"filename": image_path, "data": encoded})
                 except Exception as e:
                     print(f"Error encoding {image_path}: {e}")
-            
+
             if image_data:
                 # Return result with embedded image data in JSON format
                 import json
-                return json.dumps({
-                    "output": result,
-                    "images": image_data
-                })
-        
+
+                return json.dumps({"output": result, "images": image_data})
+
         # No images generated, return normal result
         return result
 
@@ -1189,3 +1181,4 @@ AVAILABLE_TOOLS = [
 
 # Populate name-based lookup
 TOOLS_BY_NAME = _build_tools_by_name(AVAILABLE_TOOLS)
+TOOLS_BY_NAME["search_memory"] = search_memory

@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Literal
 
-
 CanonicalSurface = Literal["data", "insights", "agent", "web"]
 RouteKind = Literal["api", "page"]
 RouteRole = Literal[

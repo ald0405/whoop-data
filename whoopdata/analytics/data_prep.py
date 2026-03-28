@@ -11,7 +11,7 @@ from sklearn.impute import SimpleImputer
 from typing import Tuple, Optional
 from datetime import datetime, timedelta
 
-from whoopdata.models.models import Recovery, Sleep, Workout, Cycle, WithingsWeight
+from whoopdata.models.models import Recovery, Sleep, Workout, Cycle
 
 MINUTES_PER_DAY = 24 * 60
 
@@ -86,8 +86,8 @@ def _add_shared_recovery_modeling_features(df: pd.DataFrame) -> pd.DataFrame:
             modeled[f"{base_name}_delta_{window}d_avg_min"] = _circular_minute_delta(
                 modeled[source_col], baseline
             )
-            modeled[f"abs_{base_name}_delta_{window}d_avg_min"] = (
-                _circular_distance_minutes(modeled[source_col], baseline)
+            modeled[f"abs_{base_name}_delta_{window}d_avg_min"] = _circular_distance_minutes(
+                modeled[source_col], baseline
             )
             modeled[f"{base_name}_variability_{window}d_min"] = _circular_rolling_std(
                 modeled[source_col], window
@@ -142,34 +142,20 @@ def _add_shared_recovery_modeling_features(df: pd.DataFrame) -> pd.DataFrame:
     modeled["awake_fraction_of_time_in_bed"] = _safe_divide(
         modeled["awake_time_hours"], modeled["time_in_bed_hours"]
     )
-    modeled["late_bedtime_after_23"] = (
-        modeled["sleep_start_clock_min"] >= 23 * 60
-    ).astype(int)
-    modeled["late_bedtime_after_midnight"] = (
-        modeled["sleep_start_clock_min"] < 5 * 60
-    ).astype(int)
-    modeled["bedtime_shift_gt_60m_7d"] = (
-        modeled["abs_bedtime_delta_7d_avg_min"] > 60
-    ).astype(int)
-    modeled["wake_shift_gt_60m_7d"] = (
-        modeled["abs_wake_time_delta_7d_avg_min"] > 60
-    ).astype(int)
+    modeled["late_bedtime_after_23"] = (modeled["sleep_start_clock_min"] >= 23 * 60).astype(int)
+    modeled["late_bedtime_after_midnight"] = (modeled["sleep_start_clock_min"] < 5 * 60).astype(int)
+    modeled["bedtime_shift_gt_60m_7d"] = (modeled["abs_bedtime_delta_7d_avg_min"] > 60).astype(int)
+    modeled["wake_shift_gt_60m_7d"] = (modeled["abs_wake_time_delta_7d_avg_min"] > 60).astype(int)
     modeled["is_weekday"] = (~modeled["is_weekend"]).astype(int)
-    modeled["zone_4_5_minutes"] = (
-        modeled["zone_four_minutes"] + modeled["zone_five_minutes"]
-    )
+    modeled["zone_4_5_minutes"] = modeled["zone_four_minutes"] + modeled["zone_five_minutes"]
     modeled["zone_0_2_minutes"] = (
-        modeled["zone_zero_minutes"]
-        + modeled["zone_one_minutes"]
-        + modeled["zone_two_minutes"]
+        modeled["zone_zero_minutes"] + modeled["zone_one_minutes"] + modeled["zone_two_minutes"]
     )
     modeled["late_workout_flag"] = (
-        modeled["workout_start_hour_numeric"] >= 19
-    ).fillna(False).astype(int)
+        (modeled["workout_start_hour_numeric"] >= 19).fillna(False).astype(int)
+    )
     modeled["has_workout_flag"] = (modeled["total_zone_minutes"] > 0).astype(int)
-    modeled["high_intensity_workout_flag"] = (
-        modeled["high_intensity_pct"] >= 20
-    ).astype(int)
+    modeled["high_intensity_workout_flag"] = (modeled["high_intensity_pct"] >= 20).astype(int)
     modeled["row_grain"] = "one row per recovery day"
 
     return modeled
@@ -314,7 +300,9 @@ def get_recovery_with_features(
             Sleep.total_time_in_bed_time_milli.label("fallback_total_time_in_bed_time_milli"),
             Sleep.total_awake_time_milli.label("fallback_total_awake_time_milli"),
             Sleep.total_rem_sleep_time_milli.label("fallback_total_rem_sleep_time_milli"),
-            Sleep.total_slow_wave_sleep_time_milli.label("fallback_total_slow_wave_sleep_time_milli"),
+            Sleep.total_slow_wave_sleep_time_milli.label(
+                "fallback_total_slow_wave_sleep_time_milli"
+            ),
             Sleep.total_no_data_time_milli.label("fallback_total_no_data_time_milli"),
             Sleep.sleep_cycle_count.label("fallback_sleep_cycle_count"),
             Sleep.disturbance_count.label("fallback_disturbance_count"),
@@ -476,8 +464,8 @@ def get_recovery_with_features(
     # ===== Heart Rate Metrics =====
     # Only calculate if we have max_heart_rate from cycle data
     df["hr_reserve"] = (
-        df["cycle_max_heart_rate"] - df["resting_heart_rate"]
-    ).astype("float64").fillna(0)
+        (df["cycle_max_heart_rate"] - df["resting_heart_rate"]).astype("float64").fillna(0)
+    )
     df["avg_hr_percentage_of_max"] = (
         (df["cycle_average_heart_rate"] / df["cycle_max_heart_rate"] * 100)
         .astype("float64")
@@ -653,7 +641,7 @@ def get_recovery_with_features(
                 # Clean up temporary columns
                 drop_cols = [col for col in df.columns if col.endswith("_workout")]
                 df = df.drop(columns=drop_cols)
-        except Exception as e:
+        except Exception:
             # If workout data fails to load, columns are already initialized with defaults
             pass
 
@@ -1004,33 +992,30 @@ def get_workouts_with_recovery(
 
     # Query workouts with cycle and recovery data
     # We want: Workout -> Cycle -> Next Cycle's Recovery
-    query = (
-        db.query(
-            Workout.id.label("workout_id"),
-            Workout.created_at.label("workout_date"),
-            Workout.start.label("workout_start"),
-            Workout.end.label("workout_end"),
-            Workout.sport_id,
-            Workout.strain.label("workout_strain"),
-            Workout.average_heart_rate.label("workout_avg_hr"),
-            Workout.max_heart_rate.label("workout_max_hr"),
-            Workout.kilojoule.label("workout_kilojoule"),
-            Workout.distance_meter,
-            Workout.zone_zero_minutes,
-            Workout.zone_one_minutes,
-            Workout.zone_two_minutes,
-            Workout.zone_three_minutes,
-            Workout.zone_four_minutes,
-            Workout.zone_five_minutes,
-            # Cycle data (the day of the workout)
-            Cycle.id.label("cycle_id"),
-            Cycle.start.label("cycle_start"),
-            Cycle.end.label("cycle_end"),
-            Cycle.strain.label("daily_strain"),  # Total strain for the day
-            Cycle.kilojoule.label("daily_kilojoule"),
-        )
-        .join(Cycle, Workout.cycle_id == Cycle.id)
-    )
+    query = db.query(
+        Workout.id.label("workout_id"),
+        Workout.created_at.label("workout_date"),
+        Workout.start.label("workout_start"),
+        Workout.end.label("workout_end"),
+        Workout.sport_id,
+        Workout.strain.label("workout_strain"),
+        Workout.average_heart_rate.label("workout_avg_hr"),
+        Workout.max_heart_rate.label("workout_max_hr"),
+        Workout.kilojoule.label("workout_kilojoule"),
+        Workout.distance_meter,
+        Workout.zone_zero_minutes,
+        Workout.zone_one_minutes,
+        Workout.zone_two_minutes,
+        Workout.zone_three_minutes,
+        Workout.zone_four_minutes,
+        Workout.zone_five_minutes,
+        # Cycle data (the day of the workout)
+        Cycle.id.label("cycle_id"),
+        Cycle.start.label("cycle_start"),
+        Cycle.end.label("cycle_end"),
+        Cycle.strain.label("daily_strain"),  # Total strain for the day
+        Cycle.kilojoule.label("daily_kilojoule"),
+    ).join(Cycle, Workout.cycle_id == Cycle.id)
 
     if date_threshold:
         query = query.filter(Workout.created_at >= date_threshold)
@@ -1080,7 +1065,7 @@ def get_workouts_with_recovery(
     # Now join with next-day recovery
     # We need to find the recovery from the NEXT cycle after this workout's cycle
     # This is complex, so we'll do it by finding recoveries where created_at > workout date
-    
+
     # For each workout, find the next recovery (within 48 hours)
     recoveries_query = db.query(
         Recovery.cycle_id,

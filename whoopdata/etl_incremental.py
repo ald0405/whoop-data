@@ -8,7 +8,14 @@ recent data from WHOOP and Withings APIs, making daily ETL runs much faster.
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Tuple
 from sqlalchemy.orm import Session
-from whoopdata.models.models import Recovery, Sleep, Workout, Cycle, WithingsWeight, WithingsHeartRate
+from whoopdata.models.models import (
+    Recovery,
+    Sleep,
+    Workout,
+    Cycle,
+    WithingsWeight,
+    WithingsHeartRate,
+)
 
 
 def get_latest_timestamps(db: Session) -> Dict[str, Optional[datetime]]:

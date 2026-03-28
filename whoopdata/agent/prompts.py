@@ -18,7 +18,9 @@ def _get_supervisor_prompt() -> str:
     """Get supervisor prompt with current date injected."""
     base_prompt = _load_prompt("supervisor.md")
     now = datetime.now()
-    date_line = f"\n**Today is {now.strftime('%A, %d %B %Y')}** (use YYYY-MM-DD format for date filters)\n"
+    date_line = (
+        f"\n**Today is {now.strftime('%A, %d %B %Y')}** (use YYYY-MM-DD format for date filters)\n"
+    )
     return date_line + base_prompt
 
 

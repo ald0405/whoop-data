@@ -12,7 +12,7 @@ from math import sqrt
 from scipy.stats import norm
 from typing import Tuple
 from scipy.stats import ttest_ind, mannwhitneyu
-from colorama import Fore, Style, init
+from colorama import Fore, init
 from scipy.stats import skew, kurtosis
 
 init(autoreset=True)

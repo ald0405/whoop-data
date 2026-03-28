@@ -41,7 +41,9 @@ class DashboardService:
         }
 
         try:
-            dashboard_data["context"]["weather"] = self.context_service.get_weather_summary(location)
+            dashboard_data["context"]["weather"] = self.context_service.get_weather_summary(
+                location
+            )
         except Exception as e:
             dashboard_data["context"]["weather"] = {"error": str(e)}
 
@@ -51,13 +53,15 @@ class DashboardService:
             dashboard_data["context"]["transport"] = {"error": str(e)}
 
         try:
-            dashboard_data["context"]["tide"] = await self.context_service.get_dashboard_tide_context()
+            dashboard_data["context"][
+                "tide"
+            ] = await self.context_service.get_dashboard_tide_context()
         except Exception as e:
             dashboard_data["context"]["tide"] = {"error": str(e)}
 
         try:
-            dashboard_data["context"]["walk_hotspots"] = await self.context_service.get_walk_hotspots(
-                days=5
+            dashboard_data["context"]["walk_hotspots"] = (
+                await self.context_service.get_walk_hotspots(days=5)
             )
         except Exception as e:
             dashboard_data["context"]["walk_hotspots"] = {"error": str(e)}
@@ -116,7 +120,9 @@ class DashboardService:
                 }
 
             hours_slept = [
-                round((sleep.total_time_in_bed_time_milli - sleep.total_awake_time_milli) / 3600000, 2)
+                round(
+                    (sleep.total_time_in_bed_time_milli - sleep.total_awake_time_milli) / 3600000, 2
+                )
                 for sleep in sleeps
                 if sleep.total_time_in_bed_time_milli is not None
                 and sleep.total_awake_time_milli is not None

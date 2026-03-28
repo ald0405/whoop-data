@@ -23,18 +23,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("scheduled_weakness")
 
-TELEGRAM_CHAT_ID = (
-    os.getenv("TELEGRAM_ALLOWED_CHAT_IDS", "").split(",")[0].strip()
-)
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_ALLOWED_CHAT_IDS", "").split(",")[0].strip()
 
 
 async def run_weakness_push() -> bool:
     """Evaluate and optionally send a scheduled weakness reminder."""
     if not TELEGRAM_CHAT_ID:
-        logger.error(
-            "No TELEGRAM_ALLOWED_CHAT_IDS set — "
-            "skipping weakness reminder evaluation"
-        )
+        logger.error("No TELEGRAM_ALLOWED_CHAT_IDS set — " "skipping weakness reminder evaluation")
         return False
 
     try:

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_serializer, Field, computed_field
+from pydantic import BaseModel, computed_field
 from typing import Optional
 from datetime import datetime
 
@@ -28,6 +28,7 @@ class Workouts(BaseModel):
     def sport_name(self) -> str:
         """Get human-readable sport name from sport_id."""
         from whoopdata.utils.sport_mapping import get_sport_name
+
         return get_sport_name(self.sport_id)
 
     @computed_field
@@ -35,6 +36,7 @@ class Workouts(BaseModel):
     def sport_category(self) -> str:
         """Get sport category (Cardio, Strength, etc.)."""
         from whoopdata.utils.sport_mapping import get_sport_category
+
         return get_sport_category(self.sport_id)
 
     class Config:

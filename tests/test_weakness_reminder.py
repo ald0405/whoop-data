@@ -73,8 +73,7 @@ def test_parse_weakness_points_ignores_non_top_level_items(tmp_path):
     assert points == [
         "**Stronger storytelling that lands on business and patient value**: "
         "Keep linking platform work to business outcomes.",
-        "**Own outcomes more proactively**: "
-        "Be bolder in defining the outcome you are driving.",
+        "**Own outcomes more proactively**: " "Be bolder in defining the outcome you are driving.",
         "**Stronger cross functional partnership**: "
         "Bring ops stakeholders in earlier and communicate changes clearly.",
     ]
@@ -88,20 +87,12 @@ def test_weekday_evaluation_uses_stable_point_and_due_slot(tmp_path):
 
     decision = planner.evaluate(chat_id=7)
     repeat = planner.evaluate(chat_id=7)
-    target_send_at = datetime.fromisoformat(
-        decision.evidence["target_send_at"]
-    )
+    target_send_at = datetime.fromisoformat(decision.evidence["target_send_at"])
 
     assert decision.should_send is True
     assert decision.intent == module.WeaknessReminderIntent.WEAKNESS_REFLECTION
-    assert (
-        decision.evidence["selected_point"]
-        == repeat.evidence["selected_point"]
-    )
-    assert (
-        decision.evidence["target_send_at"]
-        == repeat.evidence["target_send_at"]
-    )
+    assert decision.evidence["selected_point"] == repeat.evidence["selected_point"]
+    assert decision.evidence["target_send_at"] == repeat.evidence["target_send_at"]
     assert target_send_at.date() == now.date()
     assert target_send_at.weekday() < 5
     assert 9 <= target_send_at.hour <= 15
@@ -176,10 +167,7 @@ def test_dispatch_records_sent_message_for_the_selected_point(tmp_path):
         assert chat_id == 7
         assert "lightly reword" in prompt.lower()
         return StubPushResult(
-            assistant_message=(
-                "Keep the focus on business outcomes "
-                "in the story you tell."
-            ),
+            assistant_message=("Keep the focus on business outcomes " "in the story you tell."),
             telegram_message_id=222,
         )
 

@@ -19,7 +19,6 @@ from typing import Dict, List, Optional, Tuple
 
 from whoopdata.models.models import Recovery, Sleep, Cycle, Workout
 
-
 # ---------------------------------------------------------------------------
 # Feature label mappings (internal col name -> human-readable)
 # ---------------------------------------------------------------------------
@@ -89,8 +88,10 @@ def prepare_recovery_mlr_data(db: Session) -> pd.DataFrame:
 
     # Derive light sleep
     for c in [
-        "total_time_in_bed_time_milli", "total_awake_time_milli",
-        "total_no_data_time_milli", "total_slow_wave_sleep_time_milli",
+        "total_time_in_bed_time_milli",
+        "total_awake_time_milli",
+        "total_no_data_time_milli",
+        "total_slow_wave_sleep_time_milli",
         "total_rem_sleep_time_milli",
     ]:
         base_df[c] = pd.to_numeric(base_df[c], errors="coerce").fillna(0)
@@ -104,9 +105,7 @@ def prepare_recovery_mlr_data(db: Session) -> pd.DataFrame:
     ).clip(lower=0)
 
     # Add date column for workout matching
-    base_df["date"] = pd.to_datetime(
-        base_df["cycle_start"].fillna(base_df["created_at"])
-    ).dt.date
+    base_df["date"] = pd.to_datetime(base_df["cycle_start"].fillna(base_df["created_at"])).dt.date
 
     # Rename to match _build_recovery_mlr_df expectations
     base_df["id"] = base_df["cycle_id"]
@@ -188,12 +187,12 @@ def _build_recovery_mlr_df(
         df["had_workout"] = 0
 
     # --- Derived features ------------------------------------------------
-    df["deep_sleep_hrs"] = pd.to_numeric(
-        df["total_slow_wave_sleep_time_milli"], errors="coerce"
-    ) / 3_600_000
-    df["rem_sleep_hrs"] = pd.to_numeric(
-        df["total_rem_sleep_time_milli"], errors="coerce"
-    ) / 3_600_000
+    df["deep_sleep_hrs"] = (
+        pd.to_numeric(df["total_slow_wave_sleep_time_milli"], errors="coerce") / 3_600_000
+    )
+    df["rem_sleep_hrs"] = (
+        pd.to_numeric(df["total_rem_sleep_time_milli"], errors="coerce") / 3_600_000
+    )
     df["total_sleep_hrs"] = (
         pd.to_numeric(df["total_slow_wave_sleep_time_milli"], errors="coerce")
         + pd.to_numeric(df["total_rem_sleep_time_milli"], errors="coerce")
@@ -386,8 +385,10 @@ def prepare_hrv_mlr_data(db: Session) -> pd.DataFrame:
 
     # Derive light sleep
     for c in [
-        "total_time_in_bed_time_milli", "total_awake_time_milli",
-        "total_no_data_time_milli", "total_slow_wave_sleep_time_milli",
+        "total_time_in_bed_time_milli",
+        "total_awake_time_milli",
+        "total_no_data_time_milli",
+        "total_slow_wave_sleep_time_milli",
         "total_rem_sleep_time_milli",
     ]:
         base_df[c] = pd.to_numeric(base_df[c], errors="coerce").fillna(0)
@@ -401,9 +402,7 @@ def prepare_hrv_mlr_data(db: Session) -> pd.DataFrame:
     ).clip(lower=0)
 
     # Add date column
-    base_df["date"] = pd.to_datetime(
-        base_df["cycle_start"].fillna(base_df["created_at"])
-    ).dt.date
+    base_df["date"] = pd.to_datetime(base_df["cycle_start"].fillna(base_df["created_at"])).dt.date
 
     # Rename to match _build_hrv_mlr_df expectations
     base_df["id"] = base_df["cycle_id"]
@@ -515,12 +514,12 @@ def _build_hrv_mlr_df(
         df["workout_count"] = 0
 
     # --- Derived features ------------------------------------------------
-    df["deep_sleep_hrs"] = pd.to_numeric(
-        df["total_slow_wave_sleep_time_milli"], errors="coerce"
-    ) / 3_600_000
-    df["rem_sleep_hrs"] = pd.to_numeric(
-        df["total_rem_sleep_time_milli"], errors="coerce"
-    ) / 3_600_000
+    df["deep_sleep_hrs"] = (
+        pd.to_numeric(df["total_slow_wave_sleep_time_milli"], errors="coerce") / 3_600_000
+    )
+    df["rem_sleep_hrs"] = (
+        pd.to_numeric(df["total_rem_sleep_time_milli"], errors="coerce") / 3_600_000
+    )
     df["total_sleep_hrs"] = (
         pd.to_numeric(df["total_slow_wave_sleep_time_milli"], errors="coerce")
         + pd.to_numeric(df["total_rem_sleep_time_milli"], errors="coerce")
@@ -661,7 +660,9 @@ def mlr_results_to_dict(results: Dict) -> Dict:
                 "std_error": _safe_float(row["Std Error"]),
                 "t_value": _safe_float(row["t-value"]),
                 "p_value": _safe_float(row["P-value"], 1.0),
-                "significant": bool(row["Significant"]) if not pd.isna(row["Significant"]) else False,
+                "significant": (
+                    bool(row["Significant"]) if not pd.isna(row["Significant"]) else False
+                ),
                 "ci_lower": _safe_float(row["CI Lower"]),
                 "ci_upper": _safe_float(row["CI Upper"]),
             }

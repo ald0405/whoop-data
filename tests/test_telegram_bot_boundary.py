@@ -3,7 +3,11 @@ from __future__ import annotations
 import asyncio
 import base64
 
-from whoopdata.agent.public_response import AgentArtifact, AgentConversationResponse, AgentConversationTurn
+from whoopdata.agent.public_response import (
+    AgentArtifact,
+    AgentConversationResponse,
+    AgentConversationTurn,
+)
 from whoopdata.telegram_bot import TelegramConversationGateway, format_text_for_telegram_plain
 
 
@@ -134,9 +138,7 @@ def test_whoami_message_includes_ids_for_first_run_setup():
 
 def test_gateway_photo_message_sends_image_b64():
     """Photo handler should base64-encode the image and pass it to the conversation service."""
-    service = StubConversationService(
-        [_response(assistant_message="Looks like a healthy meal!")]
-    )
+    service = StubConversationService([_response(assistant_message="Looks like a healthy meal!")])
     gateway = TelegramConversationGateway(conversation_service=service)
 
     photo_bytes = b"fake-jpeg-bytes"
@@ -158,9 +160,7 @@ def test_gateway_photo_message_sends_image_b64():
 
 def test_gateway_photo_message_uses_default_caption_when_none():
     """Photo without caption should use a default prompt."""
-    service = StubConversationService(
-        [_response(assistant_message="I see an image.")]
-    )
+    service = StubConversationService([_response(assistant_message="I see an image.")])
     gateway = TelegramConversationGateway(conversation_service=service)
 
     messages = asyncio.run(
@@ -179,9 +179,7 @@ def test_gateway_photo_message_uses_default_caption_when_none():
 
 def test_gateway_photo_message_rejected_for_unauthorized_user():
     service = StubConversationService([])
-    gateway = TelegramConversationGateway(
-        conversation_service=service, allowed_user_ids=[999]
-    )
+    gateway = TelegramConversationGateway(conversation_service=service, allowed_user_ids=[999])
 
     messages = asyncio.run(
         gateway.handle_photo_message(
@@ -260,9 +258,7 @@ def test_gateway_voice_message_transcribes_and_delegates(monkeypatch):
 
 def test_gateway_voice_message_rejected_for_unauthorized_user(monkeypatch):
     service = StubConversationService([])
-    gateway = TelegramConversationGateway(
-        conversation_service=service, allowed_user_ids=[999]
-    )
+    gateway = TelegramConversationGateway(conversation_service=service, allowed_user_ids=[999])
 
     messages = asyncio.run(
         gateway.handle_voice_message(
@@ -310,10 +306,7 @@ def test_plain_formatter_flattens_markdown_tables_for_chat_style_delivery():
     )
 
     assert formatted == (
-        "Morning check-in\n"
-        "Strain: 11.2\n"
-        "Action: 10 min walk\n"
-        "Today: keep it easy.…"
+        "Morning check-in\n" "Strain: 11.2\n" "Action: 10 min walk\n" "Today: keep it easy.…"
     )
 
 

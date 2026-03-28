@@ -5,7 +5,6 @@ from pathlib import Path
 from main import app
 from whoopdata.api.public_surface_contract import PUBLIC_SURFACE_CONTRACT
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 

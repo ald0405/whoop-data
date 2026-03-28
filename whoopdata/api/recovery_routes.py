@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Union
 from whoopdata.schemas.recovery import Recovery as RecoverySchema, AvgRecovery
 from whoopdata.crud.recovery import get_recoveries, get_top_recoveries, get_avg_recovery_by_week
-from whoopdata.utils.date_filters import standardize_date_params, apply_recovery_date_filter
+from whoopdata.utils.date_filters import standardize_date_params
 from whoopdata.database.database import get_db
 
 data_router = APIRouter(prefix="/api/v1/data", tags=["data"])
@@ -12,7 +12,9 @@ insights_router = APIRouter(prefix="/api/v1/insights", tags=["insights"])
 legacy_insights_router = APIRouter(tags=["insights"])
 
 
-@legacy_data_router.get("/recovery", response_model=Union[List[RecoverySchema], RecoverySchema], deprecated=True)
+@legacy_data_router.get(
+    "/recovery", response_model=Union[List[RecoverySchema], RecoverySchema], deprecated=True
+)
 @data_router.get("/recovery", response_model=Union[List[RecoverySchema], RecoverySchema])
 def get_recovery_data(
     latest: bool = Query(False, description="Get only the latest record"),
@@ -62,7 +64,9 @@ def get_recovery_data(
         raise HTTPException(status_code=500, detail=f"Error retrieving recovery data: {str(e)}")
 
 
-@legacy_insights_router.get("/recovery/analytics/weekly", response_model=List[AvgRecovery], deprecated=True)
+@legacy_insights_router.get(
+    "/recovery/analytics/weekly", response_model=List[AvgRecovery], deprecated=True
+)
 @insights_router.get("/recovery/analytics/weekly", response_model=List[AvgRecovery])
 def get_recovery_weekly_analytics(
     weeks: int = Query(4, description="Number of weeks to analyze (can be 52+ for full year)"),
@@ -109,7 +113,9 @@ def top_recoveries_compat(limit: int = 10, db: Session = Depends(get_db)):
     return get_top_recoveries(db, limit=limit)
 
 
-@legacy_insights_router.get("/recoveries/avg_recoveries/", response_model=List[AvgRecovery], deprecated=True)
+@legacy_insights_router.get(
+    "/recoveries/avg_recoveries/", response_model=List[AvgRecovery], deprecated=True
+)
 def avg_recovery_compat(week: int = 4, db: Session = Depends(get_db)):
     """Backward compatibility endpoint - redirects to analytics endpoint."""
     return get_avg_recovery_by_week(db, weeks=week)

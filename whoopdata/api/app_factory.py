@@ -67,7 +67,6 @@ from whoopdata.api.workout_routes import (
     legacy_insights_router as workout_legacy_insights_router,
 )
 
-
 WEB_ROUTERS: tuple[APIRouter, ...] = (
     web_router,
     dashboard_page_router,
@@ -128,6 +127,7 @@ ROUTER_GROUPS: dict[CanonicalSurface, tuple[APIRouter, ...]] = {
     "agent": AGENT_ROUTERS,
     "web": WEB_ROUTERS,
 }
+
 
 def _build_openapi_tag_metadata() -> list[dict[str, str]]:
     tag_metadata: list[dict[str, str]] = []

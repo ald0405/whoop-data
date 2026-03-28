@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 import pandas as pd
 import requests
+
 TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token"
 
 

@@ -25,10 +25,10 @@ from whoopdata.analytics.engine import (
 from whoopdata.analytics.data_prep import (
     get_recovery_modeling_dataset,
     get_recovery_with_features,
-    get_sleep_with_features,
     get_sleep_quality_features,
     get_training_data,
 )
+from whoopdata.analytics.recovery_actionability import compute_recovery_actionability
 from whoopdata.analytics.mlr import (
     prepare_recovery_mlr_data,
     fit_recovery_mlr_model,
@@ -81,7 +81,7 @@ class AnalyticsPipeline:
             self._train_factor_analyzer(progress, task1)
 
             # Step 2: Compute analytics
-            task2 = progress.add_task("Computing analytics...", total=11)
+            task2 = progress.add_task("Computing analytics...", total=12)
 
             self._compute_factor_importance(progress, task2)
             self._compute_sleep_factors(progress, task2)
@@ -92,6 +92,7 @@ class AnalyticsPipeline:
             self._compute_correlation_matrix(progress, task2)
             self._compute_insights(progress, task2)
             self._compute_trends(progress, task2)
+            self._compute_recovery_actionability(progress, task2)
             self._compute_summary(progress, task2)
 
             progress.update(task2, advance=1)
@@ -625,6 +626,25 @@ class AnalyticsPipeline:
 
         progress.update(task_id, advance=1)
 
+    def _compute_recovery_actionability(self, progress, task_id):
+        """Compute and save recovery actionability rules."""
+        try:
+            console.print("[cyan]  🔄 Computing Recovery Actionability...[/cyan]")
+
+            db = SessionLocal()
+            result = compute_recovery_actionability(db, days_back=self.days_back)
+            db.close()
+
+            self._save_result("recovery_actionability", result)
+            self.results["analytics_computed"].append("recovery_actionability")
+            console.print("[green]    ✅ Recovery Actionability computed[/green]")
+
+        except Exception as e:
+            self.results["errors"].append(f"Recovery Actionability: {str(e)}")
+            console.print(f"[red]    ❌ Error: {str(e)}[/red]")
+
+        progress.update(task_id, advance=1)
+
     def _compute_summary(self, progress, task_id):
         """Generate and save analytics summary."""
         try:
@@ -707,7 +727,7 @@ class AnalyticsPipeline:
                 console.print(f"  • {model['model']}: R² = {model['accuracy']:.3f}")
 
         if self.results["analytics_computed"]:
-            console.print(f"\n[bold]📊 Analytics Computed:[/bold]")
+            console.print("\n[bold]📊 Analytics Computed:[/bold]")
             for analysis in self.results["analytics_computed"]:
                 console.print(f"  • {analysis}")
 
@@ -716,7 +736,7 @@ class AnalyticsPipeline:
             for error in self.results["errors"]:
                 console.print(f"  • {error}")
 
-        console.print(f"\n[dim]Results stored in database and ready for API queries[/dim]")
+        console.print("\n[dim]Results stored in database and ready for API queries[/dim]")
 
 
 def run_analytics_pipeline(days_back: int = 365):

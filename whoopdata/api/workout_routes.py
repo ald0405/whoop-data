@@ -34,7 +34,9 @@ def calculate_trimp_from_run(run) -> float:
     return trimp
 
 
-@legacy_data_router.get("/workouts", response_model=Union[List[WorkoutSchema], WorkoutSchema], deprecated=True)
+@legacy_data_router.get(
+    "/workouts", response_model=Union[List[WorkoutSchema], WorkoutSchema], deprecated=True
+)
 @data_router.get("/workouts", response_model=Union[List[WorkoutSchema], WorkoutSchema])
 def get_workout_data(
     latest: bool = Query(False, description="Get only the latest record"),
@@ -84,7 +86,9 @@ def get_workout_data(
         raise HTTPException(status_code=500, detail=f"Error retrieving workout data: {str(e)}")
 
 
-@legacy_data_router.get("/workouts/types/running", response_model=List[WorkoutSchema], deprecated=True)
+@legacy_data_router.get(
+    "/workouts/types/running", response_model=List[WorkoutSchema], deprecated=True
+)
 @data_router.get("/workouts/types/running", response_model=List[WorkoutSchema])
 def get_running_workouts(
     limit: int = Query(
@@ -122,7 +126,9 @@ def get_running_workouts(
         raise HTTPException(status_code=500, detail=f"Error retrieving running workouts: {str(e)}")
 
 
-@legacy_data_router.get("/workouts/types/tennis", response_model=List[WorkoutSchema], deprecated=True)
+@legacy_data_router.get(
+    "/workouts/types/tennis", response_model=List[WorkoutSchema], deprecated=True
+)
 @data_router.get("/workouts/types/tennis", response_model=List[WorkoutSchema])
 def get_tennis_workouts(
     limit: int = Query(
@@ -160,7 +166,9 @@ def get_tennis_workouts(
         raise HTTPException(status_code=500, detail=f"Error retrieving tennis workouts: {str(e)}")
 
 
-@legacy_insights_router.get("/workouts/analytics/trimp", response_model=List[WorkoutSchema], deprecated=True)
+@legacy_insights_router.get(
+    "/workouts/analytics/trimp", response_model=List[WorkoutSchema], deprecated=True
+)
 @insights_router.get("/workouts/analytics/trimp", response_model=List[WorkoutSchema])
 def get_running_workouts_with_trimp(
     limit: int = Query(100, description="Maximum number of records"),
@@ -215,7 +223,9 @@ def list_runs_compat(skip: int = 0, limit: int = 10, db: Session = Depends(get_d
     return get_runs(db, skip=skip, limit=limit)
 
 
-@legacy_insights_router.get("/workouts/get_run_trimp", response_model=List[WorkoutSchema], deprecated=True)
+@legacy_insights_router.get(
+    "/workouts/get_run_trimp", response_model=List[WorkoutSchema], deprecated=True
+)
 def list_trimp_scores_compat(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     """Backward compatibility endpoint - redirects to analytics endpoint."""
     runs_list = get_runs(db, skip=skip, limit=limit)

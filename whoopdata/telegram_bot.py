@@ -20,9 +20,7 @@ from whoopdata.agent.conversation_service import ConversationService, get_conver
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-_MARKDOWN_TABLE_SEPARATOR_RE = re.compile(
-    r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$"
-)
+_MARKDOWN_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$")
 
 
 def _parse_int_set(raw: str | None) -> set[int]:
@@ -81,7 +79,9 @@ class TelegramConversationGateway:
         self._allowed_chat_ids = set(allowed_chat_ids or ())
         self._bindings_by_chat: dict[int, ConversationBinding] = {}
 
-    def is_authorized(self, *, user_id: int | None, chat_id: int | None, chat_type: str | None) -> bool:
+    def is_authorized(
+        self, *, user_id: int | None, chat_id: int | None, chat_type: str | None
+    ) -> bool:
         if user_id is None or chat_id is None:
             return False
 
@@ -158,7 +158,9 @@ class TelegramConversationGateway:
         transcribed_text = await _transcribe_voice(voice_bytes)
         if not transcribed_text:
             return [
-                OutboundTelegramMessage(text="Sorry, I couldn't understand that voice message. Try again?")
+                OutboundTelegramMessage(
+                    text="Sorry, I couldn't understand that voice message. Try again?"
+                )
             ]
 
         # Get agent response via the normal text path
@@ -196,7 +198,9 @@ class TelegramConversationGateway:
             image_b64=image_b64,
         )
 
-    def _build_response_messages(self, assistant_message: str, artifacts: list) -> list[OutboundTelegramMessage]:
+    def _build_response_messages(
+        self, assistant_message: str, artifacts: list
+    ) -> list[OutboundTelegramMessage]:
         messages: list[OutboundTelegramMessage] = []
 
         if assistant_message:
@@ -285,6 +289,7 @@ def _strip_html_tags(text: str) -> str:
     """Remove HTML tags for TTS input."""
     return re.sub(r"<[^>]+>", "", text)
 
+
 def _strip_markdown_inline_markup(text: str) -> str:
     text = re.sub(r"`([^`\n]+)`", r"\1", text)
     text = re.sub(r"\*\*([^\n*][^*]*?)\*\*", r"\1", text)
@@ -308,10 +313,7 @@ def _normalize_telegram_plain_line(text: str) -> str:
 
 
 def _flatten_markdown_table_row(line: str) -> str:
-    cells = [
-        _normalize_telegram_plain_line(cell)
-        for cell in line.strip().strip("|").split("|")
-    ]
+    cells = [_normalize_telegram_plain_line(cell) for cell in line.strip().strip("|").split("|")]
     cells = [cell for cell in cells if cell]
     if not cells:
         return ""

@@ -55,12 +55,8 @@ class WeaknessReminderConfig:
     def from_env(cls) -> "WeaknessReminderConfig":
         return cls(
             enabled=_env_bool("WEAKNESS_REMINDER_ENABLED", True),
-            window_start_hour=_env_int(
-                "WEAKNESS_REMINDER_WINDOW_START_HOUR", 9
-            ),
-            window_end_hour=_env_int(
-                "WEAKNESS_REMINDER_WINDOW_END_HOUR", 15
-            ),
+            window_start_hour=_env_int("WEAKNESS_REMINDER_WINDOW_START_HOUR", 9),
+            window_end_hour=_env_int("WEAKNESS_REMINDER_WINDOW_END_HOUR", 15),
         )
 
 
@@ -72,10 +68,7 @@ class WeaknessPreview:
 
 
 def default_weakness_file() -> Path:
-    raw = (
-        os.getenv("WEAKNESS_REMINDER_FILE", "weakness.md").strip()
-        or "weakness.md"
-    )
+    raw = os.getenv("WEAKNESS_REMINDER_FILE", "weakness.md").strip() or "weakness.md"
     path = Path(raw)
     if path.is_absolute():
         return path
@@ -148,10 +141,7 @@ def _build_prompt(*, point: str) -> str:
     lines = [
         f"You are {coach_name}.",
         "Send a proactive Telegram coaching message.",
-        (
-            "The user did not type a new message; "
-            "you are initiating the conversation."
-        ),
+        ("The user did not type a new message; " "you are initiating the conversation."),
         (
             "This reminder comes from the user's annual review "
             "and should keep one growth point salient."
@@ -166,9 +156,7 @@ def _build_prompt(*, point: str) -> str:
             "Telegram supports basic formatting. You may use a short header, "
             "bold, italics, and bullet points, plus an occasional emoji."
         ),
-        (
-            "Keep it concise: at most 6 short lines and under 700 characters."
-        ),
+        ("Keep it concise: at most 6 short lines and under 700 characters."),
         (
             "Focus on one point, one reflection, and at most one small action "
             "or one short question."
@@ -194,9 +182,7 @@ def build_preview(
         index = _select_index_for_day(points, day=current_day)
     else:
         if point_number < 1 or point_number > len(points):
-            raise ValueError(
-                f"point_number must be between 1 and {len(points)}"
-            )
+            raise ValueError(f"point_number must be between 1 and {len(points)}")
         index = point_number - 1
 
     point = points[index]
@@ -221,9 +207,7 @@ class WeaknessReminderPlanner:
     ) -> None:
         self.db = db
         self.weakness_file = (
-            Path(weakness_file)
-            if weakness_file is not None
-            else default_weakness_file()
+            Path(weakness_file) if weakness_file is not None else default_weakness_file()
         )
         self.config = config or WeaknessReminderConfig.from_env()
         self.now_fn = now_fn or datetime.utcnow
@@ -241,9 +225,7 @@ class WeaknessReminderPlanner:
         if now.weekday() >= 5:
             return ProactiveDecision.skip(
                 mode=WeaknessReminderMode.SCHEDULED,
-                reason=(
-                    "Weekend — weakness reminder only runs Monday to Friday"
-                ),
+                reason=("Weekend — weakness reminder only runs Monday to Friday"),
             )
 
         if not self._within_window(now):
@@ -319,11 +301,7 @@ class WeaknessReminderPlanner:
         )
 
     def _within_window(self, now: datetime) -> bool:
-        return (
-            self.config.window_start_hour
-            <= now.hour
-            <= self.config.window_end_hour
-        )
+        return self.config.window_start_hour <= now.hour <= self.config.window_end_hour
 
 
 async def dispatch_weakness_reminder(

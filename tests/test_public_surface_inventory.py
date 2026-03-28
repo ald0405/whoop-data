@@ -20,7 +20,6 @@ from whoopdata.api.public_surface_inventory import (
     is_temporary_adapter_route,
 )
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -47,6 +46,7 @@ def _expected_public_routes() -> dict[tuple[tuple[str, ...], str], tuple[str, ..
         expected[key] = entry["handler_names"]
 
     return expected
+
 
 def _get_api_route(path: str, method: str = "GET") -> APIRoute:
     for route in app.routes:
@@ -78,9 +78,12 @@ def test_route_targets_match_surface_prefix_rules():
         elif surface == "agent":
             assert target.startswith("/api/v1/agent/")
 
+
 def test_canonical_data_routes_are_not_deprecated():
     for entry in ROUTE_MIGRATION_MATRIX:
-        if entry["canonical_surface"] != "data" or not entry["current_path"].startswith("/api/v1/data/"):
+        if entry["canonical_surface"] != "data" or not entry["current_path"].startswith(
+            "/api/v1/data/"
+        ):
             continue
 
         route = _get_api_route(entry["current_path"], entry["methods"][0])
@@ -102,15 +105,20 @@ def test_legacy_raw_data_routes_are_explicitly_deprecated():
 
 def test_canonical_insight_routes_are_not_deprecated():
     for entry in ROUTE_MIGRATION_MATRIX:
-        if entry["canonical_surface"] != "insights" or not entry["current_path"].startswith("/api/v1/insights/"):
+        if entry["canonical_surface"] != "insights" or not entry["current_path"].startswith(
+            "/api/v1/insights/"
+        ):
             continue
 
         route = _get_api_route(entry["current_path"], entry["methods"][0])
         assert not route.deprecated
 
+
 def test_canonical_agent_routes_are_not_deprecated():
     for entry in ROUTE_MIGRATION_MATRIX:
-        if entry["canonical_surface"] != "agent" or not entry["current_path"].startswith("/api/v1/agent/"):
+        if entry["canonical_surface"] != "agent" or not entry["current_path"].startswith(
+            "/api/v1/agent/"
+        ):
             continue
 
         route = _get_api_route(entry["current_path"], entry["methods"][0])
@@ -139,6 +147,7 @@ def test_temporary_legacy_adapters_include_migration_guidance():
         assert entry["target_path"] in entry["notes"]
         assert LEGACY_COMPATIBILITY_REMOVAL_DATE_ISO in entry["notes"]
 
+
 def test_project_script_inventory_matches_pyproject_scripts():
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
     actual_scripts = set(pyproject["project"]["scripts"].keys())
@@ -154,7 +163,8 @@ def test_project_script_inventory_matches_pyproject_scripts():
 def test_runtime_entrypoints_reference_existing_files_and_targets():
     makefile_text = (ROOT / "Makefile").read_text()
     actual_make_targets = {
-        match.group(1) for match in re.finditer(r"^([A-Za-z0-9_-]+):", makefile_text, flags=re.MULTILINE)
+        match.group(1)
+        for match in re.finditer(r"^([A-Za-z0-9_-]+):", makefile_text, flags=re.MULTILINE)
     }
     inventory_make_targets = {
         entry["current_identifier"]

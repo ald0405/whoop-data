@@ -121,12 +121,8 @@ def test_daily_routes_delegate_to_guidance_service(monkeypatch):
 
     assert asyncio.run(daily_routes.get_daily_plan(db=db)) == {"plan": "ok"}
     assert asyncio.run(daily_routes.predict_scenario(scenario_request, db=db)) == {"scenario": "ok"}
-    assert asyncio.run(daily_routes.compare_scenarios(compare_request, db=db)) == {
-        "compare": "ok"
-    }
-    assert asyncio.run(daily_routes.get_weekly_coaching_report(weeks=2, db=db)) == {
-        "report": "ok"
-    }
+    assert asyncio.run(daily_routes.compare_scenarios(compare_request, db=db)) == {"compare": "ok"}
+    assert asyncio.run(daily_routes.get_weekly_coaching_report(weeks=2, db=db)) == {"report": "ok"}
     assert created["db"] is db
     service.build_daily_plan.assert_awaited_once_with()
     service.predict_scenario.assert_called_once_with(scenario)

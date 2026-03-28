@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from statistics import mean
 from datetime import datetime
 
-from whoopdata.models.models import Recovery, Sleep, Workout
 from whoopdata.crud.recovery import get_recoveries
 from whoopdata.crud.sleep import get_sleep
 from whoopdata.crud.workout import get_recoveries as get_workouts

@@ -4,12 +4,10 @@ Combined Extract-Transform-Load script for WHOOP and Withings data
 Seamless setup and data pipeline for both health platforms
 """
 
-from sqlalchemy.orm import sessionmaker
 from whoopdata.analysis.whoop_client import Whoop
 from whoopdata.clients.withings_client import WithingsClient
 from whoopdata.models.models import (
     Recovery,
-    Cycle,
     Workout,
     Sleep,
     WithingsWeight,
@@ -22,16 +20,13 @@ from whoopdata.model_transformation import (
     transform_recovery,
     transform_cycle,
     transform_workout,
-    transform_withings_weight,
-    transform_withings_heart_rate,
 )
 import sys
 import os
-from rich import print as rich_print
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from whoopdata.database.database import SessionLocal, engine
+from whoopdata.database.database import SessionLocal
 
 console = Console()
 
@@ -314,6 +309,7 @@ def withings_etl_run(data_type="weight", limit=None, startdate=None, enddate=Non
         # Log recency diagnostic
         try:
             from whoopdata.models.models import WithingsWeight, WithingsHeartRate
+
             latest_db_dt = None
             if data_type == "weight":
                 rec = (
@@ -387,7 +383,6 @@ def run_complete_etl(incremental=True):
     console.print("\n" + "=" * 60)
     console.print("[bold cyan]WHOOP Data Pipeline[/bold cyan]")
     console.print("=" * 60)
-
 
     # Sleep
     sleep_start, sleep_end = windows.get("sleep", (None, None))
@@ -535,7 +530,7 @@ def show_sample_data():
         sleep_count = db.query(Sleep).count()
         hr_count = db.query(WithingsHeartRate).count()
 
-        console.print(f"\n📊 [bold]Database Summary:[/bold]")
+        console.print("\n📊 [bold]Database Summary:[/bold]")
         console.print(f"   • Recovery Records: {recovery_count}")
         console.print(f"   • Workout Records: {workout_count}")
         console.print(f"   • Sleep Records: {sleep_count}")

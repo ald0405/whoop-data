@@ -69,9 +69,9 @@ def build_specialist_tools(
         description = config["description"]
 
         # Determine model for this specialist
-        model = model_override or settings.SPECIALIST_CONFIG.get(
-            agent_name, {}
-        ).get("model", settings.SPECIALIST_MODEL)
+        model = model_override or settings.SPECIALIST_CONFIG.get(agent_name, {}).get(
+            "model", settings.SPECIALIST_MODEL
+        )
 
         # Create the subagent
         agent = create_agent(

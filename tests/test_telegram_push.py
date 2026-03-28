@@ -72,9 +72,7 @@ def test_push_to_telegram_sends_compact_plain_text(monkeypatch):
     assert sent["token"] == "test-token"
     assert sent["chat_id"] == 7
     assert sent["text"] == (
-        "Morning check-in\n"
-        "Strain: 11.2\n"
-        "Today: keep it easy and just get 10 minutes outside."
+        "Morning check-in\n" "Strain: 11.2\n" "Today: keep it easy and just get 10 minutes outside."
     )
     assert sent["parse_mode"] is None
     assert result.assistant_message == sent["text"]

@@ -90,6 +90,7 @@ def run_etl() -> bool:
         Base.metadata.create_all(bind=engine)
 
         from whoopdata.etl import run_complete_etl
+
         results = run_complete_etl(incremental=True)
         finished_at = time.time()
         entry = _build_audit_entry(
@@ -118,6 +119,7 @@ def run_etl() -> bool:
         _append_audit_entry(entry)
         logger.error("Recurring ETL failed:\n%s", traceback.format_exc())
         return False
+
 
 async def run_post_etl_proactive_check() -> bool:
     """Optionally evaluate a proactive nudge immediately after ETL succeeds."""

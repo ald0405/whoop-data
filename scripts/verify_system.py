@@ -268,6 +268,7 @@ def test_withings_health():
         print(f"{check_mark(False)} Withings health failed: {e}")
         return False
 
+
 def test_api_routes():
     """Test that API routes are defined"""
     print("\n" + "=" * 60)
