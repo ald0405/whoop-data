@@ -314,6 +314,11 @@ def test_gateway_video_message_extracts_frames_and_routes_through_supervisor(mon
     """Video handler should extract frames, call biomechanics agent, then feed analysis to supervisor."""
     import whoopdata.telegram_bot as tb
 
+    # Mock the dense extraction to return fake BGR frames + fps
+    import numpy as np
+    fake_frames = [np.zeros((100, 100, 3), dtype=np.uint8)] * 2
+    monkeypatch.setattr(tb, "_extract_video_frames_dense", lambda vb, **kw: (fake_frames, 30.0))
+    # Mock the legacy path extraction too
     monkeypatch.setattr(tb, "_extract_video_frames", lambda vb, **kw: [b"frame1", b"frame2"])
 
     async def _mock_analyze(images_b64, prompt, *, user_id="default_user"):
@@ -342,14 +347,16 @@ def test_gateway_video_message_extracts_frames_and_routes_through_supervisor(mon
     assert "biomechanics analysis" in service.calls[0]["message"].lower()
     assert "good form" in service.calls[0]["message"]
     # Final response comes from the supervisor
-    assert len(messages) == 1
-    assert "knee bend" in messages[0].text
+    assert any("knee bend" in (m.text or "") for m in messages)
 
 
 def test_gateway_video_message_uses_default_prompt_when_no_caption(monkeypatch):
     """Video without caption should use the default biomechanics prompt."""
     import whoopdata.telegram_bot as tb
 
+    import numpy as np
+    fake_frames = [np.zeros((100, 100, 3), dtype=np.uint8)]
+    monkeypatch.setattr(tb, "_extract_video_frames_dense", lambda vb, **kw: (fake_frames, 30.0))
     monkeypatch.setattr(tb, "_extract_video_frames", lambda vb, **kw: [b"frame1"])
 
     captured_prompts = []
@@ -376,6 +383,7 @@ def test_gateway_video_message_uses_default_prompt_when_no_caption(monkeypatch):
         )
     )
 
+    assert len(captured_prompts) >= 1
     assert "biomechanics" in captured_prompts[0].lower() or "overlays" in captured_prompts[0].lower()
 
 
@@ -404,9 +412,14 @@ def test_gateway_video_message_rejected_for_unauthorized_user():
 
 
 def test_gateway_video_message_returns_error_on_no_frames(monkeypatch):
-    """When frame extraction returns empty, gateway should return a user-friendly error."""
+    """When frame extraction fails, gateway should return a user-friendly error."""
     import whoopdata.telegram_bot as tb
 
+    # Mock dense extraction to fail, and legacy to return empty
+    monkeypatch.setattr(
+        tb, "_extract_video_frames_dense",
+        lambda vb, **kw: (None, "Could not open the video file."),
+    )
     monkeypatch.setattr(tb, "_extract_video_frames", lambda vb, **kw: [])
 
     gateway = TelegramConversationGateway(
@@ -424,7 +437,7 @@ def test_gateway_video_message_returns_error_on_no_frames(monkeypatch):
     )
 
     assert len(messages) == 1
-    assert "couldn't extract" in messages[0].text
+    assert "could not" in messages[0].text.lower() or "couldn't" in messages[0].text.lower()
 
 
 def test_preprocess_frames_is_passthrough():

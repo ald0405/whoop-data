@@ -11,6 +11,7 @@ import tempfile
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 
+import numpy as np
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from telegram.constants import ParseMode
@@ -58,35 +59,45 @@ _DEFAULT_VIDEO_PROMPT = (
     "(dots/lines on joints)."
 )
 
+_MAX_DENSE_FRAMES = 600
+_MAX_VIDEO_DURATION_SECONDS = 60
+_CLIP_TOO_LONG_MSG = (
+    "That video is a bit long for detailed analysis. "
+    "For best results, film 3-5 repetitions of the same movement "
+    "(serves, squats, etc.) in a 10-30 second clip, side-on view, full body visible."
+)
 
-def _extract_video_frames(video_bytes: bytes, *, max_frames: int = 6) -> list[bytes]:
-    """Extract evenly-spaced JPEG frames from a video byte-stream.
 
-    Uses OpenCV (``cv2.VideoCapture``) following the official OpenAI cookbook
-    pattern for video-to-vision processing. The video is written to a
-    temporary file, sampled at ``max_frames`` evenly-spaced positions,
-    and each frame is encoded as JPEG bytes.
+def _extract_video_frames_dense(
+    video_bytes: bytes,
+    *,
+    max_frames: int = _MAX_DENSE_FRAMES,
+) -> tuple[list[np.ndarray], float] | tuple[None, str]:
+    """Extract dense BGR frames from a video for MediaPipe processing.
+
+    Returns numpy arrays (not JPEG bytes) suitable for direct use with
+    MediaPipe and OpenCV drawing. Uses ``np.linspace`` for uniform
+    sampling when the video has more frames than ``max_frames``.
 
     Args:
         video_bytes: Raw video file bytes (e.g. MP4 from Telegram).
-        max_frames: Maximum number of frames to extract. Defaults to 6,
-            which balances motion coverage against token cost (~6,630
-            input tokens at ``detail: high`` on gpt-5.4-mini).
+        max_frames: Maximum number of frames to extract. Defaults to 600
+            (~20 seconds at 30fps).
 
     Returns:
-        A list of JPEG-encoded frame byte-strings. Returns an empty list
-        if OpenCV is unavailable or the video cannot be read.
+        On success: ``(frames_list, fps)`` where frames_list is a list of
+        BGR numpy arrays and fps is the detected frame rate.
+        On failure: ``(None, error_message)`` describing why extraction failed.
 
     Example:
-        >>> frames = _extract_video_frames(open("serve.mp4", "rb").read())
-        >>> len(frames) <= 6
-        True
+        >>> result = _extract_video_frames_dense(video_data)
+        >>> if result[0] is not None:
+        ...     frames, fps = result
     """
     try:
         import cv2
     except ImportError:
-        logger.warning("opencv-python-headless not installed; cannot extract video frames")
-        return []
+        return None, "opencv-python-headless not installed"
 
     tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
     try:
@@ -96,54 +107,118 @@ def _extract_video_frames(video_bytes: bytes, *, max_frames: int = 6) -> list[by
 
         cap = cv2.VideoCapture(tmp.name)
         if not cap.isOpened():
-            logger.warning("Failed to open video file for frame extraction")
-            return []
+            return None, "Could not open the video file."
 
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+
         if total_frames <= 0:
             cap.release()
-            return []
+            return None, "Video appears to have no frames."
 
+        duration_seconds = total_frames / fps
+        if duration_seconds > _MAX_VIDEO_DURATION_SECONDS:
+            cap.release()
+            return None, _CLIP_TOO_LONG_MSG
+
+        # Uniform sampling via np.linspace
         frame_count = min(max_frames, total_frames)
-        indices = [
-            int(i * (total_frames - 1) / max(frame_count - 1, 1))
-            for i in range(frame_count)
-        ]
+        indices = np.linspace(0, total_frames - 1, frame_count, dtype=int).tolist()
 
-        frames: list[bytes] = []
+        frames: list[np.ndarray] = []
         for idx in indices:
             cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
             success, frame = cap.read()
-            if not success:
-                continue
-            _, buffer = cv2.imencode(".jpg", frame)
-            frames.append(buffer.tobytes())
+            if success:
+                frames.append(frame)
 
         cap.release()
-        return frames
+        return frames, fps
     finally:
         os.unlink(tmp.name)
 
 
-def _preprocess_frames(frames: list[bytes]) -> list[bytes]:
-    """Preprocess extracted video frames before sending to the model.
+def _extract_video_frames(video_bytes: bytes, *, max_frames: int = 6) -> list[bytes]:
+    """Extract evenly-spaced JPEG frames from a video (legacy fallback).
 
-    Currently a pass-through that returns frames unchanged. This is the
-    extension point for future pose estimation (e.g. MediaPipe, MMPose)
-    to automatically draw skeleton overlays on raw video frames before
-    the biomechanics model analyses them.
+    Used when MediaPipe is not available. For the full pose analysis
+    pipeline, use ``_extract_video_frames_dense`` instead.
+
+    Args:
+        video_bytes: Raw video file bytes.
+        max_frames: Maximum number of frames to extract.
+
+    Returns:
+        List of JPEG-encoded frame byte-strings.
+    """
+    result = _extract_video_frames_dense(video_bytes, max_frames=max_frames)
+    if result[0] is None:
+        return []
+    frames_bgr, _ = result
+    import cv2
+
+    jpeg_frames: list[bytes] = []
+    for frame in frames_bgr:
+        _, buffer = cv2.imencode(".jpg", frame)
+        jpeg_frames.append(buffer.tobytes())
+    return jpeg_frames
+
+
+# Reference angles for form diff colouring (midpoints of gold-standard ranges)
+_REFERENCE_ANGLES: dict[str, dict[str, float | None]] = {
+    "tennis": {
+        "right_elbow_flexion": 30.0,
+        "left_elbow_flexion": 30.0,
+        "right_shoulder_elevation": 111.0,
+        "left_shoulder_elevation": 111.0,
+        "right_knee_flexion": 65.0,
+        "left_knee_flexion": 65.0,
+        "trunk_tilt": 25.0,
+    },
+    "squat": {
+        "right_knee_flexion": 100.0,
+        "left_knee_flexion": 100.0,
+        "trunk_tilt": 45.0,
+        "right_elbow_flexion": None,
+        "left_elbow_flexion": None,
+    },
+    "deadlift": {
+        "right_knee_flexion": 90.0,
+        "left_knee_flexion": 90.0,
+        "trunk_tilt": 45.0,
+    },
+}
+
+
+def _get_reference_angles(activity: str) -> dict[str, float | None]:
+    """Look up reference angles for form diff colouring.
+
+    Args:
+        activity: Activity name from the user's caption.
+
+    Returns:
+        Mapping of joint name to target angle. Returns empty dict
+        for unknown activities (skeleton will be drawn in green).
+    """
+    normalised = activity.strip().lower()
+    for key, angles in _REFERENCE_ANGLES.items():
+        if key in normalised:
+            return angles
+    return {}
+
+
+def _preprocess_frames(frames: list[bytes]) -> list[bytes]:
+    """Legacy preprocessing stub (pass-through).
+
+    Kept for backward compatibility with tests. The active video pipeline
+    uses ``_run_pose_analysis`` instead.
 
     Args:
         frames: List of JPEG-encoded frame byte-strings.
 
     Returns:
-        The (potentially modified) list of frame byte-strings.
-
-    Example:
-        >>> _preprocess_frames([b"frame1", b"frame2"])
-        [b'frame1', b'frame2']
+        The frames unchanged.
     """
-    # Future: add pose estimation overlay here
     return frames
 
 
@@ -384,35 +459,195 @@ class TelegramConversationGateway:
         chat_id: int | None,
         chat_type: str | None,
     ) -> list[OutboundTelegramMessage]:
-        """Process a video via the biomechanics agent, then the supervisor.
+        """Process a video through dense pose analysis, then the supervisor.
 
-        Two-stage pipeline:
-        1. **Biomechanics agent** receives extracted video frames directly
-           and produces a raw technical analysis.
-        2. **Supervisor** receives the analysis as text through the normal
-           conversation flow, ensuring tone alignment, health-data context,
-           and conversational continuity.
+        Three-stage pipeline:
+        1. **Dense local analysis** -- MediaPipe processes up to 600 frames,
+           computes joint angles, detects events, aggregates metrics.
+        2. **Biomechanics agent** -- receives structured metrics + 2-3
+           annotated key frames for interpretation.
+        3. **Supervisor** -- synthesises the analysis with coaching tone
+           and health-data context.
+
+        Falls back to the legacy 6-frame path if MediaPipe is unavailable.
 
         Args:
             video_bytes: Raw video file bytes downloaded from Telegram.
-            caption: Optional user-provided caption for the video.
-            user_id: Telegram user ID (for authorisation and memory context).
+            caption: Optional user-provided caption (activity hint).
+            user_id: Telegram user ID.
             chat_id: Telegram chat ID.
             chat_type: Telegram chat type (must be ``"private"``).
 
         Returns:
-            List of outbound messages containing the supervisor's response.
-
-        Example:
-            >>> msgs = await gateway.handle_video_message(
-            ...     video_bytes=b"<mp4>", caption="My serve",
-            ...     user_id=1, chat_id=10, chat_type="private",
-            ... )
+            List of outbound messages: annotated photos + supervisor text.
         """
         if not self.is_authorized(user_id=user_id, chat_id=chat_id, chat_type=chat_type):
             return []
 
-        # Stage 1: extract frames and get biomechanics analysis
+        # Try dense pose analysis pipeline
+        try:
+            return await self._handle_video_with_pose_analysis(
+                video_bytes=video_bytes,
+                caption=caption,
+                user_id=user_id,
+                chat_id=chat_id,
+                chat_type=chat_type,
+            )
+        except Exception:
+            logger.info("Pose analysis unavailable, falling back to legacy path")
+            return await self._handle_video_legacy(
+                video_bytes=video_bytes,
+                caption=caption,
+                user_id=user_id,
+                chat_id=chat_id,
+                chat_type=chat_type,
+            )
+
+    async def _handle_video_with_pose_analysis(
+        self,
+        *,
+        video_bytes: bytes,
+        caption: str | None,
+        user_id: int | None,
+        chat_id: int | None,
+        chat_type: str | None,
+    ) -> list[OutboundTelegramMessage]:
+        """Full pose analysis pipeline with MediaPipe."""
+        from whoopdata.agent.pose_analysis import PoseAnalyser, AnalysisResult
+        from whoopdata.agent.pose_overlay import draw_form_diff, encode_annotated_frame
+        from whoopdata.agent.video_archive import save_analysis, serialise_landmarks
+
+        # Extract dense frames
+        extraction = _extract_video_frames_dense(video_bytes)
+        if extraction[0] is None:
+            return [OutboundTelegramMessage(text=extraction[1])]
+        frames_bgr, fps = extraction
+
+        # Determine activity from caption
+        activity = (caption or "").strip().lower()
+
+        # Run pose analysis
+        analyser = PoseAnalyser(activity=activity or None)
+        result: AnalysisResult = analyser.analyse_frames(frames_bgr, fps)
+
+        # Build annotated key frames
+        # Reference angles for form diff (simplified -- use midpoint of gold-standard ranges)
+        reference_angles = _get_reference_angles(activity)
+        annotated_photos: list[OutboundTelegramMessage] = []
+        annotated_for_archive: list[tuple[Any, str]] = []
+
+        for key_idx in result.metrics.key_frame_indices:
+            if key_idx >= len(frames_bgr) or result.all_landmarks[key_idx] is None:
+                continue
+
+            frame = frames_bgr[key_idx]
+            landmarks = result.all_landmarks[key_idx]
+            measured = result.all_angles[key_idx].angles
+
+            # Find which rep this frame belongs to
+            rep_label = ""
+            for rep in result.metrics.per_rep:
+                if rep.event.start_frame <= key_idx <= rep.event.end_frame:
+                    rep_label = f"{rep.event.event_type} -- Rep {rep.rep_number}/{result.metrics.num_reps}"
+                    break
+
+            annotated = draw_form_diff(
+                frame, landmarks, measured, reference_angles, phase_label=rep_label
+            )
+            photo_bytes = encode_annotated_frame(annotated)
+            annotated_for_archive.append((annotated, rep_label))
+
+            # Build a short caption with the key angle deviation
+            cap_parts = [rep_label] if rep_label else []
+            for joint, val in measured.items():
+                ref = reference_angles.get(joint)
+                if val is not None and ref is not None and abs(val - ref) >= 15:
+                    cap_parts.append(f"{joint}: {int(val)} deg (target: {int(ref)})")
+                    break  # One deviation per caption
+            photo_caption = " -- ".join(cap_parts) if cap_parts else "Pose analysis"
+
+            annotated_photos.append(
+                OutboundTelegramMessage(photo_bytes=photo_bytes, caption=photo_caption)
+            )
+
+        # Build overlay for ALL frames (for local archive review)
+        all_overlay_frames: list[Any] = []
+        for i, frame in enumerate(frames_bgr):
+            if result.all_landmarks[i] is not None:
+                measured = result.all_angles[i].angles
+                overlay = draw_form_diff(
+                    frame, result.all_landmarks[i], measured, reference_angles
+                )
+                all_overlay_frames.append(overlay)
+            else:
+                all_overlay_frames.append(None)
+
+        # Save local archive (best-effort, don't fail the response)
+        try:
+            landmarks_data = [serialise_landmarks(lm) for lm in result.all_landmarks]
+            save_analysis(
+                activity=activity or result.metrics.activity,
+                raw_frames=frames_bgr,
+                annotated_frames=annotated_for_archive,
+                overlay_frames=all_overlay_frames,
+                metrics={
+                    "num_reps": result.metrics.num_reps,
+                    "activity": result.metrics.activity,
+                    "prompt": result.metrics.format_for_prompt(),
+                },
+                landmarks_data=landmarks_data,
+            )
+        except Exception:
+            logger.warning("Failed to save video analysis archive", exc_info=True)
+
+        # Build LLM prompt with structured metrics + key frames
+        metrics_text = result.metrics.format_for_prompt()
+        key_frame_b64 = []
+        for msg in annotated_photos:
+            if msg.photo_bytes:
+                key_frame_b64.append(base64.b64encode(msg.photo_bytes).decode("utf-8"))
+
+        prompt = caption or _DEFAULT_VIDEO_PROMPT
+        try:
+            analysis = await self._analyze_video(
+                key_frame_b64,
+                f"{prompt}\n\nComputed metrics:\n{metrics_text}",
+                user_id=f"telegram:{user_id}",
+            )
+        except Exception:
+            logger.exception("Biomechanics agent failed")
+            return annotated_photos + [
+                OutboundTelegramMessage(text="Sorry, I hit an error with the coaching analysis.")
+            ]
+
+        # Stage 3: supervisor synthesis
+        supervisor_prompt = (
+            "The user sent a video. Here is the biomechanics analysis from the "
+            "specialist with computed joint angle measurements "
+            "\u2014 synthesise this into your coaching response, maintaining "
+            "your usual tone and adding any relevant health-data context:\n\n"
+            f"{analysis}"
+        )
+        text_responses = await self.handle_text_message(
+            text=supervisor_prompt,
+            user_id=user_id,
+            chat_id=chat_id,
+            chat_type=chat_type,
+        )
+
+        # Send annotated photos first, then text
+        return annotated_photos + text_responses
+
+    async def _handle_video_legacy(
+        self,
+        *,
+        video_bytes: bytes,
+        caption: str | None,
+        user_id: int | None,
+        chat_id: int | None,
+        chat_type: str | None,
+    ) -> list[OutboundTelegramMessage]:
+        """Legacy video path: 6 frames to LLM without local pose analysis."""
         raw_frames = _extract_video_frames(video_bytes)
         if not raw_frames:
             return [
@@ -421,29 +656,21 @@ class TelegramConversationGateway:
                 )
             ]
 
-        frames = _preprocess_frames(raw_frames)
-        images_b64 = [base64.b64encode(f).decode("utf-8") for f in frames]
-
+        images_b64 = [base64.b64encode(f).decode("utf-8") for f in raw_frames]
         prompt = caption or _DEFAULT_VIDEO_PROMPT
         try:
             analysis = await self._analyze_video(
-                images_b64,
-                prompt,
-                user_id=f"telegram:{user_id}",
+                images_b64, prompt, user_id=f"telegram:{user_id}"
             )
         except Exception:
             logger.exception("Biomechanics video analysis failed")
             return [
-                OutboundTelegramMessage(
-                    text="Sorry, I hit an error analysing that video."
-                )
+                OutboundTelegramMessage(text="Sorry, I hit an error analysing that video.")
             ]
 
-        # Stage 2: feed the raw analysis through the supervisor for
-        # tone alignment, health-data cross-referencing, and thread continuity
         supervisor_prompt = (
             "The user sent a video. Here is the biomechanics analysis from the "
-            "specialist — synthesise this into your coaching response, maintaining "
+            "specialist \u2014 synthesise this into your coaching response, maintaining "
             "your usual tone and adding any relevant health-data context:\n\n"
             f"{analysis}"
         )

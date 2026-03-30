@@ -7,7 +7,7 @@ packages = ["whoopdata"]
 
 [project]
 name = "whoop-data"
-version = "3.7.0"
+version = "3.8.0"
 description = "WHOOP and Withings Health Data Integration Platform"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -82,6 +82,8 @@ dependencies = [
     "loguru>=0.7.3",
     "shap>=0.46,<0.48",
     "opencv-python-headless>=4.8.0",
+    # Pose estimation for biomechanics video analysis
+    "mediapipe>=0.10.0",
 ]
 
 [project.optional-dependencies]

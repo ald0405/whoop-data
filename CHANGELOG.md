@@ -4,6 +4,28 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.8.0] - 2026-03-30
+
+### Added
+- MediaPipe Pose Lite integration for local biomechanics computation. Processes up to 600 dense video frames with temporal tracking in VIDEO mode -- the LLM now receives computed joint angle measurements instead of trying to eyeball pixels.
+- Pluggable activity detection: `TennisDetector` (shoulder + wrist speed peaks for serves and groundstrokes) and `GymDetector` (knee angle valleys for squat reps). Each returns typed `EventWindow` objects.
+- Multi-rep analysis: per-rep joint angles, cross-rep aggregation (mean, SD, consistency), fatigue drift detection, best/worst rep selection.
+- Colour-coded skeleton overlay on annotated frames: thin white context skeleton, bold red/yellow only on the worst fault segment, dashed cyan ghost showing the reference pose at that joint.
+- Local video analysis archive at `data/video_analyses/<timestamp>_<activity>/` with `raw/`, `overlay/` (all frames with skeleton), `annotated/` (key frames with form diff), `metrics.json`, and `landmarks.json`.
+- Dense frame extraction (`_extract_video_frames_dense`) with `np.linspace` uniform sampling and >60s clip rejection with user guidance.
+- `make download-models` target for fetching the MediaPipe pose landmarker model (~6MB).
+- `pose_analysis.py` (830 lines): `PoseAnalyser`, `Landmarks`, `JOINT_ANGLES`, `angle_between_three_points`, `find_peaks`, `AggregatedMetrics.format_for_prompt()`.
+- `pose_overlay.py` (330 lines): `draw_form_diff`, `_find_worst_fault`, `_draw_dashed_line`, `encode_annotated_frame`.
+- `video_archive.py` (120 lines): `save_analysis`, `serialise_landmarks`.
+- 24 new tests for math utilities, activity detection, overlay colouring, rotation, reference angles, and backward compatibility.
+- Added `mediapipe>=0.10.0` dependency.
+
+### Changed
+- Video pipeline is now three-stage: dense local analysis (MediaPipe + NumPy) -> LLM interpretation (structured metrics + annotated key frames) -> supervisor synthesis.
+- Annotated photos sent to Telegram before the coaching text for visual-first feedback.
+- Overlay redesigned based on user feedback: removed cluttered angle text labels, simplified to single-fault focus with ghost reference.
+- Updated agent README video pipeline Mermaid diagram to show full dense processing flow.
+
 ## [3.7.0] - 2026-03-30
 
 ### Added

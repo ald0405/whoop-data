@@ -1,4 +1,4 @@
-.PHONY: help install dev sync run server etl etl-full etl-now etl-up etl-down etl-test chat telegram-bot analytics langgraph-dev dev-all dev-full dev-full-stop postgres-up postgres-down postgres-logs test format lint typecheck clean verify schedule-up schedule-down schedule-test morning-now proactive-now weakness-now weakness-preview services-up services-down services-test
+.PHONY: help install dev sync run server etl etl-full etl-now etl-up etl-down etl-test chat telegram-bot analytics langgraph-dev dev-all dev-full dev-full-stop postgres-up postgres-down postgres-logs test format lint typecheck clean verify schedule-up schedule-down schedule-test morning-now proactive-now weakness-now weakness-preview services-up services-down services-test download-models
 
 # Default target
 help:
@@ -46,6 +46,9 @@ help:
 	@echo "  make lint        - Lint code with ruff (including docstrings) and flake8"
 	@echo "  make typecheck   - Type check with mypy"
 	@echo "  make verify      - Run system verification checks"
+	@echo ""
+	@echo "Models:"
+	@echo "  make download-models - Download MediaPipe pose landmarker model (~6MB)"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  make clean       - Clean cache files and build artifacts"
@@ -249,6 +252,18 @@ weakness-now:
 weakness-preview:
 	@echo "🧪 Sending weakness reminder preview to Telegram..."
 	uv run python scripts/telegram_weakness_preview.py
+
+# Model management
+download-models:
+	@echo "Downloading MediaPipe pose landmarker model..."
+	@mkdir -p data/models
+	@if [ ! -f data/models/pose_landmarker_lite.task ]; then \
+		curl -sL -o data/models/pose_landmarker_lite.task \
+			https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task; \
+		echo "  Downloaded pose_landmarker_lite.task"; \
+	else \
+		echo "  Model already exists"; \
+	fi
 
 # Development targets
 test:
