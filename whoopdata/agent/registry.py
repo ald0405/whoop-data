@@ -176,4 +176,19 @@ AGENT_REGISTRY: dict[str, dict] = {
             "get_workout_data",
         ],
     },
+    "biomechanics": {
+        "name": "biomechanics",
+        "description": (
+            "Biomechanics and movement analysis specialist. "
+            "Use for questions about form, technique, joint mechanics, "
+            "or follow-ups on previous video analyses. "
+            "Covers tennis serve mechanics (kinetic chain, joint angles, serve phases), "
+            "squat and deadlift form assessment, and general movement coaching cues."
+        ),
+        "system_prompt": _load_prompt("biomechanics_sub_agent.md"),
+        "tools": [
+            "search_memory",
+            "manage_memory",
+        ],
+    },
 }

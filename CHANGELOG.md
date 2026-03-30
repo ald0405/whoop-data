@@ -4,6 +4,22 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.7.0] - 2026-03-30
+
+### Added
+- Telegram video message support: videos (including iOS screen recordings) are now processed instead of silently dropped. Registered `filters.VIDEO | filters.VIDEO_NOTE` handler in the bot.
+- Standalone biomechanics agent (`whoopdata/agent/biomechanics.py`) for direct video frame analysis using gpt-5.4-mini with vision. Extracts 6 evenly-spaced frames via OpenCV and sends them as multi-image `detail: high` content blocks.
+- Two-stage video pipeline: biomechanics agent analyses frames first, then the supervisor synthesises the response with coaching tone and health-data context.
+- Biomechanics specialist registered in `AGENT_REGISTRY` for text-based follow-up questions routed through the supervisor. Both paths share memory.
+- Evidence-based biomechanics system prompt (`data/prompts/agents/biomechanics_sub_agent.md`) with gold-standard reference ranges for tennis serve (Kovacs & Ellenbecker 8-stage model, meta-analysis joint angles), barbell back squat, and conventional deadlift.
+- Frame preprocessing pipeline stub (`_preprocess_frames`) as the extension point for future pose estimation (MediaPipe/MMPose).
+- Package READMEs with Mermaid architecture diagrams for `agent/`, `api/`, `services/`, `models/`, `database/`, `crud/`, and `pipelines/`.
+- Added `opencv-python-headless>=4.8.0` dependency.
+
+### Changed
+- Biomechanics analysis output format redesigned: leads with one priority fault and one coaching cue instead of a wall of text. Offers to go deeper on additional findings.
+- Models README updated with lightweight relationships-only ER diagram and a joins column in the model summary table.
+
 ## [3.6.0] - 2026-03-30
 
 ### Added
