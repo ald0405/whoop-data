@@ -7,14 +7,16 @@ import io
 import logging
 import os
 import re
+import tempfile
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Any, Callable, Iterable
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from telegram.constants import ParseMode
 
 from whoopdata.agent import settings as agent_settings
+from whoopdata.agent.biomechanics import analyze_video as _default_analyze_video
 from whoopdata.agent.conversation_service import ConversationService, get_conversation_service
 
 load_dotenv()
@@ -49,6 +51,100 @@ def _parse_int_set(raw: str | None) -> set[int]:
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_ALLOWED_USER_IDS = _parse_int_set(os.getenv("TELEGRAM_ALLOWED_USER_IDS"))
 TELEGRAM_ALLOWED_CHAT_IDS = _parse_int_set(os.getenv("TELEGRAM_ALLOWED_CHAT_IDS"))
+
+_DEFAULT_VIDEO_PROMPT = (
+    "These are frames extracted from a video I sent. "
+    "Analyse the movement, form, and any biomechanics overlays visible "
+    "(dots/lines on joints)."
+)
+
+
+def _extract_video_frames(video_bytes: bytes, *, max_frames: int = 6) -> list[bytes]:
+    """Extract evenly-spaced JPEG frames from a video byte-stream.
+
+    Uses OpenCV (``cv2.VideoCapture``) following the official OpenAI cookbook
+    pattern for video-to-vision processing. The video is written to a
+    temporary file, sampled at ``max_frames`` evenly-spaced positions,
+    and each frame is encoded as JPEG bytes.
+
+    Args:
+        video_bytes: Raw video file bytes (e.g. MP4 from Telegram).
+        max_frames: Maximum number of frames to extract. Defaults to 6,
+            which balances motion coverage against token cost (~6,630
+            input tokens at ``detail: high`` on gpt-5.4-mini).
+
+    Returns:
+        A list of JPEG-encoded frame byte-strings. Returns an empty list
+        if OpenCV is unavailable or the video cannot be read.
+
+    Example:
+        >>> frames = _extract_video_frames(open("serve.mp4", "rb").read())
+        >>> len(frames) <= 6
+        True
+    """
+    try:
+        import cv2
+    except ImportError:
+        logger.warning("opencv-python-headless not installed; cannot extract video frames")
+        return []
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+    try:
+        tmp.write(video_bytes)
+        tmp.flush()
+        tmp.close()
+
+        cap = cv2.VideoCapture(tmp.name)
+        if not cap.isOpened():
+            logger.warning("Failed to open video file for frame extraction")
+            return []
+
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if total_frames <= 0:
+            cap.release()
+            return []
+
+        frame_count = min(max_frames, total_frames)
+        indices = [
+            int(i * (total_frames - 1) / max(frame_count - 1, 1))
+            for i in range(frame_count)
+        ]
+
+        frames: list[bytes] = []
+        for idx in indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+            success, frame = cap.read()
+            if not success:
+                continue
+            _, buffer = cv2.imencode(".jpg", frame)
+            frames.append(buffer.tobytes())
+
+        cap.release()
+        return frames
+    finally:
+        os.unlink(tmp.name)
+
+
+def _preprocess_frames(frames: list[bytes]) -> list[bytes]:
+    """Preprocess extracted video frames before sending to the model.
+
+    Currently a pass-through that returns frames unchanged. This is the
+    extension point for future pose estimation (e.g. MediaPipe, MMPose)
+    to automatically draw skeleton overlays on raw video frames before
+    the biomechanics model analyses them.
+
+    Args:
+        frames: List of JPEG-encoded frame byte-strings.
+
+    Returns:
+        The (potentially modified) list of frame byte-strings.
+
+    Example:
+        >>> _preprocess_frames([b"frame1", b"frame2"])
+        [b'frame1', b'frame2']
+    """
+    # Future: add pose estimation overlay here
+    return frames
 
 
 @dataclass
@@ -85,21 +181,27 @@ class ConversationBinding:
 
 
 class TelegramConversationGateway:
-    """TelegramConversationGateway data structure or service type.
+    """Routes incoming Telegram messages to the appropriate agent path.
 
-    
+    Text and photo messages flow through the supervisor via
+    ``ConversationService``. Video messages bypass the supervisor and
+    are routed directly to the standalone biomechanics agent for
+    frame-level visual analysis.
     """
+
     def __init__(
         self,
         *,
         conversation_service: ConversationService | None = None,
         allowed_user_ids: Iterable[int] | None = None,
         allowed_chat_ids: Iterable[int] | None = None,
+        analyze_video_fn: Callable[..., Any] | None = None,
     ) -> None:
         self._conversation_service = conversation_service or get_conversation_service()
         self._allowed_user_ids = set(allowed_user_ids or ())
         self._allowed_chat_ids = set(allowed_chat_ids or ())
         self._bindings_by_chat: dict[int, ConversationBinding] = {}
+        self._analyze_video = analyze_video_fn or _default_analyze_video
 
     def is_authorized(
         self, *, user_id: int | None, chat_id: int | None, chat_type: str | None
@@ -271,6 +373,85 @@ class TelegramConversationGateway:
             chat_id=chat_id,
             chat_type=chat_type,
             image_b64=image_b64,
+        )
+
+    async def handle_video_message(
+        self,
+        *,
+        video_bytes: bytes,
+        caption: str | None,
+        user_id: int | None,
+        chat_id: int | None,
+        chat_type: str | None,
+    ) -> list[OutboundTelegramMessage]:
+        """Process a video via the biomechanics agent, then the supervisor.
+
+        Two-stage pipeline:
+        1. **Biomechanics agent** receives extracted video frames directly
+           and produces a raw technical analysis.
+        2. **Supervisor** receives the analysis as text through the normal
+           conversation flow, ensuring tone alignment, health-data context,
+           and conversational continuity.
+
+        Args:
+            video_bytes: Raw video file bytes downloaded from Telegram.
+            caption: Optional user-provided caption for the video.
+            user_id: Telegram user ID (for authorisation and memory context).
+            chat_id: Telegram chat ID.
+            chat_type: Telegram chat type (must be ``"private"``).
+
+        Returns:
+            List of outbound messages containing the supervisor's response.
+
+        Example:
+            >>> msgs = await gateway.handle_video_message(
+            ...     video_bytes=b"<mp4>", caption="My serve",
+            ...     user_id=1, chat_id=10, chat_type="private",
+            ... )
+        """
+        if not self.is_authorized(user_id=user_id, chat_id=chat_id, chat_type=chat_type):
+            return []
+
+        # Stage 1: extract frames and get biomechanics analysis
+        raw_frames = _extract_video_frames(video_bytes)
+        if not raw_frames:
+            return [
+                OutboundTelegramMessage(
+                    text="Sorry, I couldn't extract any frames from that video."
+                )
+            ]
+
+        frames = _preprocess_frames(raw_frames)
+        images_b64 = [base64.b64encode(f).decode("utf-8") for f in frames]
+
+        prompt = caption or _DEFAULT_VIDEO_PROMPT
+        try:
+            analysis = await self._analyze_video(
+                images_b64,
+                prompt,
+                user_id=f"telegram:{user_id}",
+            )
+        except Exception:
+            logger.exception("Biomechanics video analysis failed")
+            return [
+                OutboundTelegramMessage(
+                    text="Sorry, I hit an error analysing that video."
+                )
+            ]
+
+        # Stage 2: feed the raw analysis through the supervisor for
+        # tone alignment, health-data cross-referencing, and thread continuity
+        supervisor_prompt = (
+            "The user sent a video. Here is the biomechanics analysis from the "
+            "specialist — synthesise this into your coaching response, maintaining "
+            "your usual tone and adding any relevant health-data context:\n\n"
+            f"{analysis}"
+        )
+        return await self.handle_text_message(
+            text=supervisor_prompt,
+            user_id=user_id,
+            chat_id=chat_id,
+            chat_type=chat_type,
         )
 
     def _build_response_messages(
@@ -804,6 +985,47 @@ async def photo_message(update, context) -> None:
     await _reply(update, responses)
 
 
+async def video_message(update, context) -> None:
+    """Handle incoming video messages by routing to the biomechanics agent.
+
+    Downloads the video from Telegram, sends a processing indicator,
+    and delegates to the gateway's ``handle_video_message`` which
+    extracts frames and invokes the standalone biomechanics agent.
+
+    Args:
+        update: The Telegram update containing the video message.
+        context: The bot's callback context.
+    """
+    gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
+    user = update.effective_user
+    chat = update.effective_chat
+    message = update.effective_message
+
+    video = getattr(message, "video", None) or getattr(message, "video_note", None)
+    if video is None:
+        return
+
+    await message.reply_text("\U0001f3ac Analysing video\u2026")
+
+    try:
+        tg_file = await video.get_file()
+        video_data = await tg_file.download_as_bytearray()
+    except Exception:
+        logger.exception("Failed to download video from Telegram")
+        await message.reply_text("Sorry, I couldn't download that video.")
+        return
+
+    caption = getattr(message, "caption", None)
+    responses = await gateway.handle_video_message(
+        video_bytes=bytes(video_data),
+        caption=caption,
+        user_id=getattr(user, "id", None),
+        chat_id=getattr(chat, "id", None),
+        chat_type=getattr(chat, "type", None),
+    )
+    await _reply(update, responses)
+
+
 async def error_handler(update, context) -> None:
     """Error handler.
 
@@ -851,6 +1073,7 @@ def build_application(gateway: TelegramConversationGateway | None = None):
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message))
     application.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, voice_message))
     application.add_handler(MessageHandler(filters.PHOTO, photo_message))
+    application.add_handler(MessageHandler(filters.VIDEO | filters.VIDEO_NOTE, video_message))
     application.add_error_handler(error_handler)
     return application
 

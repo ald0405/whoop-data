@@ -310,6 +310,151 @@ def test_plain_formatter_flattens_markdown_tables_for_chat_style_delivery():
     )
 
 
+def test_gateway_video_message_extracts_frames_and_routes_through_supervisor(monkeypatch):
+    """Video handler should extract frames, call biomechanics agent, then feed analysis to supervisor."""
+    import whoopdata.telegram_bot as tb
+
+    monkeypatch.setattr(tb, "_extract_video_frames", lambda vb, **kw: [b"frame1", b"frame2"])
+
+    async def _mock_analyze(images_b64, prompt, *, user_id="default_user"):
+        return f"Analysis of {len(images_b64)} frames: good form!"
+
+    service = StubConversationService(
+        [_response(assistant_message="Great serve technique! Keep that knee bend.")]
+    )
+    gateway = TelegramConversationGateway(
+        conversation_service=service,
+        analyze_video_fn=_mock_analyze,
+    )
+
+    messages = asyncio.run(
+        gateway.handle_video_message(
+            video_bytes=b"fake-mp4",
+            caption="Check my tennis serve",
+            user_id=1,
+            chat_id=10,
+            chat_type="private",
+        )
+    )
+
+    # Supervisor should receive the biomechanics analysis as text
+    assert len(service.calls) == 1
+    assert "biomechanics analysis" in service.calls[0]["message"].lower()
+    assert "good form" in service.calls[0]["message"]
+    # Final response comes from the supervisor
+    assert len(messages) == 1
+    assert "knee bend" in messages[0].text
+
+
+def test_gateway_video_message_uses_default_prompt_when_no_caption(monkeypatch):
+    """Video without caption should use the default biomechanics prompt."""
+    import whoopdata.telegram_bot as tb
+
+    monkeypatch.setattr(tb, "_extract_video_frames", lambda vb, **kw: [b"frame1"])
+
+    captured_prompts = []
+
+    async def _mock_analyze(images_b64, prompt, *, user_id="default_user"):
+        captured_prompts.append(prompt)
+        return "Analysis done."
+
+    service = StubConversationService(
+        [_response(assistant_message="Here's what I found.")]
+    )
+    gateway = TelegramConversationGateway(
+        conversation_service=service,
+        analyze_video_fn=_mock_analyze,
+    )
+
+    asyncio.run(
+        gateway.handle_video_message(
+            video_bytes=b"fake-mp4",
+            caption=None,
+            user_id=1,
+            chat_id=10,
+            chat_type="private",
+        )
+    )
+
+    assert "biomechanics" in captured_prompts[0].lower() or "overlays" in captured_prompts[0].lower()
+
+
+def test_gateway_video_message_rejected_for_unauthorized_user():
+    """Video from unauthorized user should be silently rejected."""
+    async def _mock_analyze(images_b64, prompt, *, user_id="default_user"):
+        raise AssertionError("Should not be called")
+
+    gateway = TelegramConversationGateway(
+        conversation_service=StubConversationService([]),
+        allowed_user_ids=[999],
+        analyze_video_fn=_mock_analyze,
+    )
+
+    messages = asyncio.run(
+        gateway.handle_video_message(
+            video_bytes=b"fake-mp4",
+            caption=None,
+            user_id=1,
+            chat_id=10,
+            chat_type="private",
+        )
+    )
+
+    assert messages == []
+
+
+def test_gateway_video_message_returns_error_on_no_frames(monkeypatch):
+    """When frame extraction returns empty, gateway should return a user-friendly error."""
+    import whoopdata.telegram_bot as tb
+
+    monkeypatch.setattr(tb, "_extract_video_frames", lambda vb, **kw: [])
+
+    gateway = TelegramConversationGateway(
+        conversation_service=StubConversationService([]),
+    )
+
+    messages = asyncio.run(
+        gateway.handle_video_message(
+            video_bytes=b"bad-video",
+            caption=None,
+            user_id=1,
+            chat_id=10,
+            chat_type="private",
+        )
+    )
+
+    assert len(messages) == 1
+    assert "couldn't extract" in messages[0].text
+
+
+def test_preprocess_frames_is_passthrough():
+    """The preprocessing stub should return frames unchanged."""
+    from whoopdata.telegram_bot import _preprocess_frames
+
+    frames = [b"frame-a", b"frame-b", b"frame-c"]
+    assert _preprocess_frames(frames) is frames
+
+
+def test_build_application_registers_video_filter(monkeypatch):
+    """build_application should register a VIDEO | VIDEO_NOTE handler."""
+    import whoopdata.telegram_bot as tb
+
+    monkeypatch.setattr(tb, "TELEGRAM_BOT_TOKEN", "fake-token")
+    app = tb.build_application(gateway=TelegramConversationGateway(
+        conversation_service=StubConversationService([]),
+    ))
+
+    from telegram.ext import filters
+
+    handler_filters = [h.filters for h in app.handlers[0] if hasattr(h, "filters")]
+    video_registered = any(
+        filters.VIDEO in (getattr(f, "_filters", set()) | {f})
+        or "video" in str(f).lower()
+        for f in handler_filters
+    )
+    assert video_registered, f"No VIDEO filter found among: {handler_filters}"
+
+
 def test_plain_formatter_limits_length_and_line_count():
     formatted = format_text_for_telegram_plain(
         "\n".join(

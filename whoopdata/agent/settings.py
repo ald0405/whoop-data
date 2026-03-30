@@ -117,6 +117,14 @@ LLM_CONFIG: dict[str, dict[str, Any]] = {
         "timeout_seconds": 30.0,
         "max_retries": 2,
     },
+    "biomechanics": {
+        "provider": "openai",
+        "model": "gpt-5.4-mini",
+        "temperature": 0.2,
+        "max_output_tokens": 1500,
+        "timeout_seconds": 45.0,
+        "max_retries": 2,
+    },
 }
 
 
