@@ -249,8 +249,15 @@ class AggregatedMetrics:
     fatigue_drift: dict[str, float] = field(default_factory=dict)
     key_frame_indices: list[int] = field(default_factory=list)
 
-    def format_for_prompt(self) -> str:
+    def format_for_prompt(self, reference_angles: dict[str, float | None] | None = None) -> str:
         """Format metrics as a structured text block for the biomechanics agent prompt.
+
+        Includes an alignment summary showing how many joints are within
+        acceptable range vs how many need attention.
+
+        Args:
+            reference_angles: Optional reference angles for computing the
+                alignment summary. If ``None``, the summary is omitted.
 
         Returns:
             Multi-line string suitable for inclusion in an LLM prompt.
@@ -270,6 +277,24 @@ class AggregatedMetrics:
                 if abs(drift) > 1.0:
                     line += f", drift {drift:+.1f} deg rep1->repN"
                 lines.append(line)
+
+        # Alignment summary: how many joints are within range
+        if reference_angles and self.mean_angles:
+            in_range = 0
+            total_checked = 0
+            for joint_name, mean_vals in self.mean_angles.items():
+                ref = reference_angles.get(joint_name)
+                if ref is None:
+                    continue
+                for position, mean_val in mean_vals.items():
+                    total_checked += 1
+                    if abs(mean_val - ref) < 15.0:
+                        in_range += 1
+            if total_checked > 0:
+                lines.append(
+                    f"Alignment: {in_range}/{total_checked} joints within acceptable range"
+                )
+
         if self.num_reps > 1:
             lines.append(
                 f"Key frames: rep {self.best_rep_idx + 1} (most typical), "
@@ -310,14 +335,27 @@ class ActivityDetector(Protocol):
 class TennisDetector:
     """Detect tennis strokes using wrist and shoulder speed peaks.
 
-    Uses shoulder elevation speed for serve detection (vertical acceleration
-    profile) and wrist speed peaks for groundstrokes. Combined detection
-    finds both stroke types.
+    When the user's caption specifies a shot type (e.g. "forehand",
+    "backhand", "serve"), all detected events are labelled with that
+    type. Otherwise, shoulder speed peaks are classified as serves
+    and wrist speed peaks as groundstrokes.
+
+    Args:
+        label_override: If set, all detected events use this label
+            instead of auto-classification. Derived from the user's caption.
 
     Example:
-        >>> detector = TennisDetector()
+        >>> detector = TennisDetector(label_override="forehand")
         >>> events = detector.detect_events(angles, wrist_speeds, shoulder_speeds, 30.0)
     """
+
+    def __init__(self, label_override: str | None = None) -> None:
+        """Initialise with optional label override from user caption.
+
+        Args:
+            label_override: Shot type label to apply to all events.
+        """
+        self._label_override = label_override
 
     def detect_events(
         self,
@@ -335,7 +373,7 @@ class TennisDetector:
             fps: Video frames per second.
 
         Returns:
-            List of detected serve and groundstroke event windows.
+            List of detected event windows.
         """
         min_dist = max(int(fps * 0.8), 5)
         wrist_threshold = _auto_threshold(wrist_speeds, factor=1.5)
@@ -348,22 +386,23 @@ class TennisDetector:
         used_frames: set[int] = set()
         window = int(fps * 1.0)
 
-        # Shoulder peaks first (serves)
+        # Combine all peaks, prioritise shoulder peaks
         for peak in shoulder_peaks:
             if any(abs(peak - u) < min_dist for u in used_frames):
                 continue
             start = max(0, peak - window)
             end = min(len(all_angles) - 1, peak + window)
-            events.append(EventWindow(start, end, "serve", peak))
+            label = self._label_override or "serve"
+            events.append(EventWindow(start, end, label, peak))
             used_frames.add(peak)
 
-        # Wrist peaks for groundstrokes (skip if near a serve)
         for peak in wrist_peaks:
             if any(abs(peak - u) < min_dist for u in used_frames):
                 continue
             start = max(0, peak - window)
             end = min(len(all_angles) - 1, peak + window)
-            events.append(EventWindow(start, end, "groundstroke", peak))
+            label = self._label_override or "groundstroke"
+            events.append(EventWindow(start, end, label, peak))
             used_frames.add(peak)
 
         events.sort(key=lambda e: e.start_frame)
@@ -421,16 +460,27 @@ class GymDetector:
         return events
 
 
-ACTIVITY_DETECTORS: dict[str, ActivityDetector] = {
-    "tennis": TennisDetector(),
-    "serve": TennisDetector(),
-    "forehand": TennisDetector(),
-    "backhand": TennisDetector(),
-    "squat": GymDetector(),
-    "deadlift": GymDetector(),
-    "gym": GymDetector(),
-    "workout": GymDetector(),
-}
+def _build_activity_detectors() -> dict[str, ActivityDetector]:
+    """Build the activity detector registry with caption-aware labels.
+
+    Returns:
+        Mapping of caption keywords to detector instances.
+    """
+    return {
+        "tennis": TennisDetector(),
+        "serve": TennisDetector(label_override="serve"),
+        "forehand": TennisDetector(label_override="forehand"),
+        "backhand": TennisDetector(label_override="backhand"),
+        "swing": TennisDetector(label_override="swing"),
+        "volley": TennisDetector(label_override="volley"),
+        "squat": GymDetector(),
+        "deadlift": GymDetector(),
+        "gym": GymDetector(),
+        "workout": GymDetector(),
+    }
+
+
+ACTIVITY_DETECTORS: dict[str, ActivityDetector] = _build_activity_detectors()
 
 
 def _auto_threshold(values: list[float | None], factor: float = 1.5) -> float:
@@ -586,11 +636,40 @@ class PoseAnalyser:
     def __init__(self, activity: str | None = None) -> None:
         """Initialise the analyser with an optional activity hint.
 
+        Scans the caption for known keywords (e.g. "forehand", "squat")
+        to select the right detector. A caption like "analyse my tennis
+        forehand" will match the "forehand" detector, not the generic
+        "tennis" one.
+
         Args:
-            activity: Activity name for event detector selection.
+            activity: Free-text caption or activity name.
         """
         self._activity = (activity or "").strip().lower()
-        self._detector: ActivityDetector | None = ACTIVITY_DETECTORS.get(self._activity)
+        self._detector = self._resolve_detector(self._activity)
+
+    @staticmethod
+    def _resolve_detector(caption: str) -> ActivityDetector | None:
+        """Find the best-matching detector by scanning for keywords in the caption.
+
+        More specific keywords (e.g. "forehand") are checked before generic
+        ones (e.g. "tennis") so the label override takes effect.
+
+        Args:
+            caption: Normalised lower-case caption text.
+
+        Returns:
+            Matching detector, or ``None`` if no keywords found.
+        """
+        # Check specific shot types first, then generic activity names
+        priority_order = [
+            "forehand", "backhand", "volley", "serve", "swing",
+            "squat", "deadlift",
+            "tennis", "gym", "workout",
+        ]
+        for keyword in priority_order:
+            if keyword in caption:
+                return ACTIVITY_DETECTORS.get(keyword)
+        return None
 
     def analyse_frames(
         self,

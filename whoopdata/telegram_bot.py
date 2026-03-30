@@ -601,7 +601,7 @@ class TelegramConversationGateway:
             logger.warning("Failed to save video analysis archive", exc_info=True)
 
         # Build LLM prompt with structured metrics + key frames
-        metrics_text = result.metrics.format_for_prompt()
+        metrics_text = result.metrics.format_for_prompt(reference_angles=reference_angles)
         key_frame_b64 = []
         for msg in annotated_photos:
             if msg.photo_bytes:
