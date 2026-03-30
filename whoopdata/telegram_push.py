@@ -35,6 +35,7 @@ TELEGRAM_PROACTIVE_FORMAT = os.getenv("TELEGRAM_PROACTIVE_FORMAT", "plain").stri
 
 @dataclass
 class PushResult:
+    """PushResult type definition."""
     assistant_message: str
     telegram_message_id: int | None = None
 

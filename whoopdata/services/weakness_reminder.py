@@ -21,6 +21,17 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _env_bool(name: str, default: bool) -> bool:
+    """ env bool.
+
+    Args:
+        name: Input parameter used by this routine.
+        default: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    
+    """
     raw = os.getenv(name)
     if raw is None:
         return default
@@ -28,6 +39,17 @@ def _env_bool(name: str, default: bool) -> bool:
 
 
 def _env_int(name: str, default: int) -> int:
+    """ env int.
+
+    Args:
+        name: Input parameter used by this routine.
+        default: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    
+    """
     raw = os.getenv(name)
     if raw is None:
         return default
@@ -38,21 +60,45 @@ def _env_int(name: str, default: int) -> int:
 
 
 class WeaknessReminderMode:
+    """WeaknessReminderMode data structure or service type.
+
+    
+    """
     SCHEDULED = "weakness_scheduled"
 
 
 class WeaknessReminderIntent:
+    """WeaknessReminderIntent data structure or service type.
+
+    
+    """
     WEAKNESS_REFLECTION = "weakness_reflection_nudge"
 
 
 @dataclass(frozen=True)
 class WeaknessReminderConfig:
+    """WeaknessReminderConfig data structure or service type.
+
+    
+    """
     enabled: bool = True
     window_start_hour: int = 9
     window_end_hour: int = 15
 
     @classmethod
     def from_env(cls) -> "WeaknessReminderConfig":
+        """From env.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = from_env()
+            _ = result
+
+        
+        """
         return cls(
             enabled=_env_bool("WEAKNESS_REMINDER_ENABLED", True),
             window_start_hour=_env_int("WEAKNESS_REMINDER_WINDOW_START_HOUR", 9),
@@ -62,12 +108,28 @@ class WeaknessReminderConfig:
 
 @dataclass(frozen=True)
 class WeaknessPreview:
+    """WeaknessPreview data structure or service type.
+
+    
+    """
     point: str
     point_number: int
     prompt: str
 
 
 def default_weakness_file() -> Path:
+    """Default weakness file.
+
+    Returns:
+        Computed result for this routine.
+
+    Example:
+        # Example usage
+        result = default_weakness_file()
+        _ = result
+
+    
+    """
     raw = os.getenv("WEAKNESS_REMINDER_FILE", "weakness.md").strip() or "weakness.md"
     path = Path(raw)
     if path.is_absolute():
@@ -76,11 +138,30 @@ def default_weakness_file() -> Path:
 
 
 def parse_weakness_points(path: str | Path) -> list[str]:
+    """Parse weakness points.
+
+    Args:
+        path: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    Example:
+        # Example usage
+        result = parse_weakness_points(path=...)
+        _ = result
+
+    
+    """
     lines = Path(path).read_text(encoding="utf-8").splitlines()
     points: list[str] = []
     current_parts: list[str] = []
 
     def _flush() -> None:
+        """ flush.
+
+        
+        """
         if current_parts:
             points.append(" ".join(current_parts).strip())
             current_parts.clear()
@@ -108,12 +189,33 @@ def parse_weakness_points(path: str | Path) -> list[str]:
 
 
 def _stable_random(*parts: str) -> random.Random:
+    """ stable random.
+
+    Args:
+        *parts: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    
+    """
     seed_input = "::".join(parts).encode("utf-8")
     seed = int(hashlib.sha256(seed_input).hexdigest()[:16], 16)
     return random.Random(seed)
 
 
 def _select_index_for_day(points: list[str], *, day: date) -> int:
+    """ select index for day.
+
+    Args:
+        points: Input parameter used by this routine.
+        day: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    
+    """
     rng = _stable_random("weakness-point", day.isoformat())
     return rng.randrange(len(points))
 
@@ -123,6 +225,17 @@ def _target_send_at_for_day(
     day: date,
     config: WeaknessReminderConfig,
 ) -> datetime:
+    """ target send at for day.
+
+    Args:
+        day: Input parameter used by this routine.
+        config: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    
+    """
     start_minutes = max(0, config.window_start_hour) * 60
     end_minutes = max(start_minutes + 1, config.window_end_hour * 60)
     rng = _stable_random("weakness-send-slot", day.isoformat())
@@ -133,10 +246,27 @@ def _target_send_at_for_day(
 
 
 def _coach_name() -> str:
+    """ coach name.
+
+    Returns:
+        Computed result for this routine.
+
+    
+    """
     return os.getenv("COACH_NAME", "Coach").strip() or "Coach"
 
 
 def _build_prompt(*, point: str) -> str:
+    """ build prompt.
+
+    Args:
+        point: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    
+    """
     coach_name = _coach_name()
     lines = [
         f"You are {coach_name}.",
@@ -173,6 +303,23 @@ def build_preview(
     day: date | None = None,
     point_number: int | None = None,
 ) -> WeaknessPreview:
+    """Build preview.
+
+    Args:
+        weakness_file: Input parameter used by this routine.
+        day: Input parameter used by this routine.
+        point_number: Input parameter used by this routine.
+
+    Returns:
+        Computed result for this routine.
+
+    Example:
+        # Example usage
+        result = build_preview(weakness_file=..., day=..., point_number=...)
+        _ = result
+
+    
+    """
     points = parse_weakness_points(weakness_file)
     if not points:
         raise RuntimeError("No top-level weakness reminder points found")
@@ -214,6 +361,21 @@ class WeaknessReminderPlanner:
         self.repository = repository or ProactiveMessageRepository(db)
 
     def evaluate(self, *, chat_id: int) -> ProactiveDecision:
+        """Evaluate.
+
+        Args:
+            chat_id: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = evaluate(chat_id=...)
+            _ = result
+
+        
+        """
         now = self.now_fn()
 
         if not self.config.enabled:
@@ -293,6 +455,24 @@ class WeaknessReminderPlanner:
         telegram_message_id: int | None = None,
         sent_at: datetime | None = None,
     ):
+        """Record sent.
+
+        Args:
+            chat_id: Input parameter used by this routine.
+            decision: Input parameter used by this routine.
+            telegram_message_id: Input parameter used by this routine.
+            sent_at: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = record_sent(chat_id=..., decision=..., telegram_message_id=..., sent_at=...)
+            _ = result
+
+        
+        """
         return self.repository.record_sent(
             chat_id=chat_id,
             decision=decision,
@@ -301,6 +481,16 @@ class WeaknessReminderPlanner:
         )
 
     def _within_window(self, now: datetime) -> bool:
+        """ within window.
+
+        Args:
+            now: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        
+        """
         return self.config.window_start_hour <= now.hour <= self.config.window_end_hour
 
 

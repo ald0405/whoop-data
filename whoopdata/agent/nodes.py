@@ -13,13 +13,14 @@ async def supervisor_node(state: HealthAgentState) -> HealthAgentState:
 
     messages = state.get("messages", [])
 
+    cfg = settings.get_supervisor_llm_config()
     # Initialize OpenAI LLM
     llm = ChatOpenAI(
-        model=settings.OPENAI_MODEL,
-        temperature=settings.OPENAI_TEMPERATURE,
-        max_tokens=settings.OPENAI_MAX_TOKENS,
+        model=str(cfg.get("model")),
+        temperature=cfg.get("temperature"),
+        max_tokens=cfg.get("max_output_tokens"),
         api_key=settings.OPENAI_API_KEY,
-        timeout=settings.AGENT_TIMEOUT_SECONDS,
+        timeout=cfg.get("timeout_seconds", settings.AGENT_TIMEOUT_SECONDS),
     )
 
     # Add system message if not present

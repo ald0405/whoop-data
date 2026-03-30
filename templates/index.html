@@ -379,6 +379,9 @@
                 <div class="col-md-7">
                     <div class="card">
                         <div class="card-body">
+                            <div class="mb-3">
+                                <small class="text-muted">Adjust controllable levers for tomorrow (sleep, strain, and efficiency).</small>
+                            </div>
                             <div class="scenario-slider-group">
                                 <label>Sleep hours: <strong id="sleepSliderVal">8.0</strong>h</label>
                                 <input type="range" id="sleepSlider" min="4" max="12" step="0.5" value="8">
@@ -402,7 +405,10 @@
                     <div class="card h-100">
                         <div class="card-body d-flex align-items-center justify-content-center">
                             <div class="scenario-result" id="scenarioResult">
-                                <div class="text-muted">Adjust the sliders and click predict</div>
+                                <div class="text-muted text-center">
+                                    Adjust the sliders and click predict
+                                    <div class="mt-1"><small>You'll see baseline vs adjusted recovery and what to change next.</small></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1247,17 +1253,14 @@
     async function runScenario() {
         const resultEl = document.getElementById('scenarioResult');
         resultEl.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div>';
-
         const payload = {
-            scenario: {
-                sleep_hours: parseFloat(document.getElementById('sleepSlider').value),
-                strain: parseFloat(document.getElementById('strainSlider').value),
-                sleep_efficiency: parseFloat(document.getElementById('efficiencySlider').value)
-            }
+            sleep_hours: parseFloat(document.getElementById('sleepSlider').value),
+            strain: parseFloat(document.getElementById('strainSlider').value),
+            sleep_efficiency: parseFloat(document.getElementById('efficiencySlider').value)
         };
 
         try {
-            const response = await fetch('/api/scenarios/recovery', {
+            const response = await fetch('/api/v1/insights/analytics/recovery/actionability', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -1274,16 +1277,39 @@
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const data = await response.json();
-            const r = data.result;
+            const baseline = data.baseline_prediction || null;
+            const r = data.scenario_prediction || baseline;
+            if (!r) {
+                resultEl.innerHTML = `<small class="text-muted">Prediction unavailable. Run the analytics pipeline first.</small>`;
+                return;
+            }
             const color = r.recovery_category === 'green' ? 'var(--teal-green)' :
                          r.recovery_category === 'yellow' ? 'var(--yellow)' : '#ff6b6b';
+            const deltaText = baseline && data.scenario_prediction
+                ? `${(r.predicted_recovery - baseline.predicted_recovery) >= 0 ? '+' : ''}${(r.predicted_recovery - baseline.predicted_recovery).toFixed(0)} pts vs current plan`
+                : (r.vs_baseline || '');
+            const topAdjustment = (data.top_adjustments && data.top_adjustments.length > 0)
+                ? data.top_adjustments.slice(0, 2)
+                : [];
+            const reliability = data.reliability_summary || '';
+            const baselineText = baseline
+                ? `${baseline.predicted_recovery.toFixed(0)}% ${baseline.recovery_category.toUpperCase()}`
+                : 'N/A';
+            const adjustedText = `${r.predicted_recovery.toFixed(0)}% ${r.recovery_category.toUpperCase()}`;
+            const leverHtml = topAdjustment.length
+                ? `<div class="mt-2"><small class="text-muted d-block">Top adjustments:</small>${topAdjustment.map(a => `<small class="text-muted d-block">• ${a.recommendation}</small>`).join('')}</div>`
+                : '';
 
             resultEl.innerHTML = `
                 <div class="scenario-score" style="color: ${color};">${r.predicted_recovery.toFixed(0)}%</div>
                 <span class="status-badge status-${r.recovery_category}">${r.recovery_category.toUpperCase()}</span>
                 <div class="scenario-verdict">${r.verdict}</div>
-                <small class="text-muted mt-2 d-block">${r.vs_baseline}</small>
+                <small class="text-muted mt-2 d-block">Current plan: ${baselineText}</small>
+                <small class="text-muted d-block">Adjusted plan: ${adjustedText}</small>
+                <small class="text-muted mt-2 d-block">${deltaText}</small>
                 <small class="text-muted">Range: ${r.confidence_interval[0].toFixed(0)}-${r.confidence_interval[1].toFixed(0)}%</small>
+                ${reliability ? `<small class="text-muted d-block mt-1">${reliability}</small>` : ''}
+                ${leverHtml}
             `;
         } catch (error) {
             console.error('Scenario error:', error);

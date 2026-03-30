@@ -21,11 +21,13 @@ from whoopdata.schemas.analytics import (
     MLRModelResponse,
     CorrelationMatrixResponse,
     RecoveryActionabilityResponse,
+    RecoveryActionabilityRequest,
 )
 from whoopdata.analytics.model_manager import model_manager
 from whoopdata.analytics.data_prep import (
     get_recovery_with_features,
 )
+from whoopdata.services.recovery_actionability_service import RecoveryActionabilityService
 
 insights_router = APIRouter(prefix="/api/v1/insights/analytics", tags=["insights"])
 legacy_insights_router = APIRouter(prefix="/analytics", tags=["insights"])
@@ -503,6 +505,7 @@ async def get_strain_patterns(
 )
 async def get_recovery_actionability(
     days_back: int = Query(365, description="Days of historical data"),
+    db: Session = Depends(get_db),
 ):
     """Get pre-computed recovery actionability rules.
 
@@ -518,15 +521,35 @@ async def get_recovery_actionability(
                 status_code=404,
                 detail="Recovery actionability not yet computed. Run the analytics pipeline first (option 6 in CLI).",
             )
-
-        result.pop("_computed_at", None)
-        return RecoveryActionabilityResponse(**result)
+        snapshot = RecoveryActionabilityService(db).build_snapshot()
+        snapshot.pop("_computed_at", None)
+        return RecoveryActionabilityResponse(**snapshot)
 
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error loading recovery actionability: {str(e)}"
+        )
+
+
+@legacy_insights_router.post("/recovery/actionability", deprecated=True)
+@insights_router.post(
+    "/recovery/actionability",
+    response_model=RecoveryActionabilityResponse,
+)
+async def predict_recovery_actionability(
+    request: RecoveryActionabilityRequest,
+    db: Session = Depends(get_db),
+):
+    """Get contextual what-if prediction + actionability from the canonical endpoint."""
+    try:
+        snapshot = RecoveryActionabilityService(db).build_snapshot(scenario=request.model_dump())
+        snapshot.pop("_computed_at", None)
+        return RecoveryActionabilityResponse(**snapshot)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error predicting recovery actionability: {str(e)}"
         )
 
 

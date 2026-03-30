@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import Any, Callable
 
 from sqlalchemy.orm import Session
+from whoopdata.agent import settings
 
 from whoopdata.models.models import Cycle, ProactiveMessageLog, Workout, WithingsWeight
 from whoopdata.utils.sport_mapping import get_sport_name
@@ -17,39 +18,20 @@ from whoopdata.utils.sport_mapping import get_sport_name
 logger = logging.getLogger(__name__)
 
 
-def _env_bool(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _env_int(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
-
-
-def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        return default
-
-
 class ProactiveMode:
+    """ProactiveMode data structure or service type.
+
+    
+    """
     MORNING = "morning"
     WINDOW = "window"
 
 
 class ProactiveIntent:
+    """ProactiveIntent data structure or service type.
+
+    
+    """
     MORNING_BRIEFING = "morning_briefing"
     STRESS_CHECK_IN = "stress_hidden_load_check_in"
     ACTIVITY_ADHERENCE = "activity_adherence_nudge"
@@ -59,6 +41,10 @@ class ProactiveIntent:
 
 @dataclass(frozen=True)
 class ProactiveCoachConfig:
+    """ProactiveCoachConfig data structure or service type.
+
+    
+    """
     enabled: bool = True
     window_start_hour: int = 8
     window_end_hour: int = 14
@@ -74,24 +60,40 @@ class ProactiveCoachConfig:
 
     @classmethod
     def from_env(cls) -> "ProactiveCoachConfig":
+        """From env.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = from_env()
+            _ = result
+
+        
+        """
         return cls(
-            enabled=_env_bool("PROACTIVE_COACH_ENABLED", True),
-            window_start_hour=_env_int("PROACTIVE_WINDOW_START_HOUR", 8),
-            window_end_hour=_env_int("PROACTIVE_WINDOW_END_HOUR", 14),
-            global_cooldown_hours=_env_int("PROACTIVE_GLOBAL_COOLDOWN_HOURS", 4),
-            duplicate_cooldown_hours=_env_int("PROACTIVE_DUPLICATE_COOLDOWN_HOURS", 24),
-            morning_cooldown_hours=_env_int("PROACTIVE_MORNING_COOLDOWN_HOURS", 8),
-            hidden_load_strain_threshold=_env_float("PROACTIVE_HIDDEN_LOAD_STRAIN_THRESHOLD", 10.0),
-            run_gap_days=_env_int("PROACTIVE_RUN_GAP_DAYS", 7),
-            run_history_days=_env_int("PROACTIVE_RUN_HISTORY_DAYS", 90),
-            min_runs_for_habit_signal=_env_int("PROACTIVE_MIN_RUNS_FOR_HABIT_SIGNAL", 3),
-            weight_stale_days=_env_int("PROACTIVE_WEIGHT_STALE_DAYS", 7),
-            escalation_delay_days=_env_int("PROACTIVE_ESCALATION_DELAY_DAYS", 3),
+            enabled=settings.PROACTIVE_COACH_ENABLED,
+            window_start_hour=settings.PROACTIVE_WINDOW_START_HOUR,
+            window_end_hour=settings.PROACTIVE_WINDOW_END_HOUR,
+            global_cooldown_hours=settings.PROACTIVE_GLOBAL_COOLDOWN_HOURS,
+            duplicate_cooldown_hours=settings.PROACTIVE_DUPLICATE_COOLDOWN_HOURS,
+            morning_cooldown_hours=settings.PROACTIVE_MORNING_COOLDOWN_HOURS,
+            hidden_load_strain_threshold=settings.PROACTIVE_HIDDEN_LOAD_STRAIN_THRESHOLD,
+            run_gap_days=settings.PROACTIVE_RUN_GAP_DAYS,
+            run_history_days=settings.PROACTIVE_RUN_HISTORY_DAYS,
+            min_runs_for_habit_signal=settings.PROACTIVE_MIN_RUNS_FOR_HABIT_SIGNAL,
+            weight_stale_days=settings.PROACTIVE_WEIGHT_STALE_DAYS,
+            escalation_delay_days=settings.PROACTIVE_ESCALATION_DELAY_DAYS,
         )
 
 
 @dataclass(frozen=True)
 class ProactiveDecision:
+    """ProactiveDecision data structure or service type.
+
+    
+    """
     should_send: bool
     mode: str
     intent: str | None = None
@@ -102,6 +104,22 @@ class ProactiveDecision:
 
     @classmethod
     def skip(cls, *, mode: str, reason: str) -> "ProactiveDecision":
+        """Skip.
+
+        Args:
+            mode: Input parameter used by this routine.
+            reason: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = skip(mode=..., reason=...)
+            _ = result
+
+        
+        """
         return cls(should_send=False, mode=mode, reason=reason)
 
 
@@ -112,6 +130,22 @@ class ProactiveMessageRepository:
         self.db = db
 
     def has_recent_event(self, *, chat_id: int, since: datetime) -> bool:
+        """Has recent event.
+
+        Args:
+            chat_id: Input parameter used by this routine.
+            since: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = has_recent_event(chat_id=..., since=...)
+            _ = result
+
+        
+        """
         return (
             self.db.query(ProactiveMessageLog)
             .filter(ProactiveMessageLog.chat_id == chat_id, ProactiveMessageLog.sent_at >= since)
@@ -120,6 +154,22 @@ class ProactiveMessageRepository:
         )
 
     def latest_for_intent(self, *, chat_id: int, intent: str) -> ProactiveMessageLog | None:
+        """Latest for intent.
+
+        Args:
+            chat_id: Input parameter used by this routine.
+            intent: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = latest_for_intent(chat_id=..., intent=...)
+            _ = result
+
+        
+        """
         return (
             self.db.query(ProactiveMessageLog)
             .filter(ProactiveMessageLog.chat_id == chat_id, ProactiveMessageLog.intent == intent)
@@ -133,6 +183,22 @@ class ProactiveMessageRepository:
         chat_id: int,
         trigger_fingerprint: str,
     ) -> ProactiveMessageLog | None:
+        """Latest for fingerprint.
+
+        Args:
+            chat_id: Input parameter used by this routine.
+            trigger_fingerprint: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = latest_for_fingerprint(chat_id=..., trigger_fingerprint=...)
+            _ = result
+
+        
+        """
         return (
             self.db.query(ProactiveMessageLog)
             .filter(
@@ -151,6 +217,24 @@ class ProactiveMessageRepository:
         telegram_message_id: int | None = None,
         sent_at: datetime | None = None,
     ) -> ProactiveMessageLog:
+        """Record sent.
+
+        Args:
+            chat_id: Input parameter used by this routine.
+            decision: Input parameter used by this routine.
+            telegram_message_id: Input parameter used by this routine.
+            sent_at: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = record_sent(chat_id=..., decision=..., telegram_message_id=..., sent_at=...)
+            _ = result
+
+        
+        """
         record = ProactiveMessageLog(
             chat_id=chat_id,
             mode=decision.mode,
@@ -185,6 +269,22 @@ class ProactiveCoachPlanner:
         self.repository = repository or ProactiveMessageRepository(db)
 
     def evaluate(self, *, mode: str, chat_id: int) -> ProactiveDecision:
+        """Evaluate.
+
+        Args:
+            mode: Input parameter used by this routine.
+            chat_id: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = evaluate(mode=..., chat_id=...)
+            _ = result
+
+        
+        """
         now = self.now_fn()
 
         if not self.config.enabled:
@@ -234,6 +334,24 @@ class ProactiveCoachPlanner:
         telegram_message_id: int | None = None,
         sent_at: datetime | None = None,
     ) -> ProactiveMessageLog:
+        """Record sent.
+
+        Args:
+            chat_id: Input parameter used by this routine.
+            decision: Input parameter used by this routine.
+            telegram_message_id: Input parameter used by this routine.
+            sent_at: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = record_sent(chat_id=..., decision=..., telegram_message_id=..., sent_at=...)
+            _ = result
+
+        
+        """
         return self.repository.record_sent(
             chat_id=chat_id,
             decision=decision,
@@ -243,6 +361,18 @@ class ProactiveCoachPlanner:
 
     @staticmethod
     def default_chat_id() -> int | None:
+        """Default chat id.
+
+        Returns:
+            Computed result for this routine.
+
+        Example:
+            # Example usage
+            result = default_chat_id()
+            _ = result
+
+        
+        """
         raw = os.getenv("TELEGRAM_ALLOWED_CHAT_IDS", "").split(",")[0].strip()
         if not raw:
             return None
@@ -252,9 +382,30 @@ class ProactiveCoachPlanner:
             return None
 
     def _within_window(self, now: datetime) -> bool:
+        """ within window.
+
+        Args:
+            now: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        
+        """
         return self.config.window_start_hour <= now.hour <= self.config.window_end_hour
 
     def _build_morning_briefing(self, *, now: datetime, mode: str) -> ProactiveDecision:
+        """ build morning briefing.
+
+        Args:
+            now: Input parameter used by this routine.
+            mode: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        
+        """
         evidence = {
             "generated_at": now.isoformat(),
             "mode": mode,
@@ -303,6 +454,18 @@ class ProactiveCoachPlanner:
         now: datetime,
         mode: str,
     ) -> ProactiveDecision | None:
+        """ build hidden load decision.
+
+        Args:
+            chat_id: Input parameter used by this routine.
+            now: Input parameter used by this routine.
+            mode: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        
+        """
         latest_cycle = (
             self.db.query(Cycle).order_by(Cycle.start.desc(), Cycle.created_at.desc()).first()
         )
@@ -370,6 +533,18 @@ class ProactiveCoachPlanner:
         now: datetime,
         mode: str,
     ) -> ProactiveDecision | None:
+        """ build run gap decision.
+
+        Args:
+            chat_id: Input parameter used by this routine.
+            now: Input parameter used by this routine.
+            mode: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        
+        """
         history_cutoff = now - timedelta(days=self.config.run_history_days)
         run_history_count = (
             self.db.query(Workout)
@@ -446,6 +621,18 @@ class ProactiveCoachPlanner:
         now: datetime,
         mode: str,
     ) -> ProactiveDecision | None:
+        """ build weight stale decision.
+
+        Args:
+            chat_id: Input parameter used by this routine.
+            now: Input parameter used by this routine.
+            mode: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        
+        """
         latest_weight = (
             self.db.query(WithingsWeight)
             .filter(WithingsWeight.weight_kg.isnot(None), WithingsWeight.datetime.isnot(None))
@@ -504,6 +691,16 @@ class ProactiveCoachPlanner:
 
     @staticmethod
     def _ux_contract_for_running(*, intent: str) -> tuple[str, ...]:
+        """ ux contract for running.
+
+        Args:
+            intent: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        
+        """
         if intent == ProactiveIntent.BARRIER_RESOLUTION:
             return (
                 "Acknowledge that the same running gap is still unresolved.",
@@ -520,6 +717,16 @@ class ProactiveCoachPlanner:
 
     @staticmethod
     def _ux_contract_for_weight(*, intent: str) -> tuple[str, ...]:
+        """ ux contract for weight.
+
+        Args:
+            intent: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        
+        """
         if intent == ProactiveIntent.BARRIER_RESOLUTION:
             return (
                 "Treat this as a recurring measurement gap, not a one-off reminder.",
@@ -541,6 +748,18 @@ class ProactiveCoachPlanner:
         evidence: dict[str, Any],
         ux_contract: tuple[str, ...],
     ) -> str:
+        """ build internal prompt.
+
+        Args:
+            intent: Input parameter used by this routine.
+            evidence: Input parameter used by this routine.
+            ux_contract: Input parameter used by this routine.
+
+        Returns:
+            Computed result for this routine.
+
+        
+        """
         lines = [
             "You are sending a proactive Telegram coaching message.",
             "The user did not type a new message; you are initiating the conversation.",

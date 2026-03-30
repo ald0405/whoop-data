@@ -4,6 +4,14 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.6.0] - 2026-03-30
+
+### Added
+- Introduced unified runtime model configuration loading and validation for supervisor and specialist agents.
+
+### Changed
+- Updated supervisor orchestration wiring and prompt behavior to use the canonical model config path and improve response consistency/actionability.
+- Expanded conversation/agent test coverage and supporting service updates for the unified contract flow.
 
 ## [3.5.0] - 2026-03-28
 

@@ -21,6 +21,7 @@ import traceback
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
+from whoopdata.agent import settings
 
 # Ensure the project root is on the path so "whoopdata" is importable
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -37,9 +38,7 @@ logger = logging.getLogger("scheduled_etl")
 LOGS_DIR = os.path.join(PROJECT_ROOT, "logs")
 AUDIT_LOG_PATH = os.path.join(LOGS_DIR, "etl-audit.log")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_ALLOWED_CHAT_IDS", "").split(",")[0].strip()
-PROACTIVE_POST_ETL_EVALUATION = (
-    os.getenv("PROACTIVE_POST_ETL_EVALUATION", "false").strip().lower() == "true"
-)
+PROACTIVE_POST_ETL_EVALUATION = settings.PROACTIVE_POST_ETL_EVALUATION
 
 
 def _build_audit_entry(
