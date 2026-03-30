@@ -204,12 +204,20 @@ def test_preprocess_frames_is_still_passthrough():
     assert _preprocess_frames(frames) is frames
 
 
-def test_get_reference_angles_tennis():
-    """Tennis activity should return reference angles."""
+def test_get_reference_angles_tennis_serve():
+    """Serve should return serve-specific reference angles."""
     from whoopdata.telegram_bot import _get_reference_angles
 
     refs = _get_reference_angles("tennis serve")
     assert refs.get("right_elbow_flexion") == 30.0
+
+
+def test_get_reference_angles_forehand():
+    """Forehand should return forehand-specific reference angles."""
+    from whoopdata.telegram_bot import _get_reference_angles
+
+    refs = _get_reference_angles("analyse my forehand")
+    assert refs.get("right_elbow_flexion") == 90.0
 
 
 def test_get_reference_angles_squat():

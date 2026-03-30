@@ -208,10 +208,11 @@ def draw_form_diff(
     h, w = frame_bgr.shape[:2]
     overlay = frame_bgr.copy()
 
-    # Find the single worst fault
+    # Find the single worst fault -- always highlight even if within range,
+    # because the user sent a video specifically for feedback
     worst_joint, worst_dev = _find_worst_fault(measured_angles, reference_angles)
     fault_joint_indices: set[int] = set()
-    if worst_joint and worst_dev >= _GOOD_THRESHOLD:
+    if worst_joint and worst_dev > 0:
         a, b, c = JOINT_ANGLES[worst_joint]
         fault_joint_indices = {a, b, c}
 
@@ -254,8 +255,9 @@ def draw_form_diff(
         else:
             cv2.circle(overlay, pt, _LANDMARK_RADIUS, _WHITE_DIM, -1, cv2.LINE_AA)
 
-    # Layer 2: ghost reference -- only for the worst fault joint
-    if worst_joint and worst_dev >= _GOOD_THRESHOLD:
+    # Layer 2: ghost reference -- always show for the worst joint so the
+    # user can see where they should be (they sent a video for feedback)
+    if worst_joint and worst_dev > 0:
         a_idx, b_idx, c_idx = JOINT_ANGLES[worst_joint]
         vertex = _get_pixel(landmarks, b_idx, w, h)
         actual_end = _get_pixel(landmarks, c_idx, w, h)

@@ -166,7 +166,7 @@ def _extract_video_frames(video_bytes: bytes, *, max_frames: int = 6) -> list[by
 
 # Reference angles for form diff colouring (midpoints of gold-standard ranges)
 _REFERENCE_ANGLES: dict[str, dict[str, float | None]] = {
-    "tennis": {
+    "serve": {
         "right_elbow_flexion": 30.0,
         "left_elbow_flexion": 30.0,
         "right_shoulder_elevation": 111.0,
@@ -174,6 +174,33 @@ _REFERENCE_ANGLES: dict[str, dict[str, float | None]] = {
         "right_knee_flexion": 65.0,
         "left_knee_flexion": 65.0,
         "trunk_tilt": 25.0,
+    },
+    "forehand": {
+        "right_elbow_flexion": 90.0,
+        "left_elbow_flexion": 90.0,
+        "right_shoulder_elevation": 80.0,
+        "left_shoulder_elevation": 80.0,
+        "right_knee_flexion": 140.0,
+        "left_knee_flexion": 140.0,
+        "trunk_tilt": 50.0,
+    },
+    "backhand": {
+        "right_elbow_flexion": 100.0,
+        "left_elbow_flexion": 100.0,
+        "right_shoulder_elevation": 75.0,
+        "left_shoulder_elevation": 75.0,
+        "right_knee_flexion": 145.0,
+        "left_knee_flexion": 145.0,
+        "trunk_tilt": 45.0,
+    },
+    "tennis": {
+        "right_elbow_flexion": 90.0,
+        "left_elbow_flexion": 90.0,
+        "right_shoulder_elevation": 80.0,
+        "left_shoulder_elevation": 80.0,
+        "right_knee_flexion": 140.0,
+        "left_knee_flexion": 140.0,
+        "trunk_tilt": 45.0,
     },
     "squat": {
         "right_knee_flexion": 100.0,
