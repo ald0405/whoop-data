@@ -42,29 +42,43 @@ appropriate coaching tone and any cross-domain context.
 
 ## Video Pipeline
 
-Video messages (e.g. biomechanics recordings from Telegram) follow a
-two-stage path that bypasses the normal supervisor routing for the
-vision-intensive first stage:
+Video messages follow a three-stage pipeline: dense local pose analysis,
+LLM interpretation, and supervisor synthesis.
 
 ```mermaid
-flowchart LR
-    V[Video Message] --> EF[Extract Frames<br/>OpenCV]
-    EF --> PP[Preprocess<br/>future: pose estimation]
-    PP --> B64[Base64 Encode]
-    B64 --> BA[Biomechanics Agent<br/>gpt-5.4-mini<br/>detail: high]
+flowchart TD
+    V[Video Message<br/>10-30s, 3-5 reps] --> EF[Dense Frame Extraction<br/>up to 600 frames via OpenCV]
+    EF --> MP[MediaPipe Pose Lite<br/>33 landmarks x N frames<br/>VIDEO mode with tracking]
+    MP --> AD[Activity Detection<br/>TennisDetector / GymDetector]
+    AD --> MA[Metrics Aggregation<br/>per-rep angles, speed, consistency]
+    MA --> KF[Key Frame Selection<br/>best rep + worst rep]
+    KF --> OV[Annotated Overlay<br/>colour-coded skeleton + ghost reference]
+    OV --> |annotated photos| TG[Telegram User]
+    MA --> |structured metrics| BA[Biomechanics Agent<br/>gpt-5.4-mini]
+    OV --> |key frames| BA
     BA --> |raw analysis| SUP[Supervisor<br/>tone + health context]
-    SUP --> USER[User Response]
+    SUP --> |coaching text| TG
+    MA --> |archive| AR[Local Archive<br/>data/video_analyses/]
 ```
 
-**Stage 1** -- The standalone biomechanics agent receives extracted video
-frames as multiple `image_url` content blocks and produces a raw technical
-analysis (joint angles vs reference ranges, faults, coaching cues). It also
-saves the analysis to memory for later follow-up.
+**Stage 1: Dense local analysis** -- MediaPipe Pose Lite processes up to
+600 frames in `VIDEO` mode with temporal tracking. Joint angles are computed
+per frame via NumPy. Activity-specific detectors (wrist/shoulder speed for
+tennis, knee angle valleys for squats) find individual reps. Metrics are
+aggregated across reps: mean angles, consistency (SD), fatigue drift.
 
-**Stage 2** -- The raw analysis is fed to the supervisor through the normal
-conversation flow. The supervisor wraps it in the coaching tone, can
-cross-reference health data (recovery, strain, sleep), and keeps the exchange
-in the conversation thread.
+**Stage 2: LLM interpretation** -- The biomechanics agent receives
+structured metrics (actual numbers, not pixel-eyeballing) plus 2-3
+annotated key frames with colour-coded skeletons and ghost reference
+overlays.
+
+**Stage 3: Supervisor synthesis** -- The supervisor wraps the analysis in
+coaching tone, cross-references health data, and maintains thread
+continuity.
+
+**User output:** Annotated photos (colour-coded skeleton + dashed blue
+ghost showing ideal pose) followed by concise coaching text. All frames,
+metrics, and landmarks saved locally for review.
 
 For text-based follow-ups ("what drills fix that hip rotation?"), the
 supervisor routes to the `biomechanics` specialist tool registered in the
@@ -79,6 +93,9 @@ agent registry, which searches memory for the previous video analysis.
 | `graph.py` | Assembles the supervisor graph via `create_agent` with specialist tools |
 | `specialists.py` | Builds each registry entry into a `create_agent` instance wrapped as a `StructuredTool` |
 | `biomechanics.py` | Standalone biomechanics agent for the video path (not wrapped as a supervisor tool) |
+| `pose_analysis.py` | Local MediaPipe pose detection, angle computation, activity detection, metrics aggregation |
+| `pose_overlay.py` | Colour-coded skeleton drawing, ghost reference overlay, form diff annotation |
+| `video_archive.py` | Saves raw frames, annotated photos, metrics JSON, and landmarks to local archive |
 | `conversation_service.py` | Public conversation boundary -- resolves sessions/threads, builds messages, invokes the graph |
 | `model_config_loader.py` | Validates and normalises `LLM_CONFIG` entries |
 | `model_factory.py` | Builds `init_chat_model` instances from validated config |
