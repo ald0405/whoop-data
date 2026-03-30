@@ -10,71 +10,12 @@ from datetime import datetime, timedelta
 from typing import Any, Callable
 
 from sqlalchemy.orm import Session
+from whoopdata.agent import settings
 
 from whoopdata.models.models import Cycle, ProactiveMessageLog, Workout, WithingsWeight
 from whoopdata.utils.sport_mapping import get_sport_name
 
 logger = logging.getLogger(__name__)
-
-
-def _env_bool(name: str, default: bool) -> bool:
-    """ env bool.
-
-    Args:
-        name: Input parameter used by this routine.
-        default: Input parameter used by this routine.
-
-    Returns:
-        Computed result for this routine.
-
-    
-    """
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _env_int(name: str, default: int) -> int:
-    """ env int.
-
-    Args:
-        name: Input parameter used by this routine.
-        default: Input parameter used by this routine.
-
-    Returns:
-        Computed result for this routine.
-
-    
-    """
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
-
-
-def _env_float(name: str, default: float) -> float:
-    """ env float.
-
-    Args:
-        name: Input parameter used by this routine.
-        default: Input parameter used by this routine.
-
-    Returns:
-        Computed result for this routine.
-
-    
-    """
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    try:
-        return float(raw)
-    except ValueError:
-        return default
 
 
 class ProactiveMode:
@@ -132,18 +73,18 @@ class ProactiveCoachConfig:
         
         """
         return cls(
-            enabled=_env_bool("PROACTIVE_COACH_ENABLED", True),
-            window_start_hour=_env_int("PROACTIVE_WINDOW_START_HOUR", 8),
-            window_end_hour=_env_int("PROACTIVE_WINDOW_END_HOUR", 14),
-            global_cooldown_hours=_env_int("PROACTIVE_GLOBAL_COOLDOWN_HOURS", 4),
-            duplicate_cooldown_hours=_env_int("PROACTIVE_DUPLICATE_COOLDOWN_HOURS", 24),
-            morning_cooldown_hours=_env_int("PROACTIVE_MORNING_COOLDOWN_HOURS", 8),
-            hidden_load_strain_threshold=_env_float("PROACTIVE_HIDDEN_LOAD_STRAIN_THRESHOLD", 10.0),
-            run_gap_days=_env_int("PROACTIVE_RUN_GAP_DAYS", 7),
-            run_history_days=_env_int("PROACTIVE_RUN_HISTORY_DAYS", 90),
-            min_runs_for_habit_signal=_env_int("PROACTIVE_MIN_RUNS_FOR_HABIT_SIGNAL", 3),
-            weight_stale_days=_env_int("PROACTIVE_WEIGHT_STALE_DAYS", 7),
-            escalation_delay_days=_env_int("PROACTIVE_ESCALATION_DELAY_DAYS", 3),
+            enabled=settings.PROACTIVE_COACH_ENABLED,
+            window_start_hour=settings.PROACTIVE_WINDOW_START_HOUR,
+            window_end_hour=settings.PROACTIVE_WINDOW_END_HOUR,
+            global_cooldown_hours=settings.PROACTIVE_GLOBAL_COOLDOWN_HOURS,
+            duplicate_cooldown_hours=settings.PROACTIVE_DUPLICATE_COOLDOWN_HOURS,
+            morning_cooldown_hours=settings.PROACTIVE_MORNING_COOLDOWN_HOURS,
+            hidden_load_strain_threshold=settings.PROACTIVE_HIDDEN_LOAD_STRAIN_THRESHOLD,
+            run_gap_days=settings.PROACTIVE_RUN_GAP_DAYS,
+            run_history_days=settings.PROACTIVE_RUN_HISTORY_DAYS,
+            min_runs_for_habit_signal=settings.PROACTIVE_MIN_RUNS_FOR_HABIT_SIGNAL,
+            weight_stale_days=settings.PROACTIVE_WEIGHT_STALE_DAYS,
+            escalation_delay_days=settings.PROACTIVE_ESCALATION_DELAY_DAYS,
         )
 
 

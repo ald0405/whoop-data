@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import logging
 from typing import Any, Protocol
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
@@ -16,6 +17,7 @@ from whoopdata.agent.public_response import (
     build_agent_conversation_response,
 )
 from whoopdata.agent.schemas import HealthContextSchema
+logger = logging.getLogger(__name__)
 
 
 class SupportsAsyncInvoke(Protocol):
@@ -147,21 +149,54 @@ class ConversationService:
             user_id=resolved_user_id,
         )
         human_message = self._build_human_message(message, image_b64=image_b64)
-        result = await graph.ainvoke(
-            {"messages": [human_message]},
-            {"configurable": {"thread_id": handle.thread_id}},
-            context=HealthContextSchema(
-                user_id=resolved_user_id,
-                health_api_base_url=settings.HEALTH_API_BASE_URL,
-                surface=surface,
-            ),
+        context = HealthContextSchema(
+            user_id=resolved_user_id,
+            health_api_base_url=settings.HEALTH_API_BASE_URL,
+            surface=surface,
         )
+        try:
+            result = await graph.ainvoke(
+                {"messages": [human_message]},
+                {"configurable": {"thread_id": handle.thread_id}},
+                context=context,
+            )
+        except Exception as exc:
+            if not self._is_recoverable_tool_sequence_error(exc):
+                raise
+            new_thread_id = self._rotate_thread_for_session(handle.session_id)
+            logger.warning(
+                "Recoverable tool-call sequence error on thread %s; retrying once on fresh thread %s",
+                handle.thread_id,
+                new_thread_id,
+            )
+            result = await graph.ainvoke(
+                {"messages": [human_message]},
+                {"configurable": {"thread_id": new_thread_id}},
+                context=context,
+            )
+            handle = AgentConversationHandle(
+                session_id=handle.session_id,
+                thread_id=new_thread_id,
+            )
         return build_agent_conversation_response(
             result,
             thread_id=handle.thread_id,
             session_id=handle.session_id,
             user_message=message,
         )
+
+    @staticmethod
+    def _is_recoverable_tool_sequence_error(exc: Exception) -> bool:
+        raw = str(exc)
+        return (
+            "tool_calls" in raw
+            and "must be followed by tool messages" in raw
+        ) or ("No tool output found for function call" in raw)
+
+    def _rotate_thread_for_session(self, session_id: str) -> str:
+        new_thread_id = f"thread_{uuid4().hex[:12]}"
+        self._session_threads[session_id] = new_thread_id
+        return new_thread_id
 
     @staticmethod
     def _build_human_message(

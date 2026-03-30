@@ -1,15 +1,13 @@
 """Agent configuration settings."""
 
 import os
+from typing import Any
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # OpenAI Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = "gpt-4o-mini"  # 128K context, good balance of cost and performance
-OPENAI_TEMPERATURE = 0.3
-OPENAI_MAX_TOKENS = 1000
 
 # LangSmith Configuration
 LANGCHAIN_TRACING_V2 = os.getenv("LANGCHAIN_TRACING_V2", "true")
@@ -35,11 +33,101 @@ AGENT_POSTGRES_URL = os.getenv("AGENT_POSTGRES_URL")
 AGENT_PERSISTENCE_AUTO_SETUP = (
     os.getenv("AGENT_PERSISTENCE_AUTO_SETUP", "true").strip().lower() == "true"
 )
+# Proactive coach configuration (settings-only single source of truth)
+# Used by: whoopdata/services/proactive_coach.py
+PROACTIVE_COACH_ENABLED = True
+PROACTIVE_WINDOW_START_HOUR = 8
+PROACTIVE_WINDOW_END_HOUR = 14
+PROACTIVE_GLOBAL_COOLDOWN_HOURS = 4
+PROACTIVE_DUPLICATE_COOLDOWN_HOURS = 24
+PROACTIVE_MORNING_COOLDOWN_HOURS = 8
+PROACTIVE_HIDDEN_LOAD_STRAIN_THRESHOLD = 10.0
+PROACTIVE_RUN_GAP_DAYS = 7
+PROACTIVE_RUN_HISTORY_DAYS = 90
+PROACTIVE_MIN_RUNS_FOR_HABIT_SIGNAL = 3
+PROACTIVE_WEIGHT_STALE_DAYS = 7
+PROACTIVE_ESCALATION_DELAY_DAYS = 3
+# Used by: scripts/scheduled_etl.py
+PROACTIVE_POST_ETL_EVALUATION = False
+# Canonical per-agent LLM configuration (single source of truth for runtime agent models)
+LLM_CONFIG: dict[str, dict[str, Any]] = {
+    "supervisor_agent": {
+        "provider": "openai",
+        "model": "gpt-5.4-mini",
+        "temperature": 0.1,
+        "max_output_tokens": 1500,
+        "timeout_seconds": 30.0,
+        "max_retries": 2,
+        "reasoning_effort": "low",
+    },
+    "specialist_default": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.2,
+        "max_output_tokens": 1000,
+        "timeout_seconds": 30.0,
+        "max_retries": 2,
+    },
+    "health_data": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.2,
+        "max_output_tokens": 1000,
+        "timeout_seconds": 30.0,
+        "max_retries": 2,
+    },
+    "analytics": {
+        "provider": "openai",
+        "model": "gpt-5.2",
+        "temperature": 0.1,
+        "max_output_tokens": 1200,
+        "timeout_seconds": 30.0,
+        "max_retries": 2,
+        "reasoning_effort": "medium",
+    },
+    "environment": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.2,
+        "max_output_tokens": 1000,
+        "timeout_seconds": 30.0,
+        "max_retries": 2,
+    },
+    "exercise": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.2,
+        "max_output_tokens": 1000,
+        "timeout_seconds": 30.0,
+        "max_retries": 2,
+    },
+    "behaviour_change": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.2,
+        "max_output_tokens": 1000,
+        "timeout_seconds": 30.0,
+        "max_retries": 2,
+    },
+    "nutrition": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "temperature": 0.2,
+        "max_output_tokens": 1000,
+        "timeout_seconds": 30.0,
+        "max_retries": 2,
+    },
+}
 
-# Supervisor model (delegates to specialists)
-SUPERVISOR_MODEL = "openai:gpt-5.2"
 
-# Default specialist model
+def get_supervisor_llm_config() -> dict[str, Any]:
+    """Return the configured supervisor model settings."""
+    return dict(LLM_CONFIG["supervisor_agent"])
+
+
+def get_specialist_llm_config(name: str) -> dict[str, Any]:
+    """Return model settings for a specialist, falling back to specialist_default."""
+    return dict(LLM_CONFIG.get(name, LLM_CONFIG["specialist_default"]))
 SPECIALIST_MODEL = "openai:gpt-4o-mini"
 
 # Voice transcription (Whisper)
@@ -54,7 +142,3 @@ TTS_INSTRUCTIONS = (
     "Keep it conversational and natural, not robotic."
 )
 
-# Per-specialist overrides (model, temperature, etc.)
-SPECIALIST_CONFIG: dict = {
-    # "analytics": {"model": "openai:gpt-4o"},  # Example: use stronger model for analytics
-}

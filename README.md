@@ -75,6 +75,8 @@ WITHINGS_CALLBACK_URL=http://localhost:8766/callback
 OPENAI_API_KEY=your_openai_api_key
 ```
 
+Supervisor/sub-agent model behaviour (model, temperature, retries, reasoning effort) is configured in `whoopdata/agent/settings.py` via `LLM_CONFIG` as the single source of truth.
+
 WHOOP uses OAuth 2.0 browser authentication. When first running ingestion, you may be redirected to complete the authorization-code flow in the browser.
 
 ### 2a. Optional but recommended: shared Postgres for agent memory

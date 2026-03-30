@@ -5,18 +5,17 @@ as tools for the supervisor to call. Each specialist runs in an isolated
 context and returns only its final text response.
 """
 
-from typing import Any
 
 from langchain.agents import create_agent
 from langchain.tools import ToolRuntime
 from langchain_core.tools import StructuredTool
 from langchain_core.messages import AIMessage
-from langgraph.constants import CONFIG_KEY_CHECKPOINTER
 
 from .tools import TOOLS_BY_NAME
 from .registry import AGENT_REGISTRY
 from .schemas import HealthContextSchema
-from . import settings
+from .model_config_loader import get_specialist_model_config
+from .model_factory import build_chat_model
 
 
 def _get_specialist_tools(tool_names: list[str]) -> list:
@@ -69,9 +68,10 @@ def build_specialist_tools(
         description = config["description"]
 
         # Determine model for this specialist
-        model = model_override or settings.SPECIALIST_CONFIG.get(agent_name, {}).get(
-            "model", settings.SPECIALIST_MODEL
-        )
+        if model_override:
+            model = model_override
+        else:
+            model = build_chat_model(get_specialist_model_config(agent_name))
 
         # Create the subagent
         agent = create_agent(
@@ -100,18 +100,11 @@ def build_specialist_tools(
                 runtime: ToolRuntime[HealthContextSchema] = None,
             ) -> str:
                 """Delegate a query to a specialist subagent."""
-                invoke_kwargs: dict[str, Any] = {}
+                # Keep specialist runs isolated from supervisor thread state.
+                # Passing the parent runtime.config/checkpointer/thread_id here can
+                # leak tool-call history and break OpenAI tool-call sequencing.
+                invoke_kwargs = {}
                 if runtime is not None:
-                    runtime_config = getattr(runtime, "config", None)
-                    configurable: dict[str, Any] = {}
-                    if isinstance(runtime_config, dict):
-                        configurable.update(runtime_config.get("configurable", {}))
-                    if getattr(runtime, "store", None) is not None:
-                        configurable["__store"] = runtime.store
-                    if getattr(runtime, "checkpointer", None) is not None:
-                        configurable[CONFIG_KEY_CHECKPOINTER] = runtime.checkpointer
-                    if configurable:
-                        invoke_kwargs["config"] = {"configurable": configurable}
                     if getattr(runtime, "context", None) is not None:
                         invoke_kwargs["context"] = runtime.context
                 result = await compiled_agent.ainvoke(

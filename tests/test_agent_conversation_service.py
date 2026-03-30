@@ -18,6 +18,20 @@ class FakeGraph:
         self.calls.append((input, config, context))
         return self._result
 
+class RecoverableFailureGraph:
+    def __init__(self) -> None:
+        self.calls: list[tuple[dict, dict, object | None]] = []
+        self._first_call = True
+
+    async def ainvoke(self, input: dict, config: dict, *, context=None) -> dict:
+        self.calls.append((input, config, context))
+        if self._first_call:
+            self._first_call = False
+            raise RuntimeError(
+                "BadRequestError: An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'"
+            )
+        return {"messages": [AIMessage(content="Recovered on fresh thread.")]}
+
 
 def test_start_conversation_reuses_existing_session_thread_mapping():
     service = ConversationService(graph=FakeGraph())
@@ -118,6 +132,27 @@ def test_send_message_isolates_distinct_conversations_by_thread():
     assert first_response.session_id != second_response.session_id
     assert first_response.thread_id != second_response.thread_id
     assert graph.calls[0][1] != graph.calls[1][1]
+
+
+def test_send_message_recovers_from_tool_call_sequence_error_by_rotating_thread():
+    graph = RecoverableFailureGraph()
+    service = ConversationService(graph=graph)
+    handle = service.start_conversation()
+
+    response = asyncio.run(
+        service.send_message(
+            message="hi",
+            session_id=handle.session_id,
+        )
+    )
+
+    assert len(graph.calls) == 2
+    first_thread = graph.calls[0][1]["configurable"]["thread_id"]
+    second_thread = graph.calls[1][1]["configurable"]["thread_id"]
+    assert first_thread == handle.thread_id
+    assert second_thread != first_thread
+    assert response.thread_id == second_thread
+    assert response.assistant_message == "Recovered on fresh thread."
 
 
 def test_ensure_graph_passes_checkpointer_and_store_with_langgraph_keys(monkeypatch):

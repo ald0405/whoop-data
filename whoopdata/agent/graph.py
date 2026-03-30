@@ -13,9 +13,10 @@ from .memory_tools import manage_memory, search_memory
 
 from .prompts import SUPERVISOR_SYSTEM_PROMPT
 from .schemas import AgentConfig, HealthContextSchema
+from .model_config_loader import get_supervisor_model_config
+from .model_factory import build_chat_model
 from .specialists import build_specialist_tools
 from .tools import python_repl_tool, get_protein_recommendation_tool
-from . import settings
 
 CONFIG_KEY_STORE = "__store"
 
@@ -112,8 +113,9 @@ def _create_graph(*, checkpointer: Any | None = None, store: Any | None = None):
     # Create the supervisor agent
     # create_agent returns a compiled LangGraph graph that handles
     # the tool-calling loop internally
+    supervisor_model = build_chat_model(get_supervisor_model_config())
     graph_kwargs = {
-        "model": settings.SUPERVISOR_MODEL,
+        "model": supervisor_model,
         "tools": all_tools,
         "system_prompt": SUPERVISOR_SYSTEM_PROMPT,
         "name": "health_coach",
