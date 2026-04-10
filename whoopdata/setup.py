@@ -7,6 +7,9 @@ and initialising the database so they can run their first ETL in minutes.
 """
 
 import asyncio
+import platform
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -15,6 +18,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.rule import Rule
 from rich.table import Table
+from rich.text import Text
 
 console = Console()
 
@@ -84,6 +88,301 @@ _TIDE_STATIONS_FALLBACK: dict[str, str] = {
 
 # Country inputs we recognise as UK for London-feature prompts
 _UK_IDENTIFIERS = {"gb", "uk", "united kingdom", "england", "great britain", "britain"}
+
+
+# ── preflight ─────────────────────────────────────────────────────────────────
+
+
+def _preflight_check() -> bool:
+    """Verify uv is installed and dependencies have been synced.
+
+    Returns True if all checks pass, False if the user should stop and fix things.
+    """
+    console.print()
+    console.print(Rule("[bold cyan]Pre-flight checks[/bold cyan]"))
+
+    all_ok = True
+
+    # ── uv installed? ──────────────────────────────────────────────────────
+    uv_path = shutil.which("uv")
+    if uv_path:
+        console.print(f"✅ [green]uv found[/green]  ({uv_path})")
+    else:
+        console.print("❌ [bold red]uv not found[/bold red]")
+        console.print(
+            Panel(
+                "Install uv first:\n\n"
+                "  [bold]curl -LsSf https://astral.sh/uv/install.sh | sh[/bold]\n\n"
+                "Then re-run:  [bold]uv sync && make setup[/bold]",
+                title="[red]Missing dependency[/red]",
+                expand=False,
+            )
+        )
+        return False  # hard stop — wizard cannot continue without uv
+
+    # ── .venv exists? (proxy for uv sync having been run) ─────────────────
+    venv = Path(".venv")
+    if venv.exists():
+        console.print("✅ [green].venv found[/green]  (dependencies installed)")
+    else:
+        console.print("⚠️  [yellow].venv not found[/yellow] — running uv sync now…")
+        result = subprocess.run(["uv", "sync"], capture_output=False)
+        if result.returncode == 0:
+            console.print("✅ [green]uv sync complete[/green]")
+        else:
+            console.print("❌ [bold red]uv sync failed[/bold red] — check the output above.")
+            all_ok = False
+
+    # ── Python version ─────────────────────────────────────────────────────
+    major, minor = sys.version_info[:2]
+    if major == 3 and minor >= 10:
+        console.print(f"✅ [green]Python {major}.{minor}[/green]")
+    else:
+        console.print(
+            f"❌ [bold red]Python {major}.{minor} detected — 3.10+ required[/bold red]"
+        )
+        all_ok = False
+
+    return all_ok
+
+
+# ── architecture overview ──────────────────────────────────────────────────────
+
+
+def _show_architecture() -> None:
+    """Print a brief explanation of what the platform is and what gets set up."""
+    console.print()
+    console.print(Rule("[bold cyan]What you're setting up[/bold cyan]"))
+
+    t = Table(box=None, show_header=True, header_style="bold magenta", padding=(0, 2))
+    t.add_column("Component",   style="bold cyan",  no_wrap=True)
+    t.add_column("What it is",  no_wrap=False)
+    t.add_column("Where",       style="dim",        no_wrap=True)
+
+    t.add_row(
+        "SQLite database",
+        "Stores all your WHOOP + Withings records locally. Created automatically.",
+        "whoopdata/database/whoop.db",
+    )
+    t.add_row(
+        "FastAPI server",
+        "REST API exposing health data, analytics, and the agent endpoint.",
+        "http://localhost:8000",
+    )
+    t.add_row(
+        "Chat UI",
+        "Gradio web interface for natural-language queries against your data.",
+        "http://localhost:7860",
+    )
+    t.add_row(
+        "LangGraph agent",
+        "AI coaching agent with tools for health data, weather, transport, and tides.",
+        "via API or chat",
+    )
+    t.add_row(
+        "Postgres (optional)",
+        "Shared agent memory so Telegram, API, and Chat all remember the same conversation.",
+        "localhost:5432",
+    )
+    t.add_row(
+        "launchd services (macOS)",
+        "Persistent background daemons: API server, Telegram bot, ETL, morning briefing, proactive coach, weakness reminder.",
+        "~/Library/LaunchAgents/",
+    )
+
+    console.print(t)
+    console.print(
+        "\n[dim]This wizard handles: credentials → location → SQLite → optional Postgres → "
+        "optional macOS services.[/dim]"
+    )
+
+
+# ── postgres / docker ──────────────────────────────────────────────────────────
+
+
+def _check_docker() -> bool:
+    """Return True if Docker is installed and the daemon is running."""
+    if not shutil.which("docker"):
+        return False
+    try:
+        result = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            timeout=6,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def _setup_postgres(existing: dict[str, str]) -> dict[str, str]:
+    """Explain optional Postgres and offer to configure it.
+
+    Returns a dict of env vars to merge (may be empty if user skips).
+    """
+    result: dict[str, str] = {}
+
+    console.print()
+    console.print(Rule("[bold cyan]Agent memory — Postgres (optional)[/bold cyan]"))
+    console.print(
+        "[dim]By default the agent uses [bold]in-memory[/bold] storage — "
+        "conversations reset when the server restarts.\n\n"
+        "With [bold]Postgres[/bold] the agent keeps a persistent memory store shared across "
+        "every surface: the API, the Gradio chat UI, and the Telegram bot all "
+        "pick up the same conversation history and long-term user profile.\n\n"
+        "If you only ever use one surface, or you're just evaluating, "
+        "you can skip this and add it later.[/dim]"
+    )
+
+    current_url = existing.get("AGENT_POSTGRES_URL", "")
+    default_want = bool(current_url)
+
+    want_postgres = Confirm.ask(
+        "\n  Set up [bold]Postgres[/bold] for shared agent memory?",
+        default=default_want,
+    )
+    if not want_postgres:
+        console.print("[dim]  Skipped — agent will use in-memory persistence.[/dim]")
+        return result
+
+    # ── check for an existing URL ──────────────────────────────────────────
+    if current_url:
+        console.print(f"\n  [dim]Existing URL: {current_url}[/dim]")
+        keep = Confirm.ask("  Keep this URL?", default=True)
+        if keep:
+            result["AGENT_POSTGRES_URL"] = current_url
+            result["AGENT_PERSISTENCE_AUTO_SETUP"] = "true"
+            return result
+
+    # ── offer Docker path ──────────────────────────────────────────────────
+    console.print()
+    docker_ok = _check_docker()
+
+    if docker_ok:
+        console.print("✅ [green]Docker is running[/green]")
+        use_docker = Confirm.ask(
+            "  Start a local Postgres container via Docker? [dim](make postgres-up)[/dim]",
+            default=True,
+        )
+        if use_docker:
+            console.print("  [dim]Running: make postgres-up …[/dim]")
+            proc = subprocess.run(["make", "postgres-up"], capture_output=False)
+            if proc.returncode == 0:
+                console.print("✅ [green]Postgres container started[/green]")
+                default_url = (
+                    "postgresql://postgres:postgres@localhost:5432/whoop_agent?sslmode=disable"
+                )
+                result["AGENT_POSTGRES_URL"] = default_url
+                result["AGENT_PERSISTENCE_AUTO_SETUP"] = "true"
+                console.print(f"  [dim]URL set to: {default_url}[/dim]")
+                return result
+            else:
+                console.print(
+                    "❌ [yellow]make postgres-up failed — you can start it manually later.[/yellow]"
+                )
+    else:
+        console.print("⚠️  [yellow]Docker not found or not running.[/yellow]")
+        console.print(
+            Panel(
+                "Two ways to get Postgres:\n\n"
+                "  [bold]Docker[/bold] (recommended):\n"
+                "    Install Docker Desktop, then run:  [bold]make postgres-up[/bold]\n\n"
+                "  [bold]Homebrew[/bold] (macOS):\n"
+                "    [bold]brew install postgresql@16[/bold]\n"
+                "    [bold]brew services start postgresql@16[/bold]\n"
+                "    [bold]createdb whoop_agent[/bold]\n\n"
+                "Then re-run [bold]make setup[/bold] to set the URL, "
+                "or add it to .env manually:\n"
+                "  AGENT_POSTGRES_URL=postgresql://postgres:postgres"
+                "@localhost:5432/whoop_agent?sslmode=disable",
+                title="[yellow]Postgres setup options[/yellow]",
+                expand=False,
+            )
+        )
+
+    # ── manual URL entry ───────────────────────────────────────────────────
+    manual = Prompt.ask(
+        "\n  Enter Postgres URL [dim](or blank to skip)[/dim]",
+        default="",
+    ).strip()
+    if manual:
+        result["AGENT_POSTGRES_URL"] = manual
+        result["AGENT_PERSISTENCE_AUTO_SETUP"] = "true"
+
+    return result
+
+
+# ── macOS launchd services ─────────────────────────────────────────────────────
+
+
+_LAUNCHD_SERVICES = [
+    ("com.whoopdata.server",    "FastAPI server       — always-on REST API on :8000"),
+    ("com.whoopdata.telegram",  "Telegram bot         — persistent Telegram transport"),
+    ("com.whoopdata.etl",       "Recurring ETL        — incremental data sync every 45 min"),
+    ("com.whoopdata.morning",   "Morning briefing     — daily ETL + Telegram push on wake"),
+    ("com.whoopdata.proactive", "Proactive coach      — in-window nudge evaluator"),
+    ("com.whoopdata.weakness",  "Weakness reminder    — private reminder evaluator"),
+]
+
+
+def _setup_launchd_services() -> None:
+    """Explain launchd and offer to install persistent macOS services."""
+    if platform.system() != "Darwin":
+        return
+
+    console.print()
+    console.print(Rule("[bold cyan]macOS background services (optional)[/bold cyan]"))
+    console.print(
+        "[dim]On macOS the platform can run as persistent [bold]launchd[/bold] daemons "
+        "that start automatically on login — no need to keep a terminal open.\n\n"
+        "The following services are available:[/dim]\n"
+    )
+
+    t = Table(box=None, show_header=False, padding=(0, 2))
+    t.add_column("Service", style="bold cyan", no_wrap=True)
+    t.add_column("Description", style="dim")
+    for svc, desc in _LAUNCHD_SERVICES:
+        t.add_row(svc, desc)
+    console.print(t)
+
+    # Check which are already loaded
+    try:
+        loaded_raw = subprocess.run(
+            ["launchctl", "list"],
+            capture_output=True, text=True, timeout=5,
+        ).stdout
+        already_loaded = [s for s, _ in _LAUNCHD_SERVICES if s in loaded_raw]
+    except Exception:
+        already_loaded = []
+
+    if already_loaded:
+        console.print(
+            f"\n  [green]Already loaded:[/green] {', '.join(already_loaded)}"
+        )
+
+    install = Confirm.ask(
+        "\n  Install all services now? [dim](make services-up)[/dim]",
+        default=not bool(already_loaded),
+    )
+    if not install:
+        console.print(
+            "[dim]  Skipped. Run [bold]make services-up[/bold] any time to install, "
+            "[bold]make services-down[/bold] to remove.[/dim]"
+        )
+        return
+
+    proc = subprocess.run(["make", "services-up"], capture_output=False)
+    if proc.returncode == 0:
+        console.print(
+            "\n✅ [bold green]All services installed.[/bold green]\n"
+            "  [dim]Check status:  make services-test\n"
+            "  Remove:         make services-down[/dim]"
+        )
+    else:
+        console.print(
+            "\n❌ [yellow]make services-up returned an error — "
+            "check output above and try manually.[/yellow]"
+        )
 
 
 def _fetch_tide_stations() -> dict[str, str]:
@@ -461,6 +760,12 @@ def _write_env(values: dict[str, str]) -> None:
             ],
         ),
         ("# Telegram Bot Configuration (optional)", ["TELEGRAM_BOT_TOKEN"]),
+        (
+            "# Agent Memory — Postgres (optional)\n"
+            "# Enables shared conversation history across API, Chat UI, and Telegram\n"
+            "# AGENT_PERSISTENCE_AUTO_SETUP=true tells the agent to create tables on first start",
+            ["AGENT_POSTGRES_URL", "AGENT_PERSISTENCE_AUTO_SETUP"],
+        ),
     ]
 
     lines = ["# WHOOP Data Platform — generated by whoop-setup", ""]
@@ -486,8 +791,23 @@ def _write_env(values: dict[str, str]) -> None:
 
 
 def _setup_database() -> bool:
-    """Create SQLite database tables."""
-    console.print("\n[bold]Initialising database tables...[/bold]")
+    """Create SQLite database tables and explain what is being created."""
+    from whoopdata.database.database import DB_PATH
+
+    console.print(
+        Panel(
+            "[bold]SQLite database[/bold] — all your WHOOP and Withings records are stored "
+            "locally in a single file:\n\n"
+            f"  [cyan]{DB_PATH}[/cyan]\n\n"
+            "[dim]This is [bold]separate[/bold] from the optional Postgres store.  "
+            "SQLite holds raw health data (workouts, sleep, recovery, body metrics).  "
+            "Postgres (if configured) holds the AI agent's conversation memory and "
+            "long-term user profile.[/dim]",
+            title="[bold cyan]Local database[/bold cyan]",
+            expand=False,
+        )
+    )
+    console.print("\n  [dim]Creating tables…[/dim]")
     try:
         from dotenv import load_dotenv
 
@@ -497,7 +817,7 @@ def _setup_database() -> bool:
         from whoopdata.models.models import Base
 
         Base.metadata.create_all(bind=engine)
-        console.print("✅ [bold green]Database tables ready[/bold green]")
+        console.print(f"✅ [bold green]Database tables ready[/bold green]  ({DB_PATH})")
         return True
     except Exception as exc:
         console.print(f"❌ [bold red]Database setup failed:[/bold red] {exc}")
@@ -523,27 +843,45 @@ def _show_next_steps(tfl_enabled: bool, tides_enabled: bool) -> None:
 
     console.print(table)
 
-    notes: list[str] = [
-        "WHOOP uses OAuth 2.0. The first time you run [bold]make etl[/bold] you will "
-        "be redirected to your browser to complete the authorisation flow."
-    ]
+    # ── WHOOP OAuth notice ─────────────────────────────────────────────────
+    console.print()
+    console.print(
+        Panel(
+            "[bold yellow]First-run authorisation required[/bold yellow]\n\n"
+            "WHOOP uses [bold]OAuth 2.0[/bold].  The [bold]first time[/bold] you run "
+            "[bold green]make etl[/bold green] (or [bold green]make server[/bold green]) "
+            "the platform will open a browser window and ask you to log in to your "
+            "WHOOP account and grant access.\n\n"
+            "  1. A local callback server starts on  [cyan]http://localhost:8765[/cyan]\n"
+            "  2. Your browser opens the WHOOP authorisation page automatically\n"
+            "  3. After you approve, the token is saved locally — "
+            "subsequent runs are fully automatic\n\n"
+            "[dim]If the browser doesn't open automatically, copy the URL printed "
+            "in the terminal and paste it manually.[/dim]",
+            title="[bold magenta]WHOOP OAuth — action needed on first run[/bold magenta]",
+            border_style="magenta",
+            expand=False,
+        )
+    )
+
+    # ── regional feature notes ─────────────────────────────────────────────
+    extras: list[str] = []
     if tfl_enabled:
-        notes.append(
+        extras.append(
             "TfL integration is [bold green]enabled[/bold green]. "
             "Line status will appear in the agent's day-of briefing."
         )
     if tides_enabled:
-        notes.append(
+        extras.append(
             "Thames tidal data is [bold green]enabled[/bold green]. "
             "The agent can recommend optimal riverside walk times."
         )
 
-    console.print()
-    for note in notes:
+    for note in extras:
+        console.print()
         console.print(
             Panel.fit(f"[dim]{note}[/dim]", title="[bold yellow]Note[/bold yellow]")
         )
-        console.print()
 
 
 # ── main entry point ──────────────────────────────────────────────────────────
@@ -560,6 +898,17 @@ def main() -> int:
             style="bold magenta",
         )
     )
+
+    # ── pre-flight checks ──────────────────────────────────────────────────
+    if not _preflight_check():
+        console.print(
+            "\n[bold red]Pre-flight checks failed.[/bold red] "
+            "Fix the issues above and re-run [bold]make setup[/bold]."
+        )
+        return 1
+
+    # ── architecture overview ──────────────────────────────────────────────
+    _show_architecture()
 
     # ── check for an existing .env ─────────────────────────────────────────
     existing = _load_existing_env()
@@ -615,6 +964,10 @@ def main() -> int:
     location_values = _prompt_location(existing)
     values.update(location_values)
 
+    # ── optional Postgres / agent memory ──────────────────────────────────
+    postgres_values = _setup_postgres(existing)
+    values.update(postgres_values)
+
     # ── write .env ─────────────────────────────────────────────────────────
     console.print()
     console.print(Rule("[bold cyan]Writing configuration[/bold cyan]"))
@@ -624,6 +977,9 @@ def main() -> int:
     console.print()
     console.print(Rule("[bold cyan]Database initialisation[/bold cyan]"))
     _setup_database()
+
+    # ── macOS launchd services (no-op on Linux/Windows) ───────────────────
+    _setup_launchd_services()
 
     # ── next steps ─────────────────────────────────────────────────────────
     _show_next_steps(
