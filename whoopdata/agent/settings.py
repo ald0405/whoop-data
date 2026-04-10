@@ -20,11 +20,24 @@ DEFAULT_USER_ID = "default_user"
 
 # Weather API Configuration
 OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
-DEFAULT_LOCATION = "Canary Wharf"  # Default location for weather queries
+# Location used for weather queries and day-of briefings.
+# Settable via DEFAULT_LOCATION in .env; falls back to Canary Wharf for existing deployments.
+DEFAULT_LOCATION = os.getenv("DEFAULT_LOCATION", "Canary Wharf")
+# ISO 3166-1 alpha-2 country code (e.g. "GB", "US", "DE").  Used to disambiguate geocoding.
+DEFAULT_COUNTRY = os.getenv("DEFAULT_COUNTRY", "GB")
 
 # Transport API Configuration
 TFL_API_BASE_URL = "https://api.tfl.gov.uk"
-TFL_KEY_LINES = ["Jubilee", "DLR", "Elizabeth line", "Northern"]  # Lines near South Quay DLR
+# Feature flag: enable TFL (Transport for London) integration.
+# Only meaningful when the user is in the Greater London area.
+TFL_ENABLED: bool = os.getenv("ENABLE_TFL", "false").strip().lower() == "true"
+# Comma-separated TfL lines to monitor (used when TFL_ENABLED=true).
+_tfl_lines_env = os.getenv("TFL_KEY_LINES", "Jubilee,DLR,Elizabeth line")
+TFL_KEY_LINES: list[str] = [ln.strip() for ln in _tfl_lines_env.split(",") if ln.strip()]
+
+# Feature flag: enable Thames tidal data (Environment Agency Flood Monitoring API).
+# Only meaningful when the user is in the Greater London / Thames Estuary area.
+THAMES_TIDES_ENABLED: bool = os.getenv("ENABLE_THAMES_TIDES", "false").strip().lower() == "true"
 
 # Agent Configuration
 AGENT_TIMEOUT_SECONDS = 30.0

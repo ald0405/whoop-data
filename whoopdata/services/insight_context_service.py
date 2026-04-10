@@ -5,11 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from whoopdata.agent import settings as _settings
 from whoopdata.services.tide_service import TideService
 from whoopdata.services.transport_service import TravelAPI
 from whoopdata.services.weather_service import WeatherAPI
 
-DEFAULT_LOCATION = "Canary Wharf"
+# Location defaults are driven by env vars via settings so that non-London users get
+# accurate weather without having to touch source code.
+DEFAULT_LOCATION = _settings.DEFAULT_LOCATION
 DEFAULT_TIDE_STATION_ID = "0001"
 DEFAULT_TIDE_STATION_NAME = "Silvertown"
 
@@ -18,8 +21,12 @@ try:
 except Exception:
     _DEFAULT_WEATHER_SERVICE = None
 
-_DEFAULT_TRANSPORT_SERVICE = TravelAPI()
-_DEFAULT_TIDE_SERVICE = TideService()
+# Only instantiate London-specific services when the relevant feature flags are on.
+# This prevents import-time network errors for users outside London.
+_DEFAULT_TRANSPORT_SERVICE: TravelAPI | None = TravelAPI() if _settings.TFL_ENABLED else None
+_DEFAULT_TIDE_SERVICE: TideService | None = (
+    TideService() if _settings.THAMES_TIDES_ENABLED else None
+)
 
 
 class InsightContextService:
@@ -81,7 +88,12 @@ class InsightContextService:
         }
 
     def get_transport_status(self) -> dict[str, Any] | list[Any]:
-        """Return the normalized transport status payload."""
+        """Return the normalized transport status payload.
+
+        Returns an empty dict when TFL integration is disabled (ENABLE_TFL=false).
+        """
+        if self.transport_service is None:
+            return {}
         return self.transport_service.get_line_status()
 
     async def get_tide_summary(
@@ -89,7 +101,12 @@ class InsightContextService:
         station_id: str = DEFAULT_TIDE_STATION_ID,
         station_name: str = DEFAULT_TIDE_STATION_NAME,
     ) -> dict[str, Any]:
-        """Return the lightweight tide payload used by the daily-plan flow."""
+        """Return the lightweight tide payload used by the daily-plan flow.
+
+        Returns an empty dict when Thames tides are disabled (ENABLE_THAMES_TIDES=false).
+        """
+        if self.tide_service is None:
+            return {}
         current = await self.tide_service.get_latest_reading(station_id)
         if current is None:
             raise RuntimeError("Unable to fetch tide data")
@@ -106,7 +123,12 @@ class InsightContextService:
         station_name: str = DEFAULT_TIDE_STATION_NAME,
         hours_ahead: int = 24,
     ) -> dict[str, Any]:
-        """Return the richer tide payload used by the dashboard insight surface."""
+        """Return the richer tide payload used by the dashboard insight surface.
+
+        Returns an empty dict when Thames tides are disabled (ENABLE_THAMES_TIDES=false).
+        """
+        if self.tide_service is None:
+            return {}
         current_tide = await self.tide_service.get_latest_reading(station_id)
         tide_forecast = await self.tide_service.get_tide_forecast(
             station_id, hours_ahead=hours_ahead
@@ -145,7 +167,12 @@ class InsightContextService:
         station_id: str = DEFAULT_TIDE_STATION_ID,
         days: int = 5,
     ) -> list[dict[str, Any]]:
-        """Return normalized perfect-walk hotspot recommendations."""
+        """Return normalized perfect-walk hotspot recommendations.
+
+        Returns an empty list when Thames tides are disabled (ENABLE_THAMES_TIDES=false).
+        """
+        if self.tide_service is None:
+            return []
         weather_service = self._require_weather_service(
             "Weather service required for hotspot calculation"
         )

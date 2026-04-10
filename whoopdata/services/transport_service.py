@@ -3,6 +3,8 @@
 from typing import Dict, Any
 import requests
 
+from whoopdata.agent import settings as _settings
+
 
 class TravelAPI:
     """Client for TfL API providing London transport line status."""
@@ -11,11 +13,14 @@ class TravelAPI:
         """Initialize TravelAPI client.
 
         TfL API is open and doesn't require authentication for basic line status queries.
+        The lines monitored are read from settings.TFL_KEY_LINES so they can be
+        configured via the TFL_KEY_LINES environment variable.
         """
         self.base_url = "https://api.tfl.gov.uk"
-        # Lines relevant for South Quay / Canary Wharf area
-        self.key_lines = ["Jubilee", "DLR", "Elizabeth line"]
-        # Key stations for arrivals
+        # Lines to monitor — driven by TFL_KEY_LINES env var via settings
+        self.key_lines = list(_settings.TFL_KEY_LINES)
+        # Default key stations (Canary Wharf area).  These are not yet env-configurable
+        # but are only queried when TFL_ENABLED=true.
         self.key_stations = {
             "dlr_south_quay": "940GZZDLSOQ",
             "jubilee_canary_wharf": "940GZZLUCYF",
