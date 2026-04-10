@@ -6,6 +6,7 @@ Guides new users through creating their .env file, validating credentials,
 and initialising the database so they can run their first ETL in minutes.
 """
 
+import asyncio
 import sys
 from pathlib import Path
 
@@ -80,15 +81,34 @@ _TFL_ALL_LINES = [
     "Northern", "Overground", "Piccadilly", "Victoria", "Waterloo & City",
 ]
 
-# Thames Environment Agency tide stations
-_TIDE_STATIONS = {
-    "0001": "Silvertown (East London)",
+# Thames Environment Agency tide stations — used as a fallback when the EA API
+# is not reachable during setup.  The live list is fetched via _fetch_tide_stations().
+_TIDE_STATIONS_FALLBACK: dict[str, str] = {
+    "0001": "Silvertown",
     "0003": "Charlton",
-    "0007": "Tower Pier (Central London)",
+    "0007": "Tower Pier",
 }
 
 # Country inputs we recognise as UK for London-feature prompts
 _UK_IDENTIFIERS = {"gb", "uk", "united kingdom", "england", "great britain", "britain"}
+
+
+def _fetch_tide_stations() -> dict[str, str]:
+    """Return {station_id: name} by querying the EA Flood Monitoring API.
+
+    Falls back to _TIDE_STATIONS_FALLBACK if the network is unreachable or the
+    API returns no usable data (e.g. during offline setup).
+    """
+    try:
+        from whoopdata.services.tide_service import TideService
+
+        service = TideService(timeout=6)
+        raw = asyncio.run(service.list_thames_tidal_stations())
+        if raw:
+            return {s["id"]: s["name"] for s in raw}
+    except Exception:
+        pass
+    return dict(_TIDE_STATIONS_FALLBACK)
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -227,21 +247,36 @@ def _prompt_location(existing: dict[str, str]) -> dict[str, str]:
     result["ENABLE_THAMES_TIDES"] = "true" if enable_tides else "false"
 
     if enable_tides:
-        stations_hint = ", ".join(f"{sid}={name}" for sid, name in _TIDE_STATIONS.items())
-        console.print(f"\n  [dim]Available stations: {stations_hint}[/dim]")
+        # Try to fetch the live station list from the EA API; fall back to known 3
+        console.print("\n  [dim]Fetching available stations from Environment Agency API...[/dim]")
+        tide_stations = _fetch_tide_stations()
+
+        # Build and display a table of available stations
+        station_table = Table(box=None, show_header=True, header_style="dim")
+        station_table.add_column("ID", style="bold cyan", no_wrap=True)
+        station_table.add_column("Name")
+        for sid, sname in tide_stations.items():
+            station_table.add_row(sid, sname)
+        console.print(station_table)
+
         current_station = existing.get("DEFAULT_TIDE_STATION_ID", "0001")
         station_id = Prompt.ask(
             "  [bold]Default tide station ID[/bold]",
             default=current_station,
         ).strip()
-        valid_ids = set(_TIDE_STATIONS.keys())
-        if station_id not in valid_ids:
+
+        if station_id not in tide_stations:
             console.print(
-                f"  [yellow]Unknown station '{station_id}' — falling back to 0001 (Silvertown).[/yellow]"
+                f"  [yellow]Station '{station_id}' not in the fetched list — "
+                "it may still be valid (the EA has many stations). "
+                "Keeping your entry as-is.[/yellow]"
             )
-            station_id = "0001"
+            station_name = station_id  # Use ID as name if unknown
+        else:
+            station_name = tide_stations[station_id]
+
         result["DEFAULT_TIDE_STATION_ID"] = station_id
-        result["DEFAULT_TIDE_STATION_NAME"] = _TIDE_STATIONS[station_id].split(" (")[0]
+        result["DEFAULT_TIDE_STATION_NAME"] = station_name
 
     return result
 

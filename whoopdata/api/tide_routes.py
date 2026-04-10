@@ -18,31 +18,28 @@ tide_service = TideService()
 @legacy_data_router.get("/stations", deprecated=True)
 @data_router.get("/stations")
 async def list_stations() -> dict:
-    """List available tidal monitoring stations in East London.
+    """List available Thames tidal monitoring stations.
+
+    Fetches the live station list from the Environment Agency Flood Monitoring API
+    (type=TideGauge, riverName=River Thames).  Falls back to the three well-known
+    hardcoded stations (Silvertown, Charlton, Tower Pier) if the EA API is
+    unavailable.
 
     Returns:
-        Dictionary of station names and IDs
+        Dictionary with a ``stations`` list and the ``default`` station key.
+        Each station entry has ``id``, ``name``, and optional ``lat``/``lon``.
     """
-    return {
-        "stations": [
-            {
-                "name": "Silvertown",
-                "id": "0001",
-                "description": "Primary East London tide gauge near Royal Docks",
-            },
-            {
-                "name": "Charlton",
-                "id": "0003",
-                "description": "Thames Barrier area monitoring station",
-            },
-            {
-                "name": "Tower Pier",
-                "id": "0007",
-                "description": "Central London monitoring near Tower Bridge",
-            },
-        ],
-        "default": "silvertown",
-    }
+    raw = await tide_service.list_thames_tidal_stations()
+    stations = [
+        {
+            "id": s["id"],
+            "name": s["name"],
+            "lat": s.get("lat"),
+            "lon": s.get("lon"),
+        }
+        for s in raw
+    ]
+    return {"stations": stations, "default": "0001"}
 
 
 @legacy_data_router.get("/current", response_model=TideReading, deprecated=True)
