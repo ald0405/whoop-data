@@ -31,9 +31,28 @@ TFL_API_BASE_URL = "https://api.tfl.gov.uk"
 # Feature flag: enable TFL (Transport for London) integration.
 # Only meaningful when the user is in the Greater London area.
 TFL_ENABLED: bool = os.getenv("ENABLE_TFL", "false").strip().lower() == "true"
-# Comma-separated TfL lines to monitor (used when TFL_ENABLED=true).
+# Comma-separated TfL line display-names to monitor (used when TFL_ENABLED=true).
+# Example: "Jubilee,DLR,Elizabeth line,Northern"
 _tfl_lines_env = os.getenv("TFL_KEY_LINES", "Jubilee,DLR,Elizabeth line")
 TFL_KEY_LINES: list[str] = [ln.strip() for ln in _tfl_lines_env.split(",") if ln.strip()]
+
+# Stations for real-time arrival boards, stored as "Label:NaptanID" pairs separated by "|".
+# Example: "Canary Wharf (Jubilee):940GZZLUCYF|DLR South Quay:940GZZDLSOQ"
+# When not set, TravelAPI falls back to the original Canary Wharf defaults.
+def _parse_tfl_stations(raw: str | None) -> dict[str, str] | None:
+    if not raw or not raw.strip():
+        return None
+    result: dict[str, str] = {}
+    for pair in raw.split("|"):
+        pair = pair.strip()
+        if ":" in pair:
+            label, _, naptan = pair.partition(":")
+            label, naptan = label.strip(), naptan.strip()
+            if label and naptan:
+                result[label] = naptan
+    return result or None
+
+TFL_KEY_STATIONS: dict[str, str] | None = _parse_tfl_stations(os.getenv("TFL_KEY_STATIONS"))
 
 # Feature flag: enable Thames tidal data (Environment Agency Flood Monitoring API).
 # Only meaningful when the user is in the Greater London / Thames Estuary area.

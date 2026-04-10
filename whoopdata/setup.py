@@ -74,13 +74,6 @@ FIXED_VALUES = {
     "WITHINGS_CALLBACK_URL": "http://localhost:8766/callback",
 }
 
-# TfL lines available for monitoring (shown as a reference list to the user)
-_TFL_ALL_LINES = [
-    "Bakerloo", "Central", "Circle", "District", "DLR",
-    "Elizabeth line", "Hammersmith & City", "Jubilee", "Metropolitan",
-    "Northern", "Overground", "Piccadilly", "Victoria", "Waterloo & City",
-]
-
 # Thames Environment Agency tide stations — used as a fallback when the EA API
 # is not reachable during setup.  The live list is fetched via _fetch_tide_stations().
 _TIDE_STATIONS_FALLBACK: dict[str, str] = {
@@ -109,6 +102,159 @@ def _fetch_tide_stations() -> dict[str, str]:
     except Exception:
         pass
     return dict(_TIDE_STATIONS_FALLBACK)
+
+
+def _fetch_tfl_lines() -> list[dict[str, str]]:
+    """Return available TfL lines from the live API (or the static catalogue).
+
+    Each entry is {"id": ..., "name": ..., "mode": ...}.
+    """
+    try:
+        from whoopdata.services.transport_service import TravelAPI
+        api = TravelAPI()
+        lines = api.list_available_lines()
+        if lines:
+            return lines
+    except Exception:
+        pass
+    # Static fallback — mirrors TFL_LINE_CATALOGUE in transport_service.py
+    from whoopdata.services.transport_service import TFL_LINE_CATALOGUE
+    return list(TFL_LINE_CATALOGUE)
+
+
+def _prompt_tfl_lines(existing_lines: str) -> str:
+    """Numbered multi-select for TfL lines. Returns comma-separated line names."""
+    console.print("\n  [dim]Fetching available TfL lines...[/dim]")
+    lines = _fetch_tfl_lines()
+
+    # Show numbered table
+    t = Table(box=None, show_header=True, header_style="dim", padding=(0, 2))
+    t.add_column("#",    style="bold cyan", no_wrap=True, justify="right")
+    t.add_column("Line", no_wrap=True)
+    t.add_column("Mode", style="dim")
+    for i, line in enumerate(lines, 1):
+        t.add_row(str(i), line["name"], line["mode"])
+    console.print(t)
+
+    # Pre-select numbers that match the existing configured lines
+    existing_set = {ln.strip().lower() for ln in existing_lines.split(",") if ln.strip()}
+    preselected = [
+        str(i) for i, ln in enumerate(lines, 1)
+        if ln["name"].lower() in existing_set
+    ]
+    default_str = ",".join(preselected) if preselected else "8,3,12"  # Jubilee, DLR, Elizabeth
+
+    raw = Prompt.ask(
+        "  [bold]Select lines to monitor[/bold] "
+        "[dim](enter numbers, comma-separated, e.g. 3,8,12)[/dim]",
+        default=default_str,
+    ).strip()
+
+    chosen_names: list[str] = []
+    for token in raw.split(","):
+        token = token.strip()
+        if token.isdigit():
+            idx = int(token) - 1
+            if 0 <= idx < len(lines):
+                chosen_names.append(lines[idx]["name"])
+        else:
+            # Allow typing a name directly as a fallback
+            chosen_names.append(token)
+
+    return ",".join(chosen_names) if chosen_names else existing_lines
+
+
+def _prompt_tfl_stations(existing_stations_env: str) -> str:
+    """Interactive station search. Returns pipe-separated 'Label:NaptanID' pairs."""
+    console.print()
+    console.print(
+        "  [bold]Station arrival monitoring[/bold] [dim](optional)[/dim]\n"
+        "  [dim]Shows real-time departures for up to 5 stations.\n"
+        "  Search by name — the TfL StopPoint API has ~500 stations.[/dim]"
+    )
+
+    # Decode any existing stations for display
+    existing_stations: dict[str, str] = {}
+    for pair in existing_stations_env.split("|"):
+        pair = pair.strip()
+        if ":" in pair:
+            label, _, naptan = pair.partition(":")
+            existing_stations[label.strip()] = naptan.strip()
+
+    if existing_stations:
+        console.print("\n  [dim]Currently configured stations:[/dim]")
+        for label, naptan in existing_stations.items():
+            console.print(f"    [cyan]{label}[/cyan]  ({naptan})")
+
+    want_arrivals = Confirm.ask(
+        "\n  Configure station arrival monitoring?",
+        default=bool(existing_stations),
+    )
+    if not want_arrivals:
+        return existing_stations_env  # keep unchanged
+
+    try:
+        from whoopdata.services.transport_service import TravelAPI
+        api = TravelAPI()
+    except Exception:
+        console.print("  [yellow]Could not initialise TfL client — skipping station setup.[/yellow]")
+        return existing_stations_env
+
+    selected: dict[str, str] = dict(existing_stations)  # start from existing
+
+    while True:
+        query = Prompt.ask(
+            "\n  [bold]Search station name[/bold] "
+            "[dim](e.g. 'King's Cross', 'Canary Wharf', or blank to finish)[/dim]",
+            default="",
+        ).strip()
+        if not query:
+            break
+
+        console.print("  [dim]Searching...[/dim]")
+        results = api.search_stations(query)
+
+        if not results:
+            console.print("  [yellow]No results found. Try a different name.[/yellow]")
+            continue
+
+        # Show numbered results
+        rt = Table(box=None, show_header=True, header_style="dim", padding=(0, 2))
+        rt.add_column("#",       style="bold cyan", no_wrap=True, justify="right")
+        rt.add_column("Station", no_wrap=True)
+        rt.add_column("Lines",   style="dim")
+        for i, r in enumerate(results, 1):
+            rt.add_row(str(i), r["name"], ", ".join(r["lines"]))
+        console.print(rt)
+
+        pick = Prompt.ask(
+            "  Pick a number to add (or blank to skip)",
+            default="",
+        ).strip()
+        if pick.isdigit():
+            idx = int(pick) - 1
+            if 0 <= idx < len(results):
+                station = results[idx]
+                label = Prompt.ask(
+                    f"  Label for [bold]{station['name']}[/bold]",
+                    default=station["name"],
+                ).strip()
+                selected[label] = station["id"]
+                console.print(f"  ✅ Added [cyan]{label}[/cyan] ({station['id']})")
+
+        # Show running list
+        if selected:
+            console.print("\n  [dim]Stations so far:[/dim]")
+            for lbl, nid in selected.items():
+                console.print(f"    [cyan]{lbl}[/cyan]  ({nid})")
+
+        another = Confirm.ask("  Add another station?", default=False)
+        if not another:
+            break
+
+    if not selected:
+        return ""
+    return "|".join(f"{lbl}:{nid}" for lbl, nid in selected.items())
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -228,15 +374,13 @@ def _prompt_location(existing: dict[str, str]) -> dict[str, str]:
     result["ENABLE_TFL"] = "true" if enable_tfl else "false"
 
     if enable_tfl:
-        console.print(
-            f"\n  [dim]Available lines: {', '.join(_TFL_ALL_LINES)}[/dim]"
-        )
         current_lines = existing.get("TFL_KEY_LINES", "Jubilee,DLR,Elizabeth line")
-        raw_lines = Prompt.ask(
-            "  [bold]Lines to monitor[/bold] [dim](comma-separated)[/dim]",
-            default=current_lines,
-        ).strip()
-        result["TFL_KEY_LINES"] = raw_lines or "Jubilee,DLR,Elizabeth line"
+        result["TFL_KEY_LINES"] = _prompt_tfl_lines(current_lines)
+
+        current_stations_env = existing.get("TFL_KEY_STATIONS", "")
+        stations_env = _prompt_tfl_stations(current_stations_env)
+        if stations_env:
+            result["TFL_KEY_STATIONS"] = stations_env
 
     # ── Thames tides configuration ─────────────────────────────────────────
     console.print()
@@ -304,12 +448,14 @@ def _write_env(values: dict[str, str]) -> None:
             "# London Regional Features\n"
             "# ENABLE_TFL: set true for Transport for London line monitoring (London only)\n"
             "# ENABLE_THAMES_TIDES: set true for Thames tidal data (London only)\n"
-            "# TFL_KEY_LINES: comma-separated TfL lines to monitor\n"
-            "# DEFAULT_TIDE_STATION_ID: 0001=Silvertown, 0003=Charlton, 0007=Tower Pier",
+            "# TFL_KEY_LINES: comma-separated TfL line names to monitor\n"
+            "# TFL_KEY_STATIONS: pipe-separated 'Label:NaptanID' pairs for arrival boards\n"
+            "# DEFAULT_TIDE_STATION_ID: EA station ID — query /api/v1/data/tides/stations for full list",
             [
                 "ENABLE_TFL",
                 "ENABLE_THAMES_TIDES",
                 "TFL_KEY_LINES",
+                "TFL_KEY_STATIONS",
                 "DEFAULT_TIDE_STATION_ID",
                 "DEFAULT_TIDE_STATION_NAME",
             ],
