@@ -1,4 +1,4 @@
-.PHONY: help install dev sync run server etl etl-full etl-now etl-up etl-down etl-test chat telegram-bot analytics langgraph-dev dev-all dev-full dev-full-stop postgres-up postgres-down postgres-logs test format lint typecheck clean verify schedule-up schedule-down schedule-test morning-now proactive-now weakness-now weakness-preview services-up services-down services-test download-models
+.PHONY: help install dev sync setup run server etl etl-full etl-now etl-up etl-down etl-test chat telegram-bot analytics langgraph-dev dev-all dev-full dev-full-stop postgres-up postgres-down postgres-logs test format lint typecheck clean verify schedule-up schedule-down schedule-test morning-now proactive-now weakness-now weakness-preview services-up services-down services-test download-models
 
 # Default target
 help:
@@ -8,6 +8,7 @@ help:
 	@echo "  make install     - Install project with production dependencies"
 	@echo "  make dev         - Install project with dev dependencies"
 	@echo "  make sync        - Sync dependencies (update lockfile)"
+	@echo "  make setup       - Interactive first-time setup wizard (create .env + init DB)"
 	@echo ""
 	@echo "Run:"
 	@echo "  make run         - Convenience launcher (interactive ETL + server menu)"
@@ -67,6 +68,10 @@ dev:
 sync:
 	@echo "🔄 Syncing dependencies..."
 	uv sync
+
+setup:
+	@echo "🧙 Running first-time setup wizard..."
+	uv run whoop-setup
 
 # Run targets
 run:

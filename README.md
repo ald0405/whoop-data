@@ -63,22 +63,23 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
-### 2. Set up environment variables
-
-Create a `.env` file with your API credentials:
+### 2. Run the setup wizard
 
 ```bash
-WHOOP_CLIENT_ID=your_whoop_client_id
-WHOOP_CLIENT_SECRET=your_whoop_client_secret
-WITHINGS_CLIENT_ID=your_withings_client_id
-WITHINGS_CLIENT_SECRET=your_withings_client_secret
-WITHINGS_CALLBACK_URL=http://localhost:8766/callback
-OPENAI_API_KEY=your_openai_api_key
+make setup
+```
+
+`make setup` (or `uv run whoop-setup`) launches an interactive wizard that prompts for each API credential, writes a `.env` file, and initialises the local database — no manual file editing needed.
+
+If you prefer to configure credentials by hand, copy `.env.example` to `.env` and fill in the values:
+
+```bash
+cp .env.example .env
 ```
 
 Supervisor/sub-agent model behaviour (model, temperature, retries, reasoning effort) is configured in `whoopdata/agent/settings.py` via `LLM_CONFIG` as the single source of truth.
 
-WHOOP uses OAuth 2.0 browser authentication. When first running ingestion, you may be redirected to complete the authorization-code flow in the browser.
+WHOOP uses OAuth 2.0 browser authentication. When first running ingestion, you may be redirected to complete the authorisation flow in the browser.
 
 ### 2a. Optional but recommended: shared Postgres for agent memory
 
