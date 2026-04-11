@@ -383,6 +383,55 @@ def _setup_launchd_services() -> None:
         )
 
 
+def _explain_whoop_app() -> None:
+    """Show a step-by-step guide to creating a WHOOP developer app.
+
+    Called before the WHOOP credential prompts so the user knows exactly
+    where the Client ID and Secret come from and what redirect URI to set.
+    """
+    console.print()
+    console.print(Rule("[bold cyan]Creating your WHOOP developer app[/bold cyan]"))
+    console.print(
+        Panel(
+            "[bold]You need a WHOOP developer app to get your credentials.[/bold]\n\n"
+            "Your [bold]WHOOP membership account[/bold] doubles as your developer account — "
+            "no separate sign-up needed.\n\n"
+            "[bold cyan]Steps:[/bold cyan]\n\n"
+            "  1. Open  [cyan]https://developer.whoop.com/[/cyan]  and sign in with your "
+            "WHOOP credentials\n"
+            "  2. Go to [bold]My Apps[/bold] (or create a Team first if prompted)\n"
+            "  3. Click [bold]Create App[/bold]\n"
+            "  4. Give the app any name (e.g. [italic]My Health Platform[/italic])\n"
+            "  5. Under [bold]Redirect URIs[/bold] add exactly:\n\n"
+            "       [bold green]http://localhost:8765/callback[/bold green]\n\n"
+            "  6. Enable these [bold]scopes[/bold]:\n"
+            "       read:recovery  read:sleep  read:workout\n"
+            "       read:profile   read:body_measurement  [bold]offline[/bold]\n\n"
+            "     [dim](The [bold]offline[/bold] scope is critical — it grants a refresh token\n"
+            "     so the platform can stay headless after the first login.)[/dim]\n\n"
+            "  7. Save the app — copy the [bold]Client ID[/bold] and [bold]Client Secret[/bold] "
+            "shown on the next screen\n\n"
+            "[bold yellow]Headless operation after first run[/bold yellow]\n\n"
+            "The [bold]first[/bold] time you run [bold green]make etl[/bold green] a browser "
+            "window will open for you to approve access (one-time only).\n\n"
+            "After that the platform is [bold]fully headless[/bold] — it silently refreshes "
+            "your access token every time the ETL runs.  The recurring ETL job runs every "
+            "[bold]45 minutes[/bold], which keeps the token alive automatically.  "
+            "Tokens are stored locally in [cyan].whoop_tokens.json[/cyan] — "
+            "keep that file out of version control.\n\n"
+            "[dim]If you stop running the ETL for an extended period and the refresh token "
+            "expires, simply run [bold]make etl[/bold] again to re-authorise via the browser.[/dim]",
+            title="[bold magenta]WHOOP developer app setup[/bold magenta]",
+            border_style="magenta",
+            expand=False,
+        )
+    )
+    Prompt.ask(
+        "\n  Press [bold]Enter[/bold] when you have your Client ID and Secret ready",
+        default="",
+    )
+
+
 def _setup_withings(existing: dict[str, str]) -> dict[str, str]:
     """Gate Withings credentials behind a 'do you have a scale?' prompt.
 
@@ -1151,7 +1200,8 @@ def main() -> int:
     location_values = _prompt_location(existing)
     values.update(location_values)
 
-    # ── 2. WHOOP credentials (always required) ─────────────────────────────
+    # ── 2. WHOOP app walkthrough + credentials ────────────────────────────
+    _explain_whoop_app()
     console.print()
     console.print(Rule("[bold cyan]WHOOP credentials[/bold cyan]"))
 
