@@ -26,7 +26,8 @@ ENV_PATH = Path(".env")
 
 # ── credential definitions ────────────────────────────────────────────────────
 
-REQUIRED_CREDENTIALS = [
+# Always required — no WHOOP data without these
+WHOOP_CREDENTIALS = [
     {
         "key": "WHOOP_CLIENT_ID",
         "label": "WHOOP Client ID",
@@ -39,6 +40,10 @@ REQUIRED_CREDENTIALS = [
         "secret": True,
         "hint": "From the same WHOOP developer dashboard (keep this private)",
     },
+]
+
+# Required only if user has a Withings scale
+WITHINGS_CREDENTIALS = [
     {
         "key": "WITHINGS_CLIENT_ID",
         "label": "Withings Client ID",
@@ -51,28 +56,21 @@ REQUIRED_CREDENTIALS = [
         "secret": True,
         "hint": "From the same Withings partner dashboard (keep this private)",
     },
-    {
-        "key": "OPENAI_API_KEY",
-        "label": "OpenAI API Key",
-        "secret": True,
-        "hint": "From https://platform.openai.com/api-keys",
-    },
 ]
 
-OPTIONAL_CREDENTIALS = [
-    {
-        "key": "OPENWEATHER_API_KEY",
-        "label": "OpenWeatherMap API Key (optional)",
-        "secret": True,
-        "hint": "From https://openweathermap.org/api — enables weather context in coaching",
-    },
-    {
-        "key": "TELEGRAM_BOT_TOKEN",
-        "label": "Telegram Bot Token (optional)",
-        "secret": True,
-        "hint": "Create a bot via @BotFather on Telegram and paste the token here",
-    },
-]
+OPENAI_CREDENTIAL = {
+    "key": "OPENAI_API_KEY",
+    "label": "OpenAI API Key",
+    "secret": True,
+    "hint": "From https://platform.openai.com/api-keys — powers all AI coaching features",
+}
+
+OPENWEATHER_CREDENTIAL = {
+    "key": "OPENWEATHER_API_KEY",
+    "label": "OpenWeatherMap API Key (optional)",
+    "secret": True,
+    "hint": "From https://openweathermap.org/api — enables weather context in coaching",
+}
 
 FIXED_VALUES = {
     "WITHINGS_CALLBACK_URL": "http://localhost:8766/callback",
@@ -383,6 +381,221 @@ def _setup_launchd_services() -> None:
             "\n❌ [yellow]make services-up returned an error — "
             "check output above and try manually.[/yellow]"
         )
+
+
+def _setup_withings(existing: dict[str, str]) -> dict[str, str]:
+    """Gate Withings credentials behind a 'do you have a scale?' prompt.
+
+    Returns dict of env vars to merge (empty if user skips).
+    """
+    result: dict[str, str] = {}
+
+    console.print()
+    console.print(Rule("[bold cyan]Withings body composition scale (optional)[/bold cyan]"))
+    console.print(
+        "[dim]Withings integration syncs body weight, fat mass, muscle mass, "
+        "and hydration data from a Withings Health Mate scale or analyser.\n\n"
+        "If you don't have a Withings device, skip this — the platform works "
+        "perfectly with WHOOP data alone.[/dim]"
+    )
+
+    already_set = bool(existing.get("WITHINGS_CLIENT_ID"))
+    has_withings = Confirm.ask(
+        "\n  Do you have a [bold]Withings[/bold] body composition scale?",
+        default=already_set,
+    )
+    if not has_withings:
+        console.print("[dim]  Skipped — Withings features will be unavailable.[/dim]")
+        return result
+
+    # They have a scale — collect credentials
+    result["WITHINGS_CALLBACK_URL"] = "http://localhost:8766/callback"
+    for cred in WITHINGS_CREDENTIALS:
+        current = existing.get(cred["key"], "")
+        value = _prompt_credential(cred, existing=current)
+        if value:
+            result[cred["key"]] = value
+        else:
+            console.print(
+                f"[yellow]  {cred['label']} left blank — "
+                "Withings sync will fail until this is set.[/yellow]"
+            )
+
+    return result
+
+
+def _setup_langsmith(existing: dict[str, str]) -> dict[str, str]:
+    """Explain LangSmith observability and optionally collect API key.
+
+    Returns dict of env vars to merge.
+    """
+    result: dict[str, str] = {}
+
+    console.print()
+    console.print(Rule("[bold cyan]LangSmith tracing & observability (optional)[/bold cyan]"))
+    console.print(
+        Panel(
+            "[bold]LangSmith[/bold] is Anthropic/LangChain's observability platform "
+            "for LLM applications.\n\n"
+            "When enabled it records every agent run — which tools were called, "
+            "what the model received and returned, latency, token counts — "
+            "so you can debug coaching responses and optimise prompts.\n\n"
+            "  • Free tier available at [cyan]https://smith.langchain.com/[/cyan]\n"
+            "  • Sign up → Settings → API Keys → Create API Key\n"
+            "  • Without it the agent still works; you just won't have a trace UI.\n\n"
+            "[dim]Tracing is disabled by default when no API key is set.[/dim]",
+            title="[bold cyan]LangSmith — optional but recommended[/bold cyan]",
+            expand=False,
+        )
+    )
+
+    already_set = bool(existing.get("LANGCHAIN_API_KEY"))
+    want_langsmith = Confirm.ask(
+        "\n  Enable [bold]LangSmith[/bold] tracing?",
+        default=already_set,
+    )
+    if not want_langsmith:
+        result["LANGCHAIN_TRACING_V2"] = "false"
+        console.print("[dim]  Skipped — tracing disabled.[/dim]")
+        return result
+
+    current_key = existing.get("LANGCHAIN_API_KEY", "")
+    placeholder = (current_key[:4] + "****" if len(current_key) > 4 else "****") if current_key else ""
+    api_key = Prompt.ask(
+        f"  [bold]LangSmith API Key[/bold]{f' [{placeholder}]' if placeholder else ''}",
+        password=True,
+        default=current_key,
+    ).strip()
+
+    if api_key:
+        result["LANGCHAIN_API_KEY"] = api_key
+        result["LANGCHAIN_TRACING_V2"] = "true"
+
+        current_project = existing.get("LANGCHAIN_PROJECT", "whoop-health-agent")
+        project = Prompt.ask(
+            "  [bold]LangSmith project name[/bold]",
+            default=current_project,
+        ).strip()
+        result["LANGCHAIN_PROJECT"] = project or "whoop-health-agent"
+
+        console.print(
+            f"✅ [green]LangSmith enabled[/green] — "
+            f"traces will appear in project [cyan]{result['LANGCHAIN_PROJECT']}[/cyan]"
+        )
+    else:
+        result["LANGCHAIN_TRACING_V2"] = "false"
+        console.print("[yellow]  No key entered — tracing disabled.[/yellow]")
+
+    return result
+
+
+def _setup_telegram(existing: dict[str, str]) -> dict[str, str]:
+    """Full Telegram bot setup: BotFather walkthrough, token, and user ID hardening.
+
+    Returns dict of env vars to merge.
+    """
+    result: dict[str, str] = {}
+
+    console.print()
+    console.print(Rule("[bold cyan]Telegram bot (optional)[/bold cyan]"))
+    console.print(
+        "[dim]The Telegram bot lets you chat with your health coach, "
+        "receive proactive nudges, and review morning briefings — all from your phone.\n\n"
+        "You'll need to create a bot via Telegram's @BotFather first.[/dim]"
+    )
+
+    already_set = bool(existing.get("TELEGRAM_BOT_TOKEN"))
+    want_telegram = Confirm.ask(
+        "\n  Set up a [bold]Telegram[/bold] bot?",
+        default=already_set,
+    )
+    if not want_telegram:
+        console.print("[dim]  Skipped — Telegram features will be unavailable.[/dim]")
+        return result
+
+    # ── BotFather walkthrough ──────────────────────────────────────────────
+    console.print()
+    console.print(
+        Panel(
+            "[bold]Step 1 — Create your bot via @BotFather[/bold]\n\n"
+            "  1. Open Telegram and search for [cyan]@BotFather[/cyan]\n"
+            "  2. Send the command:  [bold]/newbot[/bold]\n"
+            "  3. Choose a display name (e.g. [italic]My Health Coach[/italic])\n"
+            "  4. Choose a username ending in [bold]bot[/bold] "
+            "(e.g. [italic]myhealthcoach_bot[/italic])\n"
+            "  5. BotFather will reply with a token like:\n"
+            "     [dim]1234567890:ABCDEFghijklmnop-QRSTUVWXYZ[/dim]\n\n"
+            "[bold]Step 2 — Copy that token and paste it below.[/bold]",
+            title="[bold cyan]Telegram BotFather setup[/bold cyan]",
+            expand=False,
+        )
+    )
+
+    current_token = existing.get("TELEGRAM_BOT_TOKEN", "")
+    placeholder = (current_token[:4] + "****" if len(current_token) > 8 else "****") if current_token else ""
+    token = Prompt.ask(
+        f"  [bold]Telegram Bot Token[/bold]{f' [{placeholder}]' if placeholder else ''}",
+        password=True,
+        default=current_token,
+    ).strip()
+
+    if not token:
+        console.print("[yellow]  No token entered — Telegram skipped.[/yellow]")
+        return result
+
+    result["TELEGRAM_BOT_TOKEN"] = token
+
+    # ── user ID hardening ──────────────────────────────────────────────────
+    console.print()
+    console.print(
+        Panel(
+            "[bold]Step 3 — Lock the bot to your Telegram account[/bold]\n\n"
+            "By default ANY Telegram user could message your bot and talk to "
+            "your health data. You should lock it to your own user ID.\n\n"
+            "[bold]How to get your Telegram user ID:[/bold]\n\n"
+            "  1. Start the bot you just created — send it [bold]/start[/bold]\n"
+            "  2. In a browser, open:\n"
+            "     [cyan]https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates[/cyan]\n"
+            "  3. Find [bold]message.from.id[/bold] in the JSON response — "
+            "that integer is your user ID\n\n"
+            "[dim]Alternatively, message [cyan]@userinfobot[/cyan] on Telegram "
+            "and it will reply with your ID instantly.[/dim]\n\n"
+            "Once you have it, add it to [bold]TELEGRAM_ALLOWED_USER_IDS[/bold] below.\n"
+            "After the first bot run you can also get it from the server logs.",
+            title="[bold yellow]Security — restrict bot access[/bold yellow]",
+            border_style="yellow",
+            expand=False,
+        )
+    )
+
+    current_users = existing.get("TELEGRAM_ALLOWED_USER_IDS", "")
+    user_ids = Prompt.ask(
+        "  [bold]TELEGRAM_ALLOWED_USER_IDS[/bold] "
+        "[dim](your Telegram user ID, or blank to harden later)[/dim]",
+        default=current_users,
+    ).strip()
+    if user_ids:
+        result["TELEGRAM_ALLOWED_USER_IDS"] = user_ids
+        console.print(
+            f"✅ [green]Bot locked to user ID(s):[/green] [cyan]{user_ids}[/cyan]"
+        )
+    else:
+        console.print(
+            "[yellow]  ⚠ No user ID set — bot will accept messages from anyone.\n"
+            "  Add TELEGRAM_ALLOWED_USER_IDS=<your_id> to .env after first run.[/yellow]"
+        )
+
+    # Optional: allowed chat IDs
+    current_chats = existing.get("TELEGRAM_ALLOWED_CHAT_IDS", "")
+    chat_ids = Prompt.ask(
+        "  [bold]TELEGRAM_ALLOWED_CHAT_IDS[/bold] "
+        "[dim](group/channel chat ID if needed, or blank to skip)[/dim]",
+        default=current_chats,
+    ).strip()
+    if chat_ids:
+        result["TELEGRAM_ALLOWED_CHAT_IDS"] = chat_ids
+
+    return result
 
 
 def _fetch_tide_stations() -> dict[str, str]:
@@ -759,7 +972,17 @@ def _write_env(values: dict[str, str]) -> None:
                 "DEFAULT_TIDE_STATION_NAME",
             ],
         ),
-        ("# Telegram Bot Configuration (optional)", ["TELEGRAM_BOT_TOKEN"]),
+        (
+            "# Telegram Bot Configuration (optional)\n"
+            "# TELEGRAM_ALLOWED_USER_IDS: comma-separated Telegram user IDs allowed to message the bot\n"
+            "# TELEGRAM_ALLOWED_CHAT_IDS: comma-separated chat/channel IDs (if using group chats)",
+            ["TELEGRAM_BOT_TOKEN", "TELEGRAM_ALLOWED_USER_IDS", "TELEGRAM_ALLOWED_CHAT_IDS"],
+        ),
+        (
+            "# LangSmith tracing & observability (optional)\n"
+            "# Sign up at https://smith.langchain.com/ — records every agent run for debugging",
+            ["LANGCHAIN_API_KEY", "LANGCHAIN_TRACING_V2", "LANGCHAIN_PROJECT"],
+        ),
         (
             "# Agent Memory — Postgres (optional)\n"
             "# Enables shared conversation history across API, Chat UI, and Telegram\n"
@@ -922,15 +1145,17 @@ def main() -> int:
 
     values: dict[str, str] = dict(existing)
 
-    # ── fixed values ───────────────────────────────────────────────────────
-    for key, val in FIXED_VALUES.items():
-        values[key] = val
+    # ── 1. location first — gates regional features for the rest of setup ──
+    # Ask this early so the wizard knows whether to offer TfL / tides, and
+    # non-London users skip those sections entirely with no wasted questions.
+    location_values = _prompt_location(existing)
+    values.update(location_values)
 
-    # ── required credentials ───────────────────────────────────────────────
+    # ── 2. WHOOP credentials (always required) ─────────────────────────────
     console.print()
-    console.print(Rule("[bold cyan]Required credentials[/bold cyan]"))
+    console.print(Rule("[bold cyan]WHOOP credentials[/bold cyan]"))
 
-    for cred in REQUIRED_CREDENTIALS:
+    for cred in WHOOP_CREDENTIALS:
         value = _prompt_credential(cred, existing=existing.get(cred["key"], ""))
         if not value:
             console.print(
@@ -939,32 +1164,40 @@ def main() -> int:
             return 1
         values[cred["key"]] = value
 
-    # ── optional credentials ───────────────────────────────────────────────
+    # ── 3. OpenAI (required — powers all AI features) ─────────────────────
     console.print()
-    console.print(Rule("[bold cyan]Optional credentials[/bold cyan]"))
-    console.print("[dim]Press Enter to skip any optional credential.[/dim]")
+    console.print(Rule("[bold cyan]OpenAI API key[/bold cyan]"))
+    openai_val = _prompt_credential(OPENAI_CREDENTIAL, existing=existing.get("OPENAI_API_KEY", ""))
+    if not openai_val:
+        console.print("[bold red]  ✗ OpenAI API key is required — setup aborted.[/bold red]")
+        return 1
+    values["OPENAI_API_KEY"] = openai_val
 
-    for cred in OPTIONAL_CREDENTIALS:
-        current = existing.get(cred["key"], "")
-        if cred["secret"]:
-            value = Prompt.ask(
-                f"\n[bold]{cred['label']}[/bold]\n  [dim]{cred['hint']}[/dim]\n  Value",
-                password=True,
-                default=current,
-            )
-        else:
-            value = Prompt.ask(
-                f"\n[bold]{cred['label']}[/bold]\n  [dim]{cred['hint']}[/dim]\n  Value",
-                default=current,
-            )
-        if value.strip():
-            values[cred["key"]] = value.strip()
+    # ── 4. Withings (optional — only if user has a scale) ─────────────────
+    withings_values = _setup_withings(existing)
+    values.update(withings_values)
 
-    # ── location & regional features ───────────────────────────────────────
-    location_values = _prompt_location(existing)
-    values.update(location_values)
+    # ── 5. OpenWeatherMap (optional) ──────────────────────────────────────
+    console.print()
+    console.print(Rule("[bold cyan]Weather API (optional)[/bold cyan]"))
+    ow_val = Prompt.ask(
+        f"\n[bold]{OPENWEATHER_CREDENTIAL['label']}[/bold]\n"
+        f"  [dim]{OPENWEATHER_CREDENTIAL['hint']}[/dim]\n  Value",
+        password=True,
+        default=existing.get("OPENWEATHER_API_KEY", ""),
+    ).strip()
+    if ow_val:
+        values["OPENWEATHER_API_KEY"] = ow_val
 
-    # ── optional Postgres / agent memory ──────────────────────────────────
+    # ── 6. LangSmith tracing (optional) ───────────────────────────────────
+    langsmith_values = _setup_langsmith(existing)
+    values.update(langsmith_values)
+
+    # ── 7. Telegram bot (optional) ────────────────────────────────────────
+    telegram_values = _setup_telegram(existing)
+    values.update(telegram_values)
+
+    # ── 8. Postgres / agent memory (optional) ─────────────────────────────
     postgres_values = _setup_postgres(existing)
     values.update(postgres_values)
 
