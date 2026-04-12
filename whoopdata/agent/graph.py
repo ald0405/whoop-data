@@ -16,7 +16,7 @@ from .schemas import AgentConfig, HealthContextSchema
 from .model_config_loader import get_supervisor_model_config
 from .model_factory import build_chat_model
 from .specialists import build_specialist_tools
-from .tools import python_repl_tool, get_protein_recommendation_tool
+from .tools import python_repl_tool
 
 CONFIG_KEY_STORE = "__store"
 
@@ -104,7 +104,6 @@ def _create_graph(*, checkpointer: Any | None = None, store: Any | None = None):
         specialist_tools
         + [
             python_repl_tool,
-            get_protein_recommendation_tool,
             search_memory,
             manage_memory,
         ]

@@ -57,6 +57,7 @@ AGENT_REGISTRY: dict[str, dict] = {
         ),
         "tools": [
             "get_recovery_data",
+            "get_top_recoveries",
             "get_sleep_data",
             "get_workout_data",
             "get_running_workouts",
@@ -66,7 +67,6 @@ AGENT_REGISTRY: dict[str, dict] = {
             "get_heart_rate_data",
             "get_withings_summary",
             "get_recovery_trends",
-            "get_protein_recommendation",
         ],
     },
     "analytics": {
@@ -138,7 +138,8 @@ AGENT_REGISTRY: dict[str, dict] = {
             "Behaviour change coaching using COM-B framework and Behaviour Change Techniques. "
             "Covers goal setting, action planning, barrier analysis, habit formation, "
             "motivation support, and relapse prevention. "
-            "Use this when the user is struggling with adherence, motivation, or forming habits."
+            "Use this when the user is struggling with adherence, motivation, or forming habits. "
+            "Do not use this for raw metric retrieval requests."
         ),
         "system_prompt": _load_prompt("behaviour_change_sub_agent.md"),
         "tools": [
@@ -153,7 +154,7 @@ AGENT_REGISTRY: dict[str, dict] = {
         "description": (
             "Nutrition guidance and protein intake recommendations. "
             "Calculates personalized protein targets based on current weight and activity level. "
-            "Use this when the user asks about protein intake, nutrition advice, or dietary recommendations."
+            "Use this for all protein targets, macro recommendations, nutrition advice, and dietary recommendations."
         ),
         "system_prompt": (
             "You are a nutrition specialist focused on evidence-based recommendations. \n\n"
@@ -189,6 +190,8 @@ AGENT_REGISTRY: dict[str, dict] = {
         "tools": [
             "search_memory",
             "manage_memory",
+            "get_tennis_workouts",
+            "get_workout_data",
         ],
     },
 }
