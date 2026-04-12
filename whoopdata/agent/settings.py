@@ -50,6 +50,7 @@ PROACTIVE_ESCALATION_DELAY_DAYS = 3
 # Used by: scripts/scheduled_etl.py
 PROACTIVE_POST_ETL_EVALUATION = False
 # Canonical per-agent LLM configuration (single source of truth for runtime agent models)
+# Specialist temperatures are aligned to 0.1 to reduce routing/output variance across equivalent queries.
 LLM_CONFIG: dict[str, dict[str, Any]] = {
     "supervisor_agent": {
         "provider": "openai",
@@ -63,7 +64,7 @@ LLM_CONFIG: dict[str, dict[str, Any]] = {
     "specialist_default": {
         "provider": "openai",
         "model": "gpt-4o-mini",
-        "temperature": 0.2,
+        "temperature": 0.1,
         "max_output_tokens": 1000,
         "timeout_seconds": 30.0,
         "max_retries": 2,
@@ -71,7 +72,7 @@ LLM_CONFIG: dict[str, dict[str, Any]] = {
     "health_data": {
         "provider": "openai",
         "model": "gpt-4o-mini",
-        "temperature": 0.2,
+        "temperature": 0.1,
         "max_output_tokens": 1000,
         "timeout_seconds": 30.0,
         "max_retries": 2,
@@ -88,7 +89,7 @@ LLM_CONFIG: dict[str, dict[str, Any]] = {
     "environment": {
         "provider": "openai",
         "model": "gpt-4o-mini",
-        "temperature": 0.2,
+        "temperature": 0.1,
         "max_output_tokens": 1000,
         "timeout_seconds": 30.0,
         "max_retries": 2,
@@ -96,23 +97,23 @@ LLM_CONFIG: dict[str, dict[str, Any]] = {
     "exercise": {
         "provider": "openai",
         "model": "gpt-4o-mini",
-        "temperature": 0.2,
-        "max_output_tokens": 1000,
+        "temperature": 0.1,
+        "max_output_tokens": 1500,
         "timeout_seconds": 30.0,
         "max_retries": 2,
     },
     "behaviour_change": {
         "provider": "openai",
         "model": "gpt-4o-mini",
-        "temperature": 0.2,
-        "max_output_tokens": 1000,
+        "temperature": 0.1,
+        "max_output_tokens": 1500,
         "timeout_seconds": 30.0,
         "max_retries": 2,
     },
     "nutrition": {
         "provider": "openai",
         "model": "gpt-4o-mini",
-        "temperature": 0.2,
+        "temperature": 0.1,
         "max_output_tokens": 1000,
         "timeout_seconds": 30.0,
         "max_retries": 2,
@@ -120,7 +121,7 @@ LLM_CONFIG: dict[str, dict[str, Any]] = {
     "biomechanics": {
         "provider": "openai",
         "model": "gpt-5.4-mini",
-        "temperature": 0.2,
+        "temperature": 0.1,
         "max_output_tokens": 1500,
         "timeout_seconds": 45.0,
         "max_retries": 2,
