@@ -137,6 +137,13 @@ class TestToolsLookup:
 
         assert "python_interpreter" in TOOLS_BY_NAME
 
+    def test_memory_and_top_recoveries_in_tools_by_name(self):
+        from whoopdata.agent.tools import TOOLS_BY_NAME
+
+        assert "manage_memory" in TOOLS_BY_NAME
+        assert "search_memory" in TOOLS_BY_NAME
+        assert "get_top_recoveries" in TOOLS_BY_NAME
+
 
 # ---------------------------------------------------------------------------
 # Specialist factory tests
@@ -323,9 +330,11 @@ class TestGraphBuild:
             tools = call_kwargs[0][1] if len(call_kwargs[0]) > 1 else []
 
         # Should have N specialist tools + direct supervisor tools:
-        # python_repl + protein recommendation + search_memory + manage_memory
-        expected_count = len(AGENT_REGISTRY) + 4
+        # python_repl + search_memory + manage_memory
+        expected_count = len(AGENT_REGISTRY) + 3
         assert len(tools) == expected_count, f"Expected {expected_count} tools, got {len(tools)}"
+        direct_tool_names = {getattr(t, "name", "") for t in tools}
+        assert "get_protein_recommendation" not in direct_tool_names
 
     def test_build_graph_has_single_langgraph_config_parameter(self):
 
@@ -353,3 +362,22 @@ class TestGraphBuild:
         call_kwargs = mock_graph_create.call_args
         kwargs = call_kwargs.kwargs or call_kwargs[1]
         assert kwargs["checkpointer"] is checkpointer
+
+
+class TestRoutingInvariants:
+    """Regression checks for specialist ownership and routing boundaries."""
+
+    def test_protein_tool_owned_by_nutrition_not_health_data(self):
+        from whoopdata.agent.registry import AGENT_REGISTRY
+
+        assert "get_protein_recommendation" in AGENT_REGISTRY["nutrition"]["tools"]
+        assert "get_protein_recommendation" not in AGENT_REGISTRY["health_data"]["tools"]
+
+    def test_biomechanics_has_memory_and_workout_context_tools(self):
+        from whoopdata.agent.registry import AGENT_REGISTRY
+
+        tools = set(AGENT_REGISTRY["biomechanics"]["tools"])
+        assert "search_memory" in tools
+        assert "manage_memory" in tools
+        assert "get_tennis_workouts" in tools
+        assert "get_workout_data" in tools
