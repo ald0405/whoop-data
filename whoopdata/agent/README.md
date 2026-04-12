@@ -82,7 +82,8 @@ metrics, and landmarks saved locally for review.
 
 For text-based follow-ups ("what drills fix that hip rotation?"), the
 supervisor routes to the `biomechanics` specialist tool registered in the
-agent registry, which searches memory for the previous video analysis.
+agent registry, which can both search durable memory and pull workout
+context (tennis and general workout tools) for grounded recommendations.
 
 ## Module Map
 
@@ -120,6 +121,40 @@ The `specialist_default` entry is the fallback for any specialist not
 explicitly listed. To override a specialist's model, add or edit its named
 entry in `LLM_CONFIG`.
 
+Current routing consistency policy aligns specialist temperatures to `0.1`
+to reduce variance in equivalent query paths.
+
+## Routing Ownership Notes
+
+- Protein/macro/dietary guidance routes through the `nutrition` specialist.
+- The supervisor does not directly call the protein recommendation tool.
+- `health_data` focuses on metric retrieval/summaries; `behaviour_change`
+  focuses on adherence/motivation coaching.
+
+## Tool Surface (High-Level)
+
+The tool layer is intentionally broad, but it is organized into clear domains
+so routing stays understandable:
+
+- **Health data retrieval tools** -- WHOOP and Withings record access
+  (recovery, sleep, workouts, body metrics, heart-rate/vitals, and summaries).
+- **Analytics tools** -- deeper analysis and modeling utilities
+  (factor importance, correlations, trends, and prediction endpoints).
+- **Environment/context tools** -- weather, air quality, forecast, transport,
+  tide, and outdoor planning context.
+- **Coaching support tools** -- nutrition/protein recommendation logic and
+  specialist-specific plan-generation support.
+- **Memory tools** -- durable coaching memory:
+  - `search_memory` for retrieving relevant user context
+  - `manage_memory` for create/update/delete of durable facts
+- **Computation tool** -- Python interpreter for custom calculations and
+  chart generation when structured analysis is needed.
+
+Design intent:
+- Specialists receive domain-scoped subsets of these tools from
+  `whoopdata/agent/registry.py`.
+- The supervisor gets specialist wrappers plus a small set of direct tools
+  (Python interpreter + memory tools) for orchestration and synthesis.
 ## Memory
 
 The agent uses LangGraph's store abstraction for durable memory. Categories:
