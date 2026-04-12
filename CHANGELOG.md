@@ -4,6 +4,23 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.9.0] - 2026-04-12
+
+### Added
+- Added explicit routing/tool-wiring regression assertions in `tests/test_agent_architecture.py` covering:
+  - `manage_memory` and `get_top_recoveries` presence in `TOOLS_BY_NAME`
+  - supervisor direct-tool exclusions for protein recommendation routing
+  - specialist ownership and biomechanics toolset invariants
+- Expanded `whoopdata/agent/README.md` with a high-level tool-surface overview and clearer routing ownership notes.
+
+### Changed
+- Registered `manage_memory` in `TOOLS_BY_NAME` so specialists referencing it resolve correctly.
+- Exposed `get_top_recoveries` through `AVAILABLE_TOOLS` and `health_data` specialist configuration.
+- Consolidated protein recommendation routing by removing direct supervisor access and routing this domain through the nutrition specialist.
+- Tightened specialist boundary language in registry/prompt guidance for overlap intents (metrics vs coaching, nutrition vs behaviour change).
+- Expanded biomechanics specialist tooling to include workout-context data tools.
+- Aligned specialist temperature defaults to `0.1` for improved response-path consistency.
+- Increased exercise and behaviour-change `max_output_tokens` to reduce truncation risk for richer planning responses.
 ## [3.8.0] - 2026-03-30
 
 ### Added
