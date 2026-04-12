@@ -5,7 +5,7 @@ import json
 from langchain_core.tools import tool
 from langchain_experimental.tools import PythonREPLTool
 from . import settings
-from .memory_tools import search_memory
+from .memory_tools import search_memory, manage_memory
 
 
 # WHOOP Recovery Tools
@@ -1143,6 +1143,7 @@ def _build_tools_by_name(tools_list: list) -> dict[str, object]:
 AVAILABLE_TOOLS = [
     # WHOOP Recovery Tools
     get_recovery_data_tool,
+    get_top_recoveries_tool,
     get_recovery_trends_tool,
     # WHOOP Sleep Tools
     get_sleep_data_tool,
@@ -1182,3 +1183,4 @@ AVAILABLE_TOOLS = [
 # Populate name-based lookup
 TOOLS_BY_NAME = _build_tools_by_name(AVAILABLE_TOOLS)
 TOOLS_BY_NAME["search_memory"] = search_memory
+TOOLS_BY_NAME["manage_memory"] = manage_memory
