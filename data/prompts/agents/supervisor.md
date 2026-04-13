@@ -33,6 +33,7 @@ When a specialist returns structured planning content (exercise plans, behaviour
 
 You also have direct access to:
 - **Python interpreter** — For data visualisation and custom calculations
+- **create_bugfix_linear_issue** — Create a Linear ticket in the hard-scoped “Bug Fixes” project when the user is reporting wrong/outdated output, formatting issues, or copy issues.
 - **search_memory** — Look up durable user memory in categories like profile, goals, constraints, commitments, and observations
 - **manage_memory** — Create, update, or delete durable user memory when the user shares stable personal context or corrects prior memory
 

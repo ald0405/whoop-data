@@ -9,7 +9,8 @@ import os
 import re
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Callable, Iterable
+from datetime import datetime, timezone
+from typing import Any, Awaitable, Callable, Iterable
 
 import numpy as np
 from dotenv import load_dotenv
@@ -251,15 +252,41 @@ def _preprocess_frames(frames: list[bytes]) -> list[bytes]:
 
 @dataclass
 class OutboundTelegramMessage:
-    """OutboundTelegramMessage data structure or service type.
+    """OutboundTelegramMessage data structure or service type."""
 
-    
-    """
     text: str | None = None
     photo_bytes: bytes | None = None
     voice_bytes: bytes | None = None
     caption: str | None = None
     parse_mode: str | None = None
+
+
+@dataclass
+class BugReport:
+    """A lightweight, structured bug report captured via Telegram."""
+
+    reported_at_iso: str
+    reporter: str
+    summary: str
+    expected: str | None = None
+    actual: str | None = None
+    steps_to_reproduce: str | None = None
+    frequency: str | None = None
+    severity: str | None = None
+    notes: str | None = None
+    screenshot_caption: str | None = None
+    screenshot_b64: str | None = None
+
+
+@dataclass
+class BugIntakeState:
+    """State machine for a single Telegram chat bug intake."""
+
+    stage: str
+    report: BugReport
+
+
+BugIssueCreator = Callable[[BugReport], Awaitable[str]]
 
 
 def thread_id_for_chat(chat_id: int) -> str:
@@ -289,6 +316,8 @@ class TelegramConversationGateway:
     ``ConversationService``. Video messages bypass the supervisor and
     are routed directly to the standalone biomechanics agent for
     frame-level visual analysis.
+
+    Also supports a low-friction bug intake flow (`/bug`, `/bug_done`, `/bug_cancel`).
     """
 
     def __init__(
@@ -298,12 +327,15 @@ class TelegramConversationGateway:
         allowed_user_ids: Iterable[int] | None = None,
         allowed_chat_ids: Iterable[int] | None = None,
         analyze_video_fn: Callable[..., Any] | None = None,
+        bug_issue_creator: BugIssueCreator | None = None,
     ) -> None:
         self._conversation_service = conversation_service or get_conversation_service()
         self._allowed_user_ids = set(allowed_user_ids or ())
         self._allowed_chat_ids = set(allowed_chat_ids or ())
         self._bindings_by_chat: dict[int, ConversationBinding] = {}
         self._analyze_video = analyze_video_fn or _default_analyze_video
+        self._bug_intakes_by_chat: dict[int, BugIntakeState] = {}
+        self._bug_issue_creator = bug_issue_creator
 
     def is_authorized(
         self, *, user_id: int | None, chat_id: int | None, chat_type: str | None
@@ -381,27 +413,23 @@ class TelegramConversationGateway:
         chat_type: str | None,
         image_b64: str | None = None,
     ) -> list[OutboundTelegramMessage]:
-        """Handle text message.
-
-        Args:
-            text: Input parameter used by this routine.
-            user_id: Input parameter used by this routine.
-            chat_id: Input parameter used by this routine.
-            chat_type: Input parameter used by this routine.
-            image_b64: Input parameter used by this routine.
-
-        Returns:
-            Computed result for this routine.
-
-        Example:
-            # Example usage
-            result = await handle_text_message(text=..., user_id=..., chat_id=..., chat_type=..., image_b64=...)
-            _ = result
-
-        
-        """
+        """Handle text message."""
         if not self.is_authorized(user_id=user_id, chat_id=chat_id, chat_type=chat_type):
             return []
+        if chat_id is None or user_id is None:
+            return []
+
+        stripped = text.strip()
+        if stripped.startswith("/bug"):
+            return self.start_bug_intake(chat_id=chat_id, user_id=user_id)
+        if stripped.startswith("/bug_cancel"):
+            return self.cancel_bug_intake(chat_id=chat_id)
+        if stripped.startswith("/bug_done"):
+            return await self.finalize_bug_intake(chat_id=chat_id)
+
+        if chat_id in self._bug_intakes_by_chat:
+            return self.continue_bug_intake(chat_id=chat_id, text=stripped)
+
         binding = self._bindings_by_chat.setdefault(
             chat_id,
             ConversationBinding(
@@ -420,6 +448,123 @@ class TelegramConversationGateway:
         binding.session_id = response.session_id
         binding.thread_id = response.thread_id
         return self._build_response_messages(response.assistant_message, response.artifacts)
+
+    def start_bug_intake(self, *, chat_id: int, user_id: int) -> list[OutboundTelegramMessage]:
+        now = datetime.now(tz=timezone.utc).isoformat()
+        self._bug_intakes_by_chat[chat_id] = BugIntakeState(
+            stage="summary",
+            report=BugReport(
+                reported_at_iso=now,
+                reporter=f"telegram:{user_id}",
+                summary="",
+            ),
+        )
+        return [
+            OutboundTelegramMessage(
+                text=(
+                    "Bug intake mode.\n\n"
+                    "1) In ONE sentence: what’s wrong?\n"
+                    "(e.g. wrong/outdated data, text too long, formatting is off)\n\n"
+                    "Send `/bug_cancel` to abort at any time."
+                )
+            )
+        ]
+
+    def cancel_bug_intake(self, *, chat_id: int) -> list[OutboundTelegramMessage]:
+        self._bug_intakes_by_chat.pop(chat_id, None)
+        return [OutboundTelegramMessage(text="Cancelled bug intake.")]
+
+    def continue_bug_intake(self, *, chat_id: int, text: str) -> list[OutboundTelegramMessage]:
+        state = self._bug_intakes_by_chat.get(chat_id)
+        if state is None:
+            return []
+
+        if state.stage == "summary":
+            state.report.summary = text
+            state.stage = "expected_actual"
+            return [
+                OutboundTelegramMessage(
+                    text=(
+                        "2) Expected vs actual?\n"
+                        "Reply like:\n"
+                        "Expected: …\n"
+                        "Actual: …"
+                    )
+                )
+            ]
+
+        if state.stage == "expected_actual":
+            expected, actual = _split_expected_actual(text)
+            state.report.expected = expected
+            state.report.actual = actual
+            state.stage = "repro"
+            return [
+                OutboundTelegramMessage(
+                    text=(
+                        "3) Steps to reproduce (if you can). If it’s not reliably reproducible, say `not sure`."
+                    )
+                )
+            ]
+
+        if state.stage == "repro":
+            state.report.steps_to_reproduce = None if text.lower() in {"not sure", "n/a", "na"} else text
+            state.stage = "freq_sev"
+            return [
+                OutboundTelegramMessage(
+                    text=(
+                        "4) Frequency + severity?\n"
+                        "Frequency: once / intermittent / always\n"
+                        "Severity: low / medium / high (does it block you?)"
+                    )
+                )
+            ]
+
+        if state.stage == "freq_sev":
+            freq, sev = _parse_frequency_severity(text)
+            state.report.frequency = freq
+            state.report.severity = sev
+            state.stage = "notes"
+            return [
+                OutboundTelegramMessage(
+                    text=(
+                        "5) Any extra notes? (optional)\n"
+                        "If a screenshot would help, send a photo now.\n\n"
+                        "When ready, send `/bug_done`."
+                    )
+                )
+            ]
+
+        if state.stage == "notes":
+            state.report.notes = text
+            return [OutboundTelegramMessage(text="Got it. When ready, send `/bug_done`.")]
+
+        return [OutboundTelegramMessage(text="When ready, send `/bug_done` or `/bug_cancel`.")]
+
+    async def finalize_bug_intake(self, *, chat_id: int) -> list[OutboundTelegramMessage]:
+        state = self._bug_intakes_by_chat.get(chat_id)
+        if state is None:
+            return [OutboundTelegramMessage(text="No active bug intake. Send `/bug` to start.")]
+
+        report = state.report
+        if not report.summary:
+            return [OutboundTelegramMessage(text="Bug summary is missing. Send `/bug` to restart.")]
+
+        if self._bug_issue_creator is None:
+            return [
+                OutboundTelegramMessage(
+                    text=(
+                        "Bug intake is configured, but issue creation isn’t wired up yet. "
+                        "(Missing bug_issue_creator.)"
+                    )
+                )
+            ]
+
+        try:
+            url = await self._bug_issue_creator(report)
+        finally:
+            self._bug_intakes_by_chat.pop(chat_id, None)
+
+        return [OutboundTelegramMessage(text=f"Created Linear ticket: {url}")]
 
     async def handle_voice_message(
         self,
@@ -465,8 +610,24 @@ class TelegramConversationGateway:
         """Process an incoming photo through the vision-capable agent."""
         if not self.is_authorized(user_id=user_id, chat_id=chat_id, chat_type=chat_type):
             return []
+        if chat_id is None or user_id is None:
+            return []
 
         image_b64 = base64.b64encode(photo_bytes).decode("utf-8")
+
+        state = self._bug_intakes_by_chat.get(chat_id)
+        if state is not None:
+            state.report.screenshot_b64 = image_b64
+            state.report.screenshot_caption = caption
+            return [
+                OutboundTelegramMessage(
+                    text=(
+                        "Screenshot captured. If you want to add any final notes, reply now. "
+                        "Otherwise send `/bug_done`."
+                    )
+                )
+            ]
+
         text = caption or "What's in this image? Interpret it in the context of my health data."
 
         return await self.handle_text_message(
@@ -996,21 +1157,7 @@ def format_text_for_telegram_plain(
 
 
 def format_text_for_telegram_html(text: str) -> str:
-    """Format text for telegram html.
-
-    Args:
-        text: Input parameter used by this routine.
-
-    Returns:
-        Computed result for this routine.
-
-    Example:
-        # Example usage
-        result = format_text_for_telegram_html(text=...)
-        _ = result
-
-    
-    """
+    """Format text for telegram html."""
     escaped = html.escape(text)
     escaped = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", escaped)
     escaped = re.sub(r"\*\*([^\n*][^*]*?)\*\*", r"<b>\1</b>", escaped)
@@ -1021,17 +1168,75 @@ def format_text_for_telegram_html(text: str) -> str:
     return escaped
 
 
+def _split_expected_actual(text: str) -> tuple[str | None, str | None]:
+    expected = None
+    actual = None
+
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    for line in lines:
+        lower = line.lower()
+        if lower.startswith("expected:"):
+            expected = line.split(":", 1)[1].strip() or None
+        elif lower.startswith("actual:"):
+            actual = line.split(":", 1)[1].strip() or None
+
+    if expected or actual:
+        return expected, actual
+
+    # Fallback: try to split on '->' or ' vs '
+    if "->" in text:
+        left, right = text.split("->", 1)
+        return left.strip() or None, right.strip() or None
+    if " vs " in text.lower():
+        left, right = re.split(r"\s+vs\s+", text, maxsplit=1, flags=re.IGNORECASE)
+        return left.strip() or None, right.strip() or None
+
+    return None, text.strip() or None
+
+
+def _parse_frequency_severity(text: str) -> tuple[str | None, str | None]:
+    lower = text.lower()
+    freq = None
+    sev = None
+
+    for candidate in ("once", "intermittent", "always"):
+        if candidate in lower:
+            freq = candidate
+            break
+
+    for candidate in ("low", "medium", "high"):
+        if candidate in lower:
+            sev = candidate
+            break
+
+    return freq, sev
+
+
+async def _create_linear_bugfix_issue(report: BugReport) -> str:
+    from whoopdata.agent.linear_bugfix import BugReportPayload, create_bugfix_issue_from_report
+
+    payload = BugReportPayload(
+        reported_at_iso=report.reported_at_iso,
+        reporter=report.reporter,
+        summary=report.summary,
+        expected=report.expected,
+        actual=report.actual,
+        steps_to_reproduce=report.steps_to_reproduce,
+        frequency=report.frequency,
+        severity=report.severity,
+        notes=report.notes,
+        screenshot_caption=report.screenshot_caption,
+        screenshot_b64=report.screenshot_b64,
+    )
+    return await create_bugfix_issue_from_report(payload)
+
+
 def _build_gateway() -> TelegramConversationGateway:
-    """ build gateway.
-
-    Returns:
-        Computed result for this routine.
-
-    
-    """
+    """ build gateway."""
     return TelegramConversationGateway(
         allowed_user_ids=TELEGRAM_ALLOWED_USER_IDS,
         allowed_chat_ids=TELEGRAM_ALLOWED_CHAT_IDS,
+        bug_issue_creator=_create_linear_bugfix_issue,
     )
 
 
@@ -1096,19 +1301,7 @@ async def start_command(update, context) -> None:
 
 
 async def whoami_command(update, context) -> None:
-    """Whoami command.
-
-    Args:
-        update: Input parameter used by this routine.
-        context: Input parameter used by this routine.
-
-    Example:
-        # Example usage
-        result = await whoami_command(update=..., context=...)
-        _ = result
-
-    
-    """
+    """Whoami command."""
     gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
     user = update.effective_user
     chat = update.effective_chat
@@ -1120,6 +1313,44 @@ async def whoami_command(update, context) -> None:
             chat_type=getattr(chat, "type", None),
         ),
     )
+
+
+async def bug_command(update, context) -> None:
+    """Start bug intake."""
+    gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
+    user = update.effective_user
+    chat = update.effective_chat
+    await _reply(
+        update,
+        gateway.start_bug_intake(
+            chat_id=getattr(chat, "id", None),
+            user_id=getattr(user, "id", None),
+        )
+        if getattr(chat, "id", None) is not None and getattr(user, "id", None) is not None
+        else [OutboundTelegramMessage(text="Missing chat/user id.")],
+    )
+
+
+async def bug_cancel_command(update, context) -> None:
+    """Cancel bug intake."""
+    gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
+    chat = update.effective_chat
+    chat_id = getattr(chat, "id", None)
+    if chat_id is None:
+        await _reply(update, [OutboundTelegramMessage(text="Missing chat id.")])
+        return
+    await _reply(update, gateway.cancel_bug_intake(chat_id=chat_id))
+
+
+async def bug_done_command(update, context) -> None:
+    """Finalize bug intake and create the Linear issue."""
+    gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
+    chat = update.effective_chat
+    chat_id = getattr(chat, "id", None)
+    if chat_id is None:
+        await _reply(update, [OutboundTelegramMessage(text="Missing chat id.")])
+        return
+    await _reply(update, await gateway.finalize_bug_intake(chat_id=chat_id))
 
 
 async def text_message(update, context) -> None:
@@ -1300,21 +1531,7 @@ async def error_handler(update, context) -> None:
 
 
 def build_application(gateway: TelegramConversationGateway | None = None):
-    """Build application.
-
-    Args:
-        gateway: Input parameter used by this routine.
-
-    Returns:
-        Computed result for this routine.
-
-    Example:
-        # Example usage
-        result = build_application(gateway=...)
-        _ = result
-
-    
-    """
+    """Build application."""
     if not TELEGRAM_BOT_TOKEN:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is required to start the Telegram bot")
 
@@ -1324,6 +1541,9 @@ def build_application(gateway: TelegramConversationGateway | None = None):
     application.bot_data["gateway"] = gateway or _build_gateway()
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("whoami", whoami_command))
+    application.add_handler(CommandHandler("bug", bug_command))
+    application.add_handler(CommandHandler("bug_cancel", bug_cancel_command))
+    application.add_handler(CommandHandler("bug_done", bug_done_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message))
     application.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, voice_message))
     application.add_handler(MessageHandler(filters.PHOTO, photo_message))
