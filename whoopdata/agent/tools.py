@@ -709,11 +709,16 @@ async def get_transport_status_tool() -> str:
     """Get current status of key London transport lines.
 
     Returns:
-        JSON string containing status for Jubilee Line, DLR, Elizabeth Line, and Northern Line
-        Status is either "Good Service" or describes disruptions
+        JSON string containing status for configured TfL lines, or a not-available message
+        when TFL integration is disabled (ENABLE_TFL=false in .env).
 
     Use case: Check for transport disruptions that might affect workout timing or increase daily stress
     """
+    if not settings.TFL_ENABLED:
+        return (
+            "Transport for London (TfL) integration is not enabled for this installation. "
+            "Set ENABLE_TFL=true in your .env to activate it (London users only)."
+        )
     try:
         async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
             url = f"{settings.HEALTH_API_BASE_URL}/transport/status"
@@ -953,12 +958,18 @@ async def get_tide_times_tool(station: str = "0001") -> str:
         station: Station ID (default: 0001 = Silvertown, East London). Other options: 0003 = Charlton, 0007 = Tower Pier
 
     Returns:
-        JSON string containing current tide level and next high/low tide times with heights
+        JSON string containing current tide level and next high/low tide times with heights,
+        or a not-available message when Thames tides are disabled (ENABLE_THAMES_TIDES=false).
 
     Examples:
         - get_tide_times_tool() - Current tide and forecast for Silvertown
         - get_tide_times_tool("0007") - Tide info for Tower Pier
     """
+    if not settings.THAMES_TIDES_ENABLED:
+        return (
+            "Thames tidal data is not enabled for this installation. "
+            "Set ENABLE_THAMES_TIDES=true in your .env to activate it (London users only)."
+        )
     try:
         async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
             # Get current tide
@@ -1007,7 +1018,8 @@ async def get_perfect_walk_times_tool(days: int = 3) -> str:
         days: Number of days to analyze (1-5, default: 3)
 
     Returns:
-        JSON string containing ranked list of perfect walk times with scores and conditions
+        JSON string containing ranked list of perfect walk times with scores and conditions,
+        or a not-available message when Thames tides are disabled (ENABLE_THAMES_TIDES=false).
 
     Use case: "When should I go for a walk on the Thames to see the sunset with high tide?"
 
@@ -1015,6 +1027,11 @@ async def get_perfect_walk_times_tool(days: int = 3) -> str:
         - get_perfect_walk_times_tool() - Next 3 days of hotspots
         - get_perfect_walk_times_tool(5) - Next 5 days of optimal walk times
     """
+    if not settings.THAMES_TIDES_ENABLED:
+        return (
+            "Thames tidal data is not enabled for this installation. "
+            "Set ENABLE_THAMES_TIDES=true in your .env to activate it (London users only)."
+        )
     try:
         async with httpx.AsyncClient(timeout=settings.AGENT_TIMEOUT_SECONDS) as client:
             url = f"{settings.HEALTH_API_BASE_URL}/tides/optimal-walk"

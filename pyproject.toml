@@ -98,6 +98,7 @@ dev = [
 
 [project.scripts]
 whoop-start = "whoopdata.cli:main"
+whoop-setup = "whoopdata.setup:main"
 whoop-etl = "whoopdata.etl:run_complete_etl"
 whoop-withings-auth = "whoopdata.cli:withings_auth_main"
 whoop-telegram-bot = "whoopdata.telegram_bot:main"

@@ -14,11 +14,13 @@ class TideService:
 
     BASE_URL = "https://environment.data.gov.uk/flood-monitoring"
 
-    # East London tidal stations
+    # Well-known Thames tidal stations (Environment Agency notation IDs).
+    # These cover the main monitoring points from East London to Central London.
+    # The full live list is available via list_thames_tidal_stations().
     STATIONS = {
-        "silvertown": "0001",
-        "charlton": "0003",
-        "tower_pier": "0007",
+        "silvertown": "0001",       # Royal Victoria Dock area, East London
+        "charlton": "0003",         # SE London, Thames Barrier area
+        "tower_pier": "0007",       # Central London, Tower Bridge
     }
 
     # Default station for queries
@@ -31,6 +33,68 @@ class TideService:
             timeout: Request timeout in seconds
         """
         self.timeout = timeout
+
+    async def list_thames_tidal_stations(self) -> list[dict]:
+        """Fetch all Thames tidal gauge stations from the Environment Agency API.
+
+        Queries the EA Flood Monitoring API for every station where:
+          - type = TideGauge
+          - riverName = River Thames
+
+        Returns a list of dicts each containing:
+          - id (str): EA notation / station reference used as the station_id parameter
+          - name (str): human-readable station label
+          - lat (float | None): latitude
+          - lon (float | None): longitude
+
+        Falls back to the hardcoded STATIONS dict on network or API errors so that
+        callers always receive at least the three well-known stations.
+
+        Returns:
+            List of station dicts ordered by longitude (upstream→downstream).
+        """
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.BASE_URL}/id/stations",
+                    params={
+                        "type": "TideGauge",
+                        "riverName": "River Thames",
+                        "_limit": 100,
+                    },
+                )
+                response.raise_for_status()
+                data = response.json()
+
+            stations = []
+            for item in data.get("items", []):
+                notation = item.get("notation") or item.get("stationReference")
+                label = item.get("label") or item.get("name")
+                if not notation or not label:
+                    continue
+                stations.append(
+                    {
+                        "id": notation,
+                        "name": label,
+                        "lat": item.get("lat"),
+                        "lon": item.get("long"),
+                    }
+                )
+
+            if stations:
+                # Sort west→east (ascending longitude) so upstream stations come first
+                stations.sort(key=lambda s: (s["lon"] or 999))
+                return stations
+
+        except Exception as exc:
+            logger.warning(f"Could not fetch Thames stations from EA API: {exc}")
+
+        # Fallback to the hardcoded well-known set
+        return [
+            {"id": "0001", "name": "Silvertown", "lat": 51.4975, "lon": 0.0526},
+            {"id": "0003", "name": "Charlton", "lat": 51.4877, "lon": 0.0607},
+            {"id": "0007", "name": "Tower Pier", "lat": 51.5074, "lon": -0.0758},
+        ]
 
     async def get_station_data(self, station_id: str) -> Optional[TideStation]:
         """Get metadata for a tidal station.
