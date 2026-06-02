@@ -54,6 +54,16 @@ right moment.
 - **Meets you where you are** — the same coaching brain is reachable through a web chat UI, a
   REST API, and a Telegram bot, all sharing one conversation and memory layer.
 
+## See it in action
+
+<img src="docs/assets/telegram-coach-demo.png" width="360" alt="Coach Forge Telegram bot: tide context, a morning recovery briefing, and a return-to-running nudge after a 53-day gap" />
+
+A real Telegram session with the coach (here named *Coach Forge*). Three distinct
+capabilities in one thread: **environment context** (live tide times for outdoor planning),
+a **proactive morning briefing** that reads recovery, sleep duration, and disturbances and
+proposes one priority, and an **activity-adherence nudge** that noticed a 53-day running gap
+and offered a small, restart-the-habit action — each delivered in a consistent coaching voice.
+
 ## Key product decisions
 
 The interesting work here is less the code and more the judgement calls. A few worth calling
