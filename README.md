@@ -1,60 +1,152 @@
-# WHOOP Health Data Platform
+# Personal Health Coaching Agent
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![UV](https://img.shields.io/badge/package%20manager-UV-orange.svg)](https://github.com/astral-sh/uv)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![gitcgr](https://gitcgr.com/badge/ald0405/whoop-data.svg)](https://gitcgr.com/ald0405/whoop-data)
 
-![WHOOP Health Data Platform product snapshot](docs/assets/readme-hero.png)
+![Personal Health Coaching Agent product snapshot](docs/assets/readme-hero.png)
 
-This project turns fragmented personal health data into a decision-support product. It combines WHOOP and Withings data with analytics, API surfaces, and a chat layer so the user can move from “what happened?” to “what should I do next?” across training, recovery, sleep, and broader day-of planning.
+> A multi-agent AI system that turns fragmented wearable data into a personalised,
+> conversational wellness companion — so the question shifts from *"what happened to my
+> body?"* to *"what's one thing worth doing about it today?"*
 
-## Why this project matters
+It connects WHOOP and Withings data behind a LangGraph agent that retrieves, analyses,
+remembers, and coaches across recovery, sleep, training, and nutrition — reachable by chat,
+API, and Telegram, and capable of analysing a workout video for movement form.
 
-The product goal is not just to collect biometrics. It is to make personal health data more actionable by:
+---
 
-- translating raw records into interpretable trends and coaching-style outputs
-- connecting multiple systems into one consistent experience layer
-- making the same underlying data accessible through API, dashboard, and conversational UX
-- supporting better day-of decisions around training load, recovery, and activity planning
+## The problem
 
-## Product outcomes
+Wearables generate an enormous amount of personal health data, but the everyday experience
+is still poor:
 
-- **Single source of truth** for recovery, sleep, workouts, body composition, and related context
-- **Faster interpretation** via dashboards, derived insights, and scenario-oriented analytics
-- **More accessible exploration** through a chat interface for natural-language questions
-- **More usable health decisions** by framing outputs around actions, not just raw measurements
+- **Dashboards answer "what happened," not "what now."** A recovery score of 42% is a number,
+  not a next step.
+- **The data is siloed.** WHOOP holds recovery, sleep, and strain; Withings holds weight and
+  body composition. Nothing synthesises them into one picture.
+- **There's no memory and no timing.** Generic apps don't remember your goal, your injury, or
+  what you committed to last week — and they surface insight when you open the app, not when
+  it would actually change a decision.
+
+This project is a personal exploration of what closing that gap looks like: a single coaching
+surface that synthesises the data, remembers context across sessions, and reaches out at the
+right moment.
 
 ## What it does
 
-- **Data Integration** -- ETL pipelines for WHOOP (recovery, sleep, workouts, cycles) and Withings (weight, body composition, heart rate)
-- **REST API** -- FastAPI backend with interactive Swagger docs
-- **Analytics Pipeline** -- Trend analysis, correlation analysis, and multiple linear regression models for recovery and HRV
-- **Chat Agent** -- LangGraph-based agent for natural language queries against your health data
-- **Dashboard** -- Web UI with charts, MLR coefficient tables, partial correlation charts, and correlation heatmaps
-- **Telegram Bot** -- Optional Telegram transport for the shared agent conversation boundary
+- **Conversational coaching across domains** — ask about recovery, sleep, training load,
+  body composition, or nutrition in natural language and get a synthesised, actionable answer
+  rather than a raw chart.
+- **Proactive, time-aware nudges (JITAI)** — a just-in-time evaluator surfaces a relevant
+  prompt inside a daily window (e.g. a morning briefing, a "hidden load" stress check, an
+  activity-gap reminder) with cooldowns so it informs without nagging.
+- **Movement-form feedback from video** — send a short clip of a tennis serve or a gym lift
+  and it runs local pose analysis, computes joint angles per rep, and returns annotated frames
+  (colour-coded skeleton + ideal-form "ghost" overlay) with plain-language cues.
+- **Longitudinal memory** — it durably remembers your profile, goals, constraints,
+  commitments, and its own observations, so coaching compounds over weeks instead of resetting
+  each chat.
+- **Interpretable analytics** — trend, driver-importance, and correlation analysis explain
+  *why* a metric moved (e.g. how deep sleep and HRV relate to next-day recovery), not just a
+  black-box prediction.
+- **Meets you where you are** — the same coaching brain is reachable through a web chat UI, a
+  REST API, and a Telegram bot, all sharing one conversation and memory layer.
 
-## Experience at a glance
+## Key product decisions
 
-- **Dashboard** for quick review of trends and supporting visualizations
-- **API** for structured access to raw and interpreted outputs
-- **Chat** for question-driven exploration such as:
-  - “Show me my tennis workouts from 2025”
-  - “What’s my weight trend over the last 30 days?”
-  - “How has my recovery been this month?”
+The interesting work here is less the code and more the judgement calls. A few worth calling
+out:
 
-## Public Surface Model
+- **Supervisor + specialists, not one mega-prompt.** A routing supervisor delegates to seven
+  scoped specialists (each with a curated tool set and domain prompt). This keeps each
+  reasoning step focused, makes routing debuggable, and lets cost/quality be tuned per
+  specialist — at the cost of some orchestration overhead, which is the right trade for answer
+  quality.
+- **Interpretable models over black-box accuracy.** Driver analysis uses ordinary-least-squares
+  regression with labelled, human-readable coefficients. For a self-coaching loop, *being able
+  to explain why* matters more than squeezing out marginal predictive accuracy.
+- **Proactive by design, with guardrails.** The JITAI evaluator respects local-time windows
+  and layered cooldowns (global, per-intent, post-morning). A proactive coach that annoys you
+  gets muted, so restraint is a product requirement, not a nicety.
+- **Memory as explicit categories.** Durable memory is split into `profile`, `goal`,
+  `constraint`, `commitment`, and `observation`. Structuring memory by intent makes retrieval
+  relevant and keeps the coach grounded in *your* situation over time.
 
-- **`data`** -- Raw health records, context resources, and provider status under `/api/v1/data/*`
-- **`insights`** -- Derived dashboards, analytics, scenarios, plans, and reports under `/api/v1/insights/*`
-- **`agent`** -- Conversational/coaching requests under `/api/v1/agent/*`
-- **`web`** -- Human-facing pages at `/dashboard`, `/analytics`, and `/report`
+## How it works
 
-New integrations should target the canonical namespaces above. Legacy aliases still exist in a few places as temporary compatibility adapters during the migration.
+A supervisor agent receives every message and routes it to the right specialist(s), then
+synthesises the result in a consistent coaching voice. Specialists are wrapped as tools, so
+the supervisor decides *who* answers while always owning the final response.
 
-WHOOP developer integrations in this repository target the WHOOP **v2** API. The app's own route versioning under `/api/v1/*` is internal product/API namespacing and is separate from the upstream WHOOP developer API version.
+```mermaid
+flowchart TD
+    subgraph Transports
+        TG[Telegram Bot]
+        API[FastAPI /agent]
+        GR[Gradio UI]
+    end
 
-## Quick Start
+    TG --> CS[ConversationService]
+    API --> CS
+    GR --> CS
+
+    CS --> SUP[Supervisor Agent]
+
+    SUP -->|tool call| HD[health_data]
+    SUP -->|tool call| AN[analytics]
+    SUP -->|tool call| EX[exercise]
+    SUP -->|tool call| BC[behaviour_change]
+    SUP -->|tool call| NU[nutrition]
+    SUP -->|tool call| EN[environment]
+    SUP -->|tool call| BM[biomechanics]
+    SUP -->|direct| PY[Python REPL]
+    SUP -->|direct| MEM[Memory Tools]
+
+    HD -->|data tools| HAPI[Health Data API]
+    AN -->|analytics tools| HAPI
+    BM -->|memory| MEM
+```
+
+**The seven specialists**
+
+| Specialist | What it owns |
+|---|---|
+| `health_data` | Retrieves WHOOP recovery/sleep/workouts and Withings weight/body composition |
+| `analytics` | Driver-importance (OLS/MLR), correlations, trend and pattern detection, predictions |
+| `exercise` | Progressive-overload and periodisation guidance (FITT-VP) |
+| `behaviour_change` | Adherence, motivation, and habit support (COM-B framework) |
+| `nutrition` | Protein/macro guidance grounded in current body metrics |
+| `environment` | Weather, air quality, transport, and outdoor-timing context |
+| `biomechanics` | Video movement analysis (MediaPipe pose) for serve/lift form |
+
+The video path is a three-stage pipeline — dense local pose analysis (up to 600 frames,
+33 landmarks per frame) → structured metrics passed to a vision-capable agent → supervisor
+synthesis with coaching tone and health context. Conversation state and long-term memory are
+backed by Postgres (with an in-memory fallback for development), so threads and memory survive
+restarts and are shared across every transport.
+
+> Architecture deep-dive, module map, and prompt design: [`whoopdata/agent/README.md`](whoopdata/agent/README.md).
+> The platform is ~27k lines across ~109 Python modules with ~30 test suites.
+
+## Tech stack
+
+Python 3.10+ · [LangGraph](https://github.com/langchain-ai/langgraph) ·
+[FastAPI](https://fastapi.tiangolo.com/) · OpenAI · [MediaPipe](https://developers.google.com/mediapipe)
+pose estimation · statsmodels / scikit-learn · Postgres · [Gradio](https://www.gradio.app/) ·
+Telegram · [UV](https://github.com/astral-sh/uv).
+
+## Intended purpose & scope
+
+This is a **personal wellness and self-reflection tool — not a medical device.** It is a
+single-user personal project that surfaces informational insight from a person's own wearable
+data to support general lifestyle and fitness reflection. It does **not** diagnose, treat,
+monitor, or manage any medical condition, and its outputs are not clinical advice or clinical
+decision support. Anything health-related that matters should be taken to a qualified
+professional.
+
+## Quick start
 
 ### 1. Install UV and dependencies
 
@@ -63,7 +155,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
-### 2. Set up environment variables
+### 2. Configure environment variables
 
 Create a `.env` file with your API credentials:
 
@@ -76,350 +168,50 @@ WITHINGS_CALLBACK_URL=http://localhost:8766/callback
 OPENAI_API_KEY=your_openai_api_key
 ```
 
-Supervisor/sub-agent model behaviour (model, temperature, retries, reasoning effort) is configured in `whoopdata/agent/settings.py` via `LLM_CONFIG` as the single source of truth.
+Per-agent model behaviour (model, temperature, retries, reasoning effort) is configured in
+`whoopdata/agent/settings.py` via `LLM_CONFIG` as the single source of truth. WHOOP uses
+OAuth 2.0 browser authentication; on first ingestion you may be redirected to complete the
+authorization-code flow.
 
-WHOOP uses OAuth 2.0 browser authentication. When first running ingestion, you may be redirected to complete the authorization-code flow in the browser.
-
-### 2a. Optional but recommended: shared Postgres for agent memory
-
-If you want Telegram, API, chat UI, and LangSmith UI to share the same conversational and long-term memory, run a local Postgres instance on the Mac mini and add this to `.env`:
-
-```bash
-AGENT_POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/whoop_agent?sslmode=disable
-AGENT_PERSISTENCE_AUTO_SETUP=true
-```
-
-With `AGENT_POSTGRES_URL` set, the agent will use Postgres-backed checkpointing and long-term memory storage. If it is not set, the agent falls back to in-memory persistence for development/tests.
-
-Example local startup with Docker:
+### 3. Ingest, serve, and chat
 
 ```bash
-docker run --name whoop-agent-postgres \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=whoop_agent \
-  -p 5432:5432 \
-  -d postgres:16
+make etl       # incremental ingestion (use `make etl-full` for a full historical backfill)
+make server    # FastAPI server exposing the data, insights, and agent surfaces
+make chat      # Gradio chat UI at http://localhost:7860
 ```
 
-Or use the built-in helper:
+API docs are served at `http://localhost:8000/docs` (Swagger) and `/redoc` (ReDoc).
 
-```bash
-make postgres-up
-```
+> **Going further** — shared Postgres memory, the Telegram bot, always-on macOS services,
+> proactive-nudge smoke tests, the full command reference, and troubleshooting all live in the
+> [Operations & Setup guide](docs/guides/OPERATIONS.md).
 
-Or with Homebrew services:
+## Public surface model
 
-```bash
-brew install postgresql@16
-brew services start postgresql@16
-createdb whoop_agent
-```
+The API is organised into canonical namespaces:
 
-### 3. Ingest data
+- **`data`** — raw health records and provider status under `/api/v1/data/*`
+- **`insights`** — derived dashboards, analytics, scenarios, plans, and reports under `/api/v1/insights/*`
+- **`agent`** — conversational/coaching requests under `/api/v1/agent/*`
+- **`web`** — human-facing pages at `/dashboard`, `/analytics`, and `/report`
 
-```bash
-make etl
-# or, for a full historical backfill:
-make etl-full
-```
-
-These are the canonical ingestion commands. `make run` is still available as a convenience launcher, but it mixes ETL and server startup in one interactive flow.
-
-### 4. Start the API
-
-```bash
-make server
-```
-
-The API server exposes the canonical `data`, `insights`, and `agent` surfaces.
-
-### 5. Run analytics (optional)
-
-```bash
-make analytics
-```
-
-Use this when you want to materialize analytics and insight outputs ahead of time.
-
-### 6. Start the chat interface (optional)
-
-```bash
-make chat
-```
-
-Chat UI runs at `http://localhost:7860`.
-
-### 7. Start LangGraph dev tooling (optional, development-only)
-
-```bash
-make langgraph-dev
-```
-
-This is for development and debugging workflows. It is not a separate product surface and should not be treated as the public agent API.
-
-### 8. Access the API
-
-- **Swagger UI**: `http://localhost:8000/docs`
-- **ReDoc**: `http://localhost:8000/redoc`
-- **OpenAPI tags**: `data`, `insights`, and `agent`
-
-## Shared memory testing flow
-
-Once `AGENT_POSTGRES_URL` is configured, you can test durable shared memory end-to-end like this:
-
-1. Start the API:
-
-```bash
-make server
-```
-
-2. Start a client surface such as Telegram or chat UI:
-
-```bash
-make telegram-bot
-# or
-make chat
-```
-
-3. In a coaching conversation, tell the agent something durable such as:
-   - “Remember that I’m training for a half marathon in October.”
-   - “Remember that I prefer blunt feedback.”
-
-4. In a later message or from another client surface, ask something that should use that memory:
-   - “What should I focus on this week?”
-   - “What do you remember about my current goal?”
-
-5. Restart the app process and repeat the follow-up question. With Postgres configured, the memory and thread state should survive the restart.
-
-For API testing, you can also hit the agent routes directly:
-
-```bash
-curl -X POST http://localhost:8000/api/v1/agent/messages \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "message": "Remember that I am training for Hyrox in September.",
-    "user_id": "manual-test-user"
-  }'
-```
-
-Then ask a follow-up with the same `user_id`:
-
-```bash
-curl -X POST http://localhost:8000/api/v1/agent/messages \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "message": "What should my training priority be?",
-    "user_id": "manual-test-user"
-  }'
-```
-
-## Canonical Run Modes
-
-### Primary Commands
-
-- `make etl` -- Canonical incremental ingestion command
-- `make etl-full` -- Canonical full-history ingestion command
-- `make server` -- Canonical FastAPI server for the `data`, `insights`, and `agent` surfaces
-- `make chat` -- Canonical Gradio chat UI backed by the shared conversation boundary
-- `make telegram-bot` -- Telegram bot transport backed by the shared conversation boundary
-- `make analytics` -- Canonical analytics materialization command
-- `make langgraph-dev` -- Development-only LangGraph tooling
-- `uv run whoop-withings-auth` -- Canonical Withings re-auth utility
-
-### Convenience Launchers
-
-- `make run` / `uv run whoop-start` -- Interactive launcher that combines ETL and server flows
-- `make dev-all` -- Combined FastAPI + LangGraph dev helper
-
-Use the primary commands for docs, automation, and repeatable workflows. Treat the convenience launchers as shortcuts rather than the canonical product entrypoints.
-
-## Telegram bot setup
-
-The LangChain Telegram page linked in some examples is a document loader for ingesting Telegram data; it is not the transport used to expose this agent over Telegram. In this repository, Telegram is an optional adapter over the same shared conversation boundary used by the API and Gradio chat UI.
-
-### Required configuration
-
-Add the Telegram bot token to `.env`:
-
-```bash
-TELEGRAM_BOT_TOKEN=your_botfather_token_here
-```
-
-The bot token is a secret. Do not paste it into chat, logs, screenshots, or source control. If it is ever exposed, rotate it in `@BotFather` and update `.env`.
-
-### First-run ID capture
-
-Start the API and the Telegram bot:
-
-```bash
-make server
-make telegram-bot
-```
-
-Message the bot in a private Telegram chat, then use `/whoami` to see your Telegram `user_id` and `chat_id`. In a 1:1 bot chat these values may be identical — that is normal. After that, restrict the bot to your account by setting:
-
-```bash
-TELEGRAM_ALLOWED_USER_IDS=123456789
-TELEGRAM_ALLOWED_CHAT_IDS=123456789
-```
-
-Restart the bot after updating `.env` so the allowlists take effect.
-
-### Runtime model
-
-Telegram runs as a separate transport process over the shared conversation boundary:
-
-```bash
-make server
-make telegram-bot
-```
-
-`make dev-all` starts FastAPI and LangGraph dev tooling, but it does not start the Telegram bot.
-
-For an always-on local setup on macOS, use the persistent service helpers instead:
-
-```bash
-make services-up
-make services-test
-```
-
-That installs `launchd` jobs for the API server, Telegram bot, the scheduled morning summary push, the proactive window evaluator, and the weakness reminder evaluator. Remove them with:
-
-```bash
-make services-down
-```
-
-### Current Telegram behavior
-
-- Supports `/start` and `/whoami`
-- Supports normal text chat with the shared health-data agent
-- Reuses conversation context per Telegram chat
-- Supports proactive pushes into the same shared Telegram conversation thread via `/api/v1/agent/telegram/push`
-- Rejects non-private chats
-- Uses Telegram-only HTML formatting for better rendering without changing Studio/API output
-- Sends agent-generated image artifacts back to Telegram when available
-- **Voice messages**: Send a voice note and the bot transcribes it (Whisper), processes it through the agent, and replies with both a voice note (TTS) and text
-- **Photo messages**: Send a photo (with optional caption) and the bot interprets it using the vision-capable model in the context of your health data
-
-Current limitations:
-
-- The bot must be restarted after changing Telegram token or allowlist settings
-- Voice replies use OpenAI TTS which has a ~2000 token input limit; very long responses fall back to text only
-
-The Telegram adapter can silently ignore unauthorized users once the allowlists are set. Rotate any token that was ever pasted into chat, logs, or source control before relying on the bot.
-
-### Proactive Telegram smoke test
-
-You can send yourself a proactive Telegram message that goes through the shared conversation service:
-
-```bash
-uv run -m scripts.telegram_hello --prompt "set me up for the day"
-```
-
-Or route the same flow through the running API server:
-
-```bash
-uv run -m scripts.telegram_hello --api --prompt "set me up for the day"
-```
-
-### Weakness reminder preview
-You can send yourself a manual preview of the annual-review weakness reminder without consuming the once-per-workday scheduled send:
-
-```bash
-uv run python scripts/telegram_weakness_preview.py
-```
-
-Optionally preview a specific top-level bullet from `weakness.md`:
-
-```bash
-uv run python scripts/telegram_weakness_preview.py --point-number 2
-```
-
-If you prefer richer Telegram formatting (bold/italics/bullets), you can request HTML formatting for the preview:
-
-```bash
-uv run python scripts/telegram_weakness_preview.py --point-number 2 --format html
-```
-
-To enable HTML formatting for all proactive pushes by default, set `TELEGRAM_PROACTIVE_FORMAT=html` in `.env`.
-To rename the coach in proactive prompts, set `COACH_NAME` in `.env`.
-
-## Rollout Verification Checklist
-
-1. Run the focused validation slices for the migration work before cutting over.
-2. Start the API with `make server` and confirm `/docs` shows the `data`, `insights`, and `agent` OpenAPI tags.
-3. Smoke the canonical public flows:
-   - `GET /api/v1/data/recovery`
-   - `GET /api/v1/insights/dashboard/daily`
-   - `POST /api/v1/agent/conversations`
-   - `POST /api/v1/agent/messages`
-4. Smoke representative compatibility adapters such as `/workouts/latest`, `/recovery/latest`, `/dashboard/daily`, and `/api/daily-plan`, and confirm the `Deprecation`, `Sunset`, and `X-Canonical-Route` headers advertise the canonical replacement.
-5. Launch `make chat`, send an initial message, then send a follow-up message and confirm the conversation resumes cleanly instead of starting a new thread.
-6. Keep `make langgraph-dev` scoped to development/debugging workflows rather than rollout verification of the public product surface.
-
-## Repo notes for reviewers
-
-- The root now prioritizes core product files and entrypoints.
-- Supporting guides live under `docs/` to keep the submission easier to scan.
-- Local runtime artifacts such as tokens, logs, caches, virtual environments, and local databases are gitignored and not part of the deliverable.
-
-## Make Commands
-
-```text
-Setup:
-  make install        Install production dependencies
-  make dev            Install with dev dependencies
-  make sync           Sync/update dependencies
-
-Run:
-  make run            Convenience launcher (interactive ETL + server menu)
-  make server         Primary FastAPI server command
-  make etl            Primary ETL pipeline (incremental)
-  make etl-full       Primary ETL pipeline (full load)
-  make chat           Primary chat interface command
-  make telegram-bot   Telegram bot adapter command
-  make analytics      Primary analytics pipeline command
-  make langgraph-dev  Development-only LangGraph dev server
-  make dev-all        Convenience FastAPI + LangGraph dev launcher
-  make proactive-now  Run the proactive window evaluator immediately
-  make weakness-now   Run the weakness reminder evaluator immediately
-  make weakness-preview Send a manual weakness reminder preview to Telegram
-
-Development:
-  make test           Run tests with pytest
-  make test-cov       Run tests with coverage report
-  make format         Format code with black
-  make lint           Lint with ruff (including docstrings) and flake8
-  make typecheck      Type check with mypy
-  make verify         Run system verification
-
-Maintenance:
-  make clean          Clean cache files and build artifacts
-  make clean-all      Clean everything including .venv
-```
-
-## Troubleshooting
-
-- **WHOOP 401 errors** -- Delete `.whoop_tokens.json` and re-authenticate
-- **Withings re-auth** -- Run `uv run whoop-withings-auth`
-- **Telegram token rejected** -- Re-copy the current token from `@BotFather`, make sure `.env` contains the full token with no quotes or truncation, then restart `make telegram-bot`
-- **`/whoami` or formatting errors in Telegram** -- Restart the bot after pulling the latest code; Telegram formatting is handled adapter-side and should not affect Studio/API output
-- **Telegram access control not working** -- Confirm `TELEGRAM_ALLOWED_USER_IDS` and `TELEGRAM_ALLOWED_CHAT_IDS` are set in `.env`, then restart the bot
-- **Looking for the right API?** -- Use `/api/v1/data/*` for raw records, `/api/v1/insights/*` for interpreted outputs, and `/api/v1/agent/*` for conversational requests
-- **Need detailed implementation notes?** -- Start in [`docs/README.md`](docs/README.md)
+WHOOP developer integrations target the WHOOP **v2** API; the app's own `/api/v1/*` versioning
+is internal namespacing, separate from the upstream WHOOP API version.
 
 ## Documentation
 
-Documentation is organized in [`docs/`](docs/README.md):
+Documentation is organised in [`docs/`](docs/README.md):
 
-- [`docs/technical/`](docs/technical/) -- API changes, migration notes, troubleshooting, implementation detail
-- [`docs/features/`](docs/features/) -- Feature specs and product behavior
-- [`docs/guides/`](docs/guides/) -- Testing, plotting, and contribution workflow guides
+- [`docs/guides/`](docs/guides/) — operations/setup, testing, plotting, and contribution workflow
+- [`docs/features/`](docs/features/) — feature specs and product behaviour
+- [`docs/technical/`](docs/technical/) — API changes, migration notes, implementation detail
+- [`whoopdata/agent/README.md`](whoopdata/agent/README.md) — agent architecture deep-dive
 
 ## Acknowledgements
 
-The multiple linear regression module was inspired by [idossha/whoop-insights](https://github.com/idossha/whoop-insights/blob/main/src/whoop_sync/mlr.py).
+The multiple linear regression module was inspired by
+[idossha/whoop-insights](https://github.com/idossha/whoop-insights/blob/main/src/whoop_sync/mlr.py).
 
 ## License
 
