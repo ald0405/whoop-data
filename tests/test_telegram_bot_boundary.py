@@ -453,9 +453,12 @@ def test_build_application_registers_video_filter(monkeypatch):
     import whoopdata.telegram_bot as tb
 
     monkeypatch.setattr(tb, "TELEGRAM_BOT_TOKEN", "fake-token")
-    app = tb.build_application(gateway=TelegramConversationGateway(
-        conversation_service=StubConversationService([]),
-    ))
+    app = tb.build_application(
+        gateway=TelegramConversationGateway(
+            conversation_service=StubConversationService([]),
+            bug_issue_creator=(lambda report: asyncio.sleep(0, result="https://linear.app/issue/TEST")),
+        )
+    )
 
     from telegram.ext import filters
 
@@ -486,3 +489,66 @@ def test_plain_formatter_limits_length_and_line_count():
     assert formatted.count("\n") <= 2
     assert len(formatted) <= 90
     assert formatted.endswith("…")
+
+
+def test_gateway_bug_intake_flow_creates_issue():
+    async def _create_issue(report):
+        assert report.summary
+        return "https://linear.app/issue/TEST-123"
+
+    gateway = TelegramConversationGateway(
+        conversation_service=StubConversationService([]),
+        bug_issue_creator=_create_issue,
+    )
+
+    # Start
+    start = gateway.start_bug_intake(chat_id=10, user_id=1)
+    assert "Bug intake mode" in (start[0].text or "")
+
+    # Summary
+    nxt = gateway.continue_bug_intake(chat_id=10, text="Text is too long and wraps badly")
+    assert "Expected vs actual" in (nxt[0].text or "")
+
+    # Expected/actual
+    nxt = gateway.continue_bug_intake(
+        chat_id=10,
+        text="Expected: short summary\nActual: wall of text",
+    )
+    assert "Steps to reproduce" in (nxt[0].text or "")
+
+    # Repro
+    nxt = gateway.continue_bug_intake(chat_id=10, text="Open app, run morning-now")
+    assert "Frequency" in (nxt[0].text or "")
+
+    # Freq/sev
+    nxt = gateway.continue_bug_intake(chat_id=10, text="Frequency: always; Severity: medium")
+    assert "bug_done" in (nxt[0].text or "")
+
+    done = asyncio.run(gateway.finalize_bug_intake(chat_id=10))
+    assert "Created Linear ticket" in (done[0].text or "")
+
+
+def test_gateway_photo_during_bug_intake_is_captured_and_not_sent_to_agent():
+    async def _create_issue(report):
+        return "https://linear.app/issue/TEST-123"
+
+    service = StubConversationService([_response(assistant_message="unused")])
+    gateway = TelegramConversationGateway(
+        conversation_service=service,
+        bug_issue_creator=_create_issue,
+    )
+
+    gateway.start_bug_intake(chat_id=10, user_id=1)
+
+    messages = asyncio.run(
+        gateway.handle_photo_message(
+            photo_bytes=b"fake-jpeg-bytes",
+            caption="screenshot",
+            user_id=1,
+            chat_id=10,
+            chat_type="private",
+        )
+    )
+
+    assert "Screenshot captured" in (messages[0].text or "")
+    assert service.calls == []

@@ -330,8 +330,8 @@ class TestGraphBuild:
             tools = call_kwargs[0][1] if len(call_kwargs[0]) > 1 else []
 
         # Should have N specialist tools + direct supervisor tools:
-        # python_repl + search_memory + manage_memory
-        expected_count = len(AGENT_REGISTRY) + 3
+        # python_repl + create_bugfix_linear_issue + search_memory + manage_memory
+        expected_count = len(AGENT_REGISTRY) + 4
         assert len(tools) == expected_count, f"Expected {expected_count} tools, got {len(tools)}"
         direct_tool_names = {getattr(t, "name", "") for t in tools}
         assert "get_protein_recommendation" not in direct_tool_names
