@@ -4,6 +4,24 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.10.0] - 2026-06-03
+
+### Added
+- Phase-strip frame selection for tennis groundstrokes: `segment_stroke_phases()` carves each detected forehand/backhand into an ordered strip (preparation -> backswing -> forward swing -> contact -> follow-through). The best and worst rep are sent to the LLM as ~8-12 phase-labelled annotated frames instead of a single peak frame.
+- New `whoopdata/agent/reference_angles.py` -- single source of truth for phase-keyed reference *bands* (not point targets), consumed by both the overlay and the prompt. Forehand bands are literature-anchored (contact elbow 100-130 deg, grip-dependent); backhand bands are wider/low-confidence.
+- Kinetic-chain timing (`_kinetic_chain_order`): orders hip -> shoulder -> elbow -> wrist by peak-speed time and flags arm-led sequencing. Measurable from 2D even where rotation magnitude is not.
+- Soft warnings + orientation gate: low pose-detection ratio, no strokes detected (evenly-spaced fallback strip), single-rep, and a warning when the racket arm is on the occluded far side. Warnings are shown to the user and injected into the prompt so coaching hedges its confidence.
+- `/videotips` Telegram command and a once-per-chat first-video hint with filming guidance (10-30s, side-on with the racket arm to camera, full body, 60 fps, caption the shot).
+- New tests in `tests/test_pose_analysis.py` covering phase segmentation, kinetic-chain ordering, band lookups/deviation, aggregation strips, orientation, and phase-aware prompt text.
+
+### Changed
+- The video pipeline now sends an ordered phase strip per selected rep rather than a single peak frame; `AggregatedMetrics` gains `key_phase_strips`, `pose_detection_ratio`, and `warnings`, and `RepMetrics` gains `phase_frames` and kinetic-chain fields.
+- Reference angles consolidated: removed the duplicated `telegram_bot._REFERENCE_ANGLES`/`_get_reference_angles` in favour of `reference_angles.get_phase_reference`. Overlay deviation is now computed against acceptable bands (zero inside the band).
+- Biomechanics prompt (`biomechanics_sub_agent.md`) gains forehand/backhand phase sections, instructs the model to reason across the phase strip, treats the contact frame as approximate (~5 ms contact vs 30 fps), and forbids presenting rotation (e.g. shoulder-hip separation) as a measured fault.
+
+### Notes
+- Reference angle bands are **provisional and flagged for SME review**: forehand is anchored to the literature; backhand joint angles are sparsely quantified and graded on fewer joints at lower confidence.
+
 ## [3.9.0] - 2026-04-12
 
 ### Added
