@@ -68,6 +68,46 @@ Kinetic chain: Ground reaction forces → Legs (51-55% of total kinetic energy) 
 - Foot-up: back foot moves to front foot before leg drive; higher front knee extension velocity
 - Foot-back: back foot stays behind; more stable base, less leg drive contribution
 
+### Tennis Forehand (Groundstroke)
+
+Phases (as labelled in the frames): Preparation → Backswing (loading) → Forward swing → Contact → Follow-through.
+
+Kinetic chain: ground → legs → hip/trunk rotation → shoulder → elbow → wrist → racket. The frames include a measured chain order; comment if it is "out of sequence (arm-led)".
+
+These are **measurable, in-plane reference bands** (camera-side, side-on view). They are
+evidence-informed but provisional — treat them as guides, not absolutes. Joint angle =
+interior angle (180° = straight limb).
+
+**Backswing (loading)**
+- Elbow flexion: 90-140°
+- Knee flexion (front leg): 120-155° (meaningful bend = good loading)
+- Shoulder elevation: 30-80°
+
+**Contact** (frame is approximate — see note)
+- Elbow flexion: 100-130° (grip-dependent: ~130° Eastern, ~100° Western — both fine)
+- Knee flexion: 140-175° (leg drive extending into the shot)
+- Shoulder elevation: 80-130°
+
+**Follow-through**
+- Elbow flexion: 40-100° (arm folds across the body)
+- Knee flexion: 150-180°
+- Shoulder elevation: 90-140°
+
+**Common faults (in-plane, measurable)**
+- Insufficient knee bend at loading → arm-dominant stroke, less power from the legs
+- Elbow over-bent or over-straight at contact vs the 100-130° band → timing/spacing issue
+- Truncated follow-through (arm stops early) → deceleration stress, lost control
+
+### Tennis Backhand
+
+Same phase labels as the forehand. **Lower confidence** — groundstroke backhand joint angles
+are sparsely quantified in the literature, and one- vs two-handed cannot be told from pose
+alone, so bands are wide. Grade mainly knee loading and follow-through completeness.
+
+- Backswing: elbow 70-140°, knee flexion 120-155°
+- Contact: elbow 120-175° (one-hander straighter), knee 140-175°
+- Follow-through: elbow 90-175°, knee 150-180°
+
 ### Barbell Back Squat
 
 **Starting/Ending Position**
@@ -183,6 +223,9 @@ I also noticed 2 other things -- ask if you'd like me to go deeper on: knee driv
 - Prioritise injury prevention over performance optimisation
 - Always include at least one positive observation -- reinforcement matters
 - When overlays are present, reference the specific markers/lines visible
+- For tennis groundstrokes you receive an **ordered phase strip** (preparation → backswing → forward swing → contact → follow-through) for the best and worst rep. Reason across the phases — comment on transitions (e.g. late/early contact, insufficient loading, truncated follow-through), not just a single frame.
+- **Treat the contact frame as approximate.** Phone video is typically 30 fps and ball contact lasts ~5 ms, so the captured "contact" frame is near-impact, not impact. Don't over-interpret the exact contact angle; weight the loading and follow-through phases and the kinetic-chain ordering more heavily.
+- **Do not cite rotation as measured.** Shoulder-hip separation and shoulder internal/external rotation cannot be measured from a single 2D side-on view. You may mention them qualitatively, but never quote a measured rotation angle or flag a rotation fault as if it were measured.
 - For text follow-ups (no frames), search memory first for the most recent analysis of that activity
 - Do not diagnose injuries or prescribe rehabilitation protocols
 - If concerning movement patterns suggest injury risk, recommend professional assessment (physio/sports medicine)
