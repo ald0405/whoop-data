@@ -14,6 +14,7 @@ Colour scheme (following CourtCoach's proven UX):
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 
 import cv2
 import numpy as np
@@ -44,12 +45,51 @@ _GOOD_THRESHOLD = 15.0
 _WARN_THRESHOLD = 30.0
 
 
-def _deviation_colour(measured: float | None, reference: float | None) -> tuple[int, int, int]:
+def _target_and_deviation(
+    measured: float | None,
+    reference: float | tuple[float, float] | None,
+) -> tuple[float | None, float]:
+    """Resolve a target angle and the deviation of ``measured`` from it.
+
+    Accepts either a scalar reference (point target) or a ``(min, max)`` band.
+    For a band, deviation is 0 inside the band and the distance to the nearest
+    edge outside it; the target is the measured value inside, else the edge.
+
+    Args:
+        measured: Measured angle in degrees (``None`` if unavailable).
+        reference: Point target, ``(min, max)`` band, or ``None``.
+
+    Returns:
+        ``(target, deviation)``. ``target`` is ``None`` when it cannot be
+        resolved; ``deviation`` is 0.0 in that case.
+
+    Example:
+        >>> _target_and_deviation(118.0, (100.0, 130.0))
+        (118.0, 0.0)
+        >>> _target_and_deviation(140.0, (100.0, 130.0))
+        (130.0, 10.0)
+    """
+    if measured is None or reference is None:
+        return (None, 0.0)
+    if isinstance(reference, tuple):
+        lo, hi = reference
+        if measured < lo:
+            return (lo, lo - measured)
+        if measured > hi:
+            return (hi, measured - hi)
+        return (measured, 0.0)
+    return (float(reference), abs(measured - float(reference)))
+
+
+def _deviation_colour(
+    measured: float | None,
+    reference: float | tuple[float, float] | None,
+) -> tuple[int, int, int]:
     """Return a BGR colour based on the angular deviation from reference.
 
     Args:
         measured: Measured angle in degrees (``None`` if not available).
-        reference: Target reference angle in degrees (``None`` if unknown).
+        reference: Target reference angle, ``(min, max)`` band, or ``None``.
 
     Returns:
         BGR colour tuple: dim white (ok), yellow (warning), or red (fault).
@@ -60,7 +100,7 @@ def _deviation_colour(measured: float | None, reference: float | None) -> tuple[
     """
     if measured is None or reference is None:
         return _WHITE_DIM
-    deviation = abs(measured - reference)
+    _target, deviation = _target_and_deviation(measured, reference)
     if deviation < _GOOD_THRESHOLD:
         return _WHITE_DIM
     if deviation < _WARN_THRESHOLD:
@@ -147,13 +187,16 @@ def _rotate_point(
 
 def _find_worst_fault(
     measured_angles: dict[str, float | None],
-    reference_angles: dict[str, float | None],
+    reference_angles: Mapping[str, float | tuple[float, float] | None],
 ) -> tuple[str | None, float]:
     """Find the joint with the largest deviation from reference.
 
+    Supports both point targets and ``(min, max)`` bands (deviation is 0
+    inside a band).
+
     Args:
         measured_angles: Measured joint angles.
-        reference_angles: Reference target angles.
+        reference_angles: Reference targets (point or band) per joint.
 
     Returns:
         Tuple of (joint_name, deviation_degrees). Returns (None, 0) if
@@ -167,7 +210,7 @@ def _find_worst_fault(
         ref = reference_angles.get(joint_name)
         if ref is None:
             continue
-        dev = abs(val - ref)
+        _target, dev = _target_and_deviation(val, ref)
         if dev > worst_dev:
             worst_dev = dev
             worst_joint = joint_name
@@ -178,7 +221,7 @@ def draw_form_diff(
     frame_bgr: np.ndarray,
     landmarks: list,
     measured_angles: dict[str, float | None],
-    reference_angles: dict[str, float | None],
+    reference_angles: Mapping[str, float | tuple[float, float] | None],
     phase_label: str = "",
 ) -> np.ndarray:
     """Draw a clean skeleton overlay focused on the single worst fault.
@@ -206,7 +249,7 @@ def draw_form_diff(
         True
     """
     h, w = frame_bgr.shape[:2]
-    overlay = frame_bgr.copy()
+    overlay: np.ndarray = frame_bgr.copy()
 
     # Find the single worst fault -- always highlight even if within range,
     # because the user sent a video specifically for feedback
@@ -224,9 +267,7 @@ def draw_form_diff(
             continue
 
         # Check if this connection is part of the fault
-        is_fault_segment = (
-            start_idx in fault_joint_indices and end_idx in fault_joint_indices
-        )
+        is_fault_segment = start_idx in fault_joint_indices and end_idx in fault_joint_indices
 
         if is_fault_segment:
             colour = _RED_FAULT if worst_dev >= _WARN_THRESHOLD else _YELLOW_WARN
@@ -239,12 +280,18 @@ def draw_form_diff(
 
     # Draw landmark dots -- larger at the fault vertex
     all_landmarks = [
-        Landmarks.LEFT_SHOULDER, Landmarks.RIGHT_SHOULDER,
-        Landmarks.LEFT_ELBOW, Landmarks.RIGHT_ELBOW,
-        Landmarks.LEFT_WRIST, Landmarks.RIGHT_WRIST,
-        Landmarks.LEFT_HIP, Landmarks.RIGHT_HIP,
-        Landmarks.LEFT_KNEE, Landmarks.RIGHT_KNEE,
-        Landmarks.LEFT_ANKLE, Landmarks.RIGHT_ANKLE,
+        Landmarks.LEFT_SHOULDER,
+        Landmarks.RIGHT_SHOULDER,
+        Landmarks.LEFT_ELBOW,
+        Landmarks.RIGHT_ELBOW,
+        Landmarks.LEFT_WRIST,
+        Landmarks.RIGHT_WRIST,
+        Landmarks.LEFT_HIP,
+        Landmarks.RIGHT_HIP,
+        Landmarks.LEFT_KNEE,
+        Landmarks.RIGHT_KNEE,
+        Landmarks.LEFT_ANKLE,
+        Landmarks.RIGHT_ANKLE,
     ]
     for idx in all_landmarks:
         pt = _get_pixel(landmarks, idx, w, h)
@@ -264,12 +311,29 @@ def draw_form_diff(
         if vertex is not None and actual_end is not None:
             measured_val = measured_angles.get(worst_joint)
             ref_val = reference_angles.get(worst_joint)
-            if measured_val is not None and ref_val is not None:
-                rotation = ref_val - measured_val
+            target_val, _dev = _target_and_deviation(measured_val, ref_val)
+            if measured_val is not None and target_val is not None:
+                rotation = target_val - measured_val
                 ghost_end = _rotate_point(vertex, actual_end, rotation)
                 # Draw bold ghost with dark outline for contrast
-                _draw_dashed_line(overlay, vertex, ghost_end, _BLACK_OUTLINE, _GHOST_THICKNESS + 2, dash_length=14, gap_length=8)
-                _draw_dashed_line(overlay, vertex, ghost_end, _CYAN_GHOST, _GHOST_THICKNESS, dash_length=14, gap_length=8)
+                _draw_dashed_line(
+                    overlay,
+                    vertex,
+                    ghost_end,
+                    _BLACK_OUTLINE,
+                    _GHOST_THICKNESS + 2,
+                    dash_length=14,
+                    gap_length=8,
+                )
+                _draw_dashed_line(
+                    overlay,
+                    vertex,
+                    ghost_end,
+                    _CYAN_GHOST,
+                    _GHOST_THICKNESS,
+                    dash_length=14,
+                    gap_length=8,
+                )
 
     # Phase label at top with dark background for readability
     if phase_label:

@@ -19,6 +19,7 @@ from telegram.constants import ParseMode
 from whoopdata.agent import settings as agent_settings
 from whoopdata.agent.biomechanics import analyze_video as _default_analyze_video
 from whoopdata.agent.conversation_service import ConversationService, get_conversation_service
+from whoopdata.agent.reference_angles import get_phase_reference
 
 load_dotenv()
 
@@ -27,7 +28,7 @@ _MARKDOWN_TABLE_SEPARATOR_RE = re.compile(r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{
 
 
 def _parse_int_set(raw: str | None) -> set[int]:
-    """ parse int set.
+    """parse int set.
 
     Args:
         raw: Input parameter used by this routine.
@@ -35,7 +36,7 @@ def _parse_int_set(raw: str | None) -> set[int]:
     Returns:
         Computed result for this routine.
 
-    
+
     """
     if not raw:
         return set()
@@ -54,17 +55,27 @@ TELEGRAM_ALLOWED_USER_IDS = _parse_int_set(os.getenv("TELEGRAM_ALLOWED_USER_IDS"
 TELEGRAM_ALLOWED_CHAT_IDS = _parse_int_set(os.getenv("TELEGRAM_ALLOWED_CHAT_IDS"))
 
 _DEFAULT_VIDEO_PROMPT = (
-    "These are frames extracted from a video I sent. "
-    "Analyse the movement, form, and any biomechanics overlays visible "
-    "(dots/lines on joints)."
+    "These are phase-labelled frames from a tennis stroke I sent (preparation, "
+    "backswing, forward swing, contact, follow-through), with biomechanics overlays "
+    "(skeleton, fault highlight, dashed reference ghost). Analyse the form across the "
+    "phases using the computed angles below."
 )
 
 _MAX_DENSE_FRAMES = 600
 _MAX_VIDEO_DURATION_SECONDS = 60
+_MAX_LLM_FRAMES = 12  # cap annotated frames sent to the vision model (best+worst x phases)
 _CLIP_TOO_LONG_MSG = (
     "That video is a bit long for detailed analysis. "
-    "For best results, film 3-5 repetitions of the same movement "
-    "(serves, squats, etc.) in a 10-30 second clip, side-on view, full body visible."
+    "For best results, film 3-5 forehands or backhands in a 10-30 second clip, "
+    "side-on with your racket arm toward the camera, full body in frame."
+)
+_VIDEO_TIPS_MSG = (
+    "📹 For the best form analysis, film like this:\n"
+    "• 10-30 seconds, 3-5 forehands or backhands\n"
+    "• Side-on, with your racket arm toward the camera\n"
+    "• Camera held level, your whole body in frame\n"
+    "• Normal speed (no slow-mo); 60 fps if your phone offers it\n"
+    '• Add a caption saying "forehand" or "backhand"'
 )
 
 
@@ -164,76 +175,6 @@ def _extract_video_frames(video_bytes: bytes, *, max_frames: int = 6) -> list[by
     return jpeg_frames
 
 
-# Reference angles for form diff colouring (midpoints of gold-standard ranges)
-_REFERENCE_ANGLES: dict[str, dict[str, float | None]] = {
-    "serve": {
-        "right_elbow_flexion": 30.0,
-        "left_elbow_flexion": 30.0,
-        "right_shoulder_elevation": 111.0,
-        "left_shoulder_elevation": 111.0,
-        "right_knee_flexion": 65.0,
-        "left_knee_flexion": 65.0,
-        "trunk_tilt": 25.0,
-    },
-    "forehand": {
-        "right_elbow_flexion": 90.0,
-        "left_elbow_flexion": 90.0,
-        "right_shoulder_elevation": 80.0,
-        "left_shoulder_elevation": 80.0,
-        "right_knee_flexion": 140.0,
-        "left_knee_flexion": 140.0,
-        "trunk_tilt": 50.0,
-    },
-    "backhand": {
-        "right_elbow_flexion": 100.0,
-        "left_elbow_flexion": 100.0,
-        "right_shoulder_elevation": 75.0,
-        "left_shoulder_elevation": 75.0,
-        "right_knee_flexion": 145.0,
-        "left_knee_flexion": 145.0,
-        "trunk_tilt": 45.0,
-    },
-    "tennis": {
-        "right_elbow_flexion": 90.0,
-        "left_elbow_flexion": 90.0,
-        "right_shoulder_elevation": 80.0,
-        "left_shoulder_elevation": 80.0,
-        "right_knee_flexion": 140.0,
-        "left_knee_flexion": 140.0,
-        "trunk_tilt": 45.0,
-    },
-    "squat": {
-        "right_knee_flexion": 100.0,
-        "left_knee_flexion": 100.0,
-        "trunk_tilt": 45.0,
-        "right_elbow_flexion": None,
-        "left_elbow_flexion": None,
-    },
-    "deadlift": {
-        "right_knee_flexion": 90.0,
-        "left_knee_flexion": 90.0,
-        "trunk_tilt": 45.0,
-    },
-}
-
-
-def _get_reference_angles(activity: str) -> dict[str, float | None]:
-    """Look up reference angles for form diff colouring.
-
-    Args:
-        activity: Activity name from the user's caption.
-
-    Returns:
-        Mapping of joint name to target angle. Returns empty dict
-        for unknown activities (skeleton will be drawn in green).
-    """
-    normalised = activity.strip().lower()
-    for key, angles in _REFERENCE_ANGLES.items():
-        if key in normalised:
-            return angles
-    return {}
-
-
 def _preprocess_frames(frames: list[bytes]) -> list[bytes]:
     """Legacy preprocessing stub (pass-through).
 
@@ -251,10 +192,8 @@ def _preprocess_frames(frames: list[bytes]) -> list[bytes]:
 
 @dataclass
 class OutboundTelegramMessage:
-    """OutboundTelegramMessage data structure or service type.
+    """OutboundTelegramMessage data structure or service type."""
 
-    
-    """
     text: str | None = None
     photo_bytes: bytes | None = None
     voice_bytes: bytes | None = None
@@ -274,12 +213,11 @@ def session_id_for_chat(chat_id: int) -> str:
 
 @dataclass
 class ConversationBinding:
-    """ConversationBinding data structure or service type.
+    """ConversationBinding data structure or service type."""
 
-    
-    """
     session_id: str | None = None
     thread_id: str | None = None
+    seen_video: bool = False
 
 
 class TelegramConversationGateway:
@@ -323,7 +261,7 @@ class TelegramConversationGateway:
             result = is_authorized(user_id=..., chat_id=..., chat_type=...)
             _ = result
 
-        
+
         """
         if user_id is None or chat_id is None:
             return False
@@ -357,7 +295,7 @@ class TelegramConversationGateway:
             result = build_whoami_messages(user_id=..., chat_id=..., chat_type=...)
             _ = result
 
-        
+
         """
         return [
             OutboundTelegramMessage(
@@ -398,7 +336,7 @@ class TelegramConversationGateway:
             result = await handle_text_message(text=..., user_id=..., chat_id=..., chat_type=..., image_b64=...)
             _ = result
 
-        
+
         """
         if not self.is_authorized(user_id=user_id, chat_id=chat_id, chat_type=chat_type):
             return []
@@ -557,53 +495,85 @@ class TelegramConversationGateway:
         analyser = PoseAnalyser(activity=activity or None)
         result: AnalysisResult = analyser.analyse_frames(frames_bgr, fps)
 
-        # Build annotated key frames
-        # Reference angles for form diff (simplified -- use midpoint of gold-standard ranges)
-        reference_angles = _get_reference_angles(activity)
+        # First-video filming tips (once per chat) + any soft warnings, shown
+        # before the annotated frames so expectations are set up front.
+        prefix_messages: list[OutboundTelegramMessage] = []
+        if chat_id is not None:
+            binding = self._bindings_by_chat.setdefault(
+                chat_id,
+                ConversationBinding(
+                    session_id=session_id_for_chat(chat_id),
+                    thread_id=thread_id_for_chat(chat_id),
+                ),
+            )
+            if not binding.seen_video:
+                prefix_messages.append(OutboundTelegramMessage(text=_VIDEO_TIPS_MSG))
+                binding.seen_video = True
+        for warning in result.metrics.warnings:
+            prefix_messages.append(OutboundTelegramMessage(text=warning))
+
+        # Build annotated phase-strip frames (best + worst rep), one frame per
+        # phase, each graded against that phase's evidence-based reference band.
         annotated_photos: list[OutboundTelegramMessage] = []
         annotated_for_archive: list[tuple[Any, str]] = []
 
-        for key_idx in result.metrics.key_frame_indices:
-            if key_idx >= len(frames_bgr) or result.all_landmarks[key_idx] is None:
-                continue
-
-            frame = frames_bgr[key_idx]
-            landmarks = result.all_landmarks[key_idx]
-            measured = result.all_angles[key_idx].angles
-
-            # Find which rep this frame belongs to
-            rep_label = ""
-            for rep in result.metrics.per_rep:
-                if rep.event.start_frame <= key_idx <= rep.event.end_frame:
-                    rep_label = f"{rep.event.event_type} -- Rep {rep.rep_number}/{result.metrics.num_reps}"
+        for strip in result.metrics.key_phase_strips:
+            if len(annotated_photos) >= _MAX_LLM_FRAMES:
+                break
+            for phase_label, frame_idx in strip.phases:
+                if len(annotated_photos) >= _MAX_LLM_FRAMES:
                     break
+                if not (0 <= frame_idx < len(frames_bgr)):
+                    continue
+                landmarks = result.all_landmarks[frame_idx]
+                if landmarks is None:
+                    continue
 
-            annotated = draw_form_diff(
-                frame, landmarks, measured, reference_angles, phase_label=rep_label
-            )
-            photo_bytes = encode_annotated_frame(annotated)
-            annotated_for_archive.append((annotated, rep_label))
+                frame = frames_bgr[frame_idx]
+                measured = result.all_angles[frame_idx].angles
+                refs = get_phase_reference(strip.event_type, phase_label)
+                label = f"{strip.event_type} rep {strip.rep_number} -- {phase_label}"
 
-            # Build a short caption with the key angle deviation
-            cap_parts = [rep_label] if rep_label else []
-            for joint, val in measured.items():
-                ref = reference_angles.get(joint)
-                if val is not None and ref is not None and abs(val - ref) >= 15:
-                    cap_parts.append(f"{joint}: {int(val)} deg (target: {int(ref)})")
-                    break  # One deviation per caption
-            photo_caption = " -- ".join(cap_parts) if cap_parts else "Pose analysis"
+                annotated = draw_form_diff(frame, landmarks, measured, refs, phase_label=label)
+                photo_bytes = encode_annotated_frame(annotated)
+                annotated_for_archive.append((annotated, label))
 
-            annotated_photos.append(
-                OutboundTelegramMessage(photo_bytes=photo_bytes, caption=photo_caption)
-            )
+                # Caption: phase label + the most out-of-band graded joint, if any.
+                cap_parts = [label]
+                worst_joint, worst_band, worst_val, worst_dev = None, None, None, 0.0
+                for joint, band in refs.items():
+                    val = measured.get(joint)
+                    if val is None or band is None:
+                        continue
+                    lo, hi = band
+                    dev = (lo - val) if val < lo else ((val - hi) if val > hi else 0.0)
+                    if dev > worst_dev:
+                        worst_dev, worst_joint, worst_band, worst_val = dev, joint, band, val
+                if (
+                    worst_joint
+                    and worst_band is not None
+                    and worst_val is not None
+                    and worst_dev >= 15
+                ):
+                    short = worst_joint.replace("_flexion", "").replace("_", " ")
+                    cap_parts.append(
+                        f"{short}: {int(worst_val)} deg "
+                        f"(target {int(worst_band[0])}-{int(worst_band[1])})"
+                    )
 
-        # Build overlay for ALL frames (for local archive review)
+                annotated_photos.append(
+                    OutboundTelegramMessage(photo_bytes=photo_bytes, caption=" -- ".join(cap_parts))
+                )
+
+        # Build overlay for ALL frames (for local archive review). Use the
+        # contact-phase reference as a single representative target.
+        archive_reference = get_phase_reference(activity, "contact")
         all_overlay_frames: list[Any] = []
         for i, frame in enumerate(frames_bgr):
             if result.all_landmarks[i] is not None:
                 measured = result.all_angles[i].angles
                 overlay = draw_form_diff(
-                    frame, result.all_landmarks[i], measured, reference_angles
+                    frame, result.all_landmarks[i], measured, archive_reference
                 )
                 all_overlay_frames.append(overlay)
             else:
@@ -627,8 +597,9 @@ class TelegramConversationGateway:
         except Exception:
             logger.warning("Failed to save video analysis archive", exc_info=True)
 
-        # Build LLM prompt with structured metrics + key frames
-        metrics_text = result.metrics.format_for_prompt(reference_angles=reference_angles)
+        # Build LLM prompt with structured metrics + key frames. format_for_prompt
+        # already prepends any soft warnings as NOTE lines, so the model can hedge.
+        metrics_text = result.metrics.format_for_prompt()
         key_frame_b64 = []
         for msg in annotated_photos:
             if msg.photo_bytes:
@@ -643,9 +614,15 @@ class TelegramConversationGateway:
             )
         except Exception:
             logger.exception("Biomechanics agent failed")
-            return annotated_photos + [
-                OutboundTelegramMessage(text="Sorry, I hit an error with the coaching analysis.")
-            ]
+            return (
+                prefix_messages
+                + annotated_photos
+                + [
+                    OutboundTelegramMessage(
+                        text="Sorry, I hit an error with the coaching analysis."
+                    )
+                ]
+            )
 
         # Stage 3: supervisor synthesis
         supervisor_prompt = (
@@ -662,8 +639,8 @@ class TelegramConversationGateway:
             chat_type=chat_type,
         )
 
-        # Send annotated photos first, then text
-        return annotated_photos + text_responses
+        # Tips/warnings first, then annotated photos, then coaching text.
+        return prefix_messages + annotated_photos + text_responses
 
     async def _handle_video_legacy(
         self,
@@ -686,14 +663,10 @@ class TelegramConversationGateway:
         images_b64 = [base64.b64encode(f).decode("utf-8") for f in raw_frames]
         prompt = caption or _DEFAULT_VIDEO_PROMPT
         try:
-            analysis = await self._analyze_video(
-                images_b64, prompt, user_id=f"telegram:{user_id}"
-            )
+            analysis = await self._analyze_video(images_b64, prompt, user_id=f"telegram:{user_id}")
         except Exception:
             logger.exception("Biomechanics video analysis failed")
-            return [
-                OutboundTelegramMessage(text="Sorry, I hit an error analysing that video.")
-            ]
+            return [OutboundTelegramMessage(text="Sorry, I hit an error analysing that video.")]
 
         supervisor_prompt = (
             "The user sent a video. Here is the biomechanics analysis from the "
@@ -711,7 +684,7 @@ class TelegramConversationGateway:
     def _build_response_messages(
         self, assistant_message: str, artifacts: list
     ) -> list[OutboundTelegramMessage]:
-        """ build response messages.
+        """build response messages.
 
         Args:
             assistant_message: Input parameter used by this routine.
@@ -720,7 +693,7 @@ class TelegramConversationGateway:
         Returns:
             Computed result for this routine.
 
-        
+
         """
         messages: list[OutboundTelegramMessage] = []
 
@@ -812,7 +785,7 @@ def _strip_html_tags(text: str) -> str:
 
 
 def _strip_markdown_inline_markup(text: str) -> str:
-    """ strip markdown inline markup.
+    """strip markdown inline markup.
 
     Args:
         text: Input parameter used by this routine.
@@ -820,7 +793,7 @@ def _strip_markdown_inline_markup(text: str) -> str:
     Returns:
         Computed result for this routine.
 
-    
+
     """
     text = re.sub(r"`([^`\n]+)`", r"\1", text)
     text = re.sub(r"\*\*([^\n*][^*]*?)\*\*", r"\1", text)
@@ -831,7 +804,7 @@ def _strip_markdown_inline_markup(text: str) -> str:
 
 
 def _normalize_telegram_plain_line(text: str) -> str:
-    """ normalize telegram plain line.
+    """normalize telegram plain line.
 
     Args:
         text: Input parameter used by this routine.
@@ -839,7 +812,7 @@ def _normalize_telegram_plain_line(text: str) -> str:
     Returns:
         Computed result for this routine.
 
-    
+
     """
     line = text.strip()
     if not line:
@@ -854,7 +827,7 @@ def _normalize_telegram_plain_line(text: str) -> str:
 
 
 def _flatten_markdown_table_row(line: str) -> str:
-    """ flatten markdown table row.
+    """flatten markdown table row.
 
     Args:
         line: Input parameter used by this routine.
@@ -862,7 +835,7 @@ def _flatten_markdown_table_row(line: str) -> str:
     Returns:
         Computed result for this routine.
 
-    
+
     """
     cells = [_normalize_telegram_plain_line(cell) for cell in line.strip().strip("|").split("|")]
     cells = [cell for cell in cells if cell]
@@ -874,7 +847,7 @@ def _flatten_markdown_table_row(line: str) -> str:
 
 
 def _truncate_telegram_plain_text(text: str, *, max_chars: int) -> str:
-    """ truncate telegram plain text.
+    """truncate telegram plain text.
 
     Args:
         text: Input parameter used by this routine.
@@ -883,7 +856,7 @@ def _truncate_telegram_plain_text(text: str, *, max_chars: int) -> str:
     Returns:
         Computed result for this routine.
 
-    
+
     """
     if len(text) <= max_chars:
         return text
@@ -929,7 +902,7 @@ def format_text_for_telegram_plain(
         result = format_text_for_telegram_plain(text=..., max_chars=..., max_lines=...)
         _ = result
 
-    
+
     """
     raw_lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     cleaned_lines: list[str] = []
@@ -1009,7 +982,7 @@ def format_text_for_telegram_html(text: str) -> str:
         result = format_text_for_telegram_html(text=...)
         _ = result
 
-    
+
     """
     escaped = html.escape(text)
     escaped = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", escaped)
@@ -1022,12 +995,12 @@ def format_text_for_telegram_html(text: str) -> str:
 
 
 def _build_gateway() -> TelegramConversationGateway:
-    """ build gateway.
+    """build gateway.
 
     Returns:
         Computed result for this routine.
 
-    
+
     """
     return TelegramConversationGateway(
         allowed_user_ids=TELEGRAM_ALLOWED_USER_IDS,
@@ -1036,13 +1009,13 @@ def _build_gateway() -> TelegramConversationGateway:
 
 
 async def _reply(update, messages: list[OutboundTelegramMessage]) -> None:
-    """ reply.
+    """reply.
 
     Args:
         update: Input parameter used by this routine.
         messages: Input parameter used by this routine.
 
-    
+
     """
     message = update.effective_message
     if message is None:
@@ -1069,7 +1042,7 @@ async def start_command(update, context) -> None:
         result = await start_command(update=..., context=...)
         _ = result
 
-    
+
     """
     gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
     user = update.effective_user
@@ -1080,7 +1053,9 @@ async def start_command(update, context) -> None:
             text=(
                 "Health Data Agent is online.\n"
                 "Use `/whoami` to capture your Telegram IDs for allowlisting, then add "
-                "`TELEGRAM_ALLOWED_USER_IDS` and `TELEGRAM_ALLOWED_CHAT_IDS` to `.env`."
+                "`TELEGRAM_ALLOWED_USER_IDS` and `TELEGRAM_ALLOWED_CHAT_IDS` to `.env`.\n"
+                "Send a tennis video (forehand/backhand) for form analysis — "
+                "use /videotips for how to film it."
             )
         )
     ]
@@ -1107,7 +1082,7 @@ async def whoami_command(update, context) -> None:
         result = await whoami_command(update=..., context=...)
         _ = result
 
-    
+
     """
     gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
     user = update.effective_user
@@ -1122,6 +1097,16 @@ async def whoami_command(update, context) -> None:
     )
 
 
+async def videotips_command(update, context) -> None:
+    """Reply with guidance on how to film a tennis stroke for form analysis.
+
+    Args:
+        update: Telegram update.
+        context: Telegram callback context.
+    """
+    await _reply(update, [OutboundTelegramMessage(text=_VIDEO_TIPS_MSG)])
+
+
 async def text_message(update, context) -> None:
     """Text message.
 
@@ -1134,7 +1119,7 @@ async def text_message(update, context) -> None:
         result = await text_message(update=..., context=...)
         _ = result
 
-    
+
     """
     gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
     user = update.effective_user
@@ -1165,7 +1150,7 @@ async def voice_message(update, context) -> None:
         result = await voice_message(update=..., context=...)
         _ = result
 
-    
+
     """
     gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
     user = update.effective_user
@@ -1208,7 +1193,7 @@ async def photo_message(update, context) -> None:
         result = await photo_message(update=..., context=...)
         _ = result
 
-    
+
     """
     gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
     user = update.effective_user
@@ -1292,7 +1277,7 @@ async def error_handler(update, context) -> None:
         result = await error_handler(update=..., context=...)
         _ = result
 
-    
+
     """
     logger.exception("Telegram bot error: %s", context.error)
     if getattr(update, "effective_message", None) is not None:
@@ -1313,7 +1298,7 @@ def build_application(gateway: TelegramConversationGateway | None = None):
         result = build_application(gateway=...)
         _ = result
 
-    
+
     """
     if not TELEGRAM_BOT_TOKEN:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is required to start the Telegram bot")
@@ -1324,6 +1309,7 @@ def build_application(gateway: TelegramConversationGateway | None = None):
     application.bot_data["gateway"] = gateway or _build_gateway()
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("whoami", whoami_command))
+    application.add_handler(CommandHandler("videotips", videotips_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message))
     application.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, voice_message))
     application.add_handler(MessageHandler(filters.PHOTO, photo_message))
@@ -1340,7 +1326,7 @@ async def run_bot() -> None:
         result = await run_bot()
         _ = result
 
-    
+
     """
     application = build_application()
     await application.initialize()
@@ -1363,7 +1349,7 @@ def main() -> None:
         result = main()
         _ = result
 
-    
+
     """
     logging.basicConfig(level=logging.INFO)
     asyncio.run(run_bot())
