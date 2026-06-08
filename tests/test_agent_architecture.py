@@ -96,8 +96,7 @@ class TestToolGrouping:
                 seen[tool_name] = name
 
     def test_all_api_tools_assigned(self):
-        """All tools in AVAILABLE_TOOLS (except python_repl) should appear in at
-        least one registry entry."""
+        """All tools in AVAILABLE_TOOLS should appear in at least one registry entry."""
         from whoopdata.agent.registry import AGENT_REGISTRY
         from whoopdata.agent.tools import AVAILABLE_TOOLS
 
@@ -107,7 +106,7 @@ class TestToolGrouping:
 
         for tool in AVAILABLE_TOOLS:
             name = getattr(tool, "name", None)
-            if name and name != "python_interpreter":
+            if name:
                 assert name in registry_tools, f"Tool '{name}' not assigned to any specialist"
 
 
@@ -131,11 +130,6 @@ class TestToolsLookup:
             getattr(tool, "name", None) for tool in AVAILABLE_TOOLS if getattr(tool, "name", None)
         }
         assert available_names.issubset(set(TOOLS_BY_NAME.keys()))
-
-    def test_python_repl_in_tools_by_name(self):
-        from whoopdata.agent.tools import TOOLS_BY_NAME
-
-        assert "python_interpreter" in TOOLS_BY_NAME
 
     def test_memory_and_top_recoveries_in_tools_by_name(self):
         from whoopdata.agent.tools import TOOLS_BY_NAME
@@ -330,8 +324,8 @@ class TestGraphBuild:
             tools = call_kwargs[0][1] if len(call_kwargs[0]) > 1 else []
 
         # Should have N specialist tools + direct supervisor tools:
-        # python_repl + search_memory + manage_memory
-        expected_count = len(AGENT_REGISTRY) + 3
+        # search_memory + manage_memory
+        expected_count = len(AGENT_REGISTRY) + 2
         assert len(tools) == expected_count, f"Expected {expected_count} tools, got {len(tools)}"
         direct_tool_names = {getattr(t, "name", "") for t in tools}
         assert "get_protein_recommendation" not in direct_tool_names

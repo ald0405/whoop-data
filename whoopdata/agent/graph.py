@@ -16,7 +16,6 @@ from .schemas import AgentConfig, HealthContextSchema
 from .model_config_loader import get_supervisor_model_config
 from .model_factory import build_chat_model
 from .specialists import build_specialist_tools
-from .tools import python_repl_tool
 
 CONFIG_KEY_STORE = "__store"
 
@@ -99,11 +98,10 @@ def _create_graph(*, checkpointer: Any | None = None, store: Any | None = None):
     # Build specialist wrapper tools from registry
     specialist_tools = build_specialist_tools()
 
-    # Supervisor gets specialist tools + python REPL + protein tool for direct use
+    # Supervisor gets specialist tools + memory tools for direct use
     all_tools = _dedupe_tools_by_name(
         specialist_tools
         + [
-            python_repl_tool,
             search_memory,
             manage_memory,
         ]

@@ -18,17 +18,17 @@ def test_agent_conversation_response_hides_raw_langgraph_state():
     result = {
         "messages": [
             AIMessage(
-                content="I'll generate a chart for you.",
+                content="Let me pull your recovery data.",
                 tool_calls=[
                     {
-                        "name": "python_interpreter",
-                        "args": {"query": "print('hello from python')"},
+                        "name": "get_recovery_data_tool",
+                        "args": {"latest": True},
                         "id": "tool-call-1",
                     }
                 ],
             ),
             ToolMessage(
-                content='{"images": [{"data": "abc123", "filename": "plot.png"}]}',
+                content='{"recovery_score": 65}',
                 tool_call_id="tool-call-1",
             ),
             AIMessage(content="Here is your chart."),
@@ -48,11 +48,3 @@ def test_agent_conversation_response_hides_raw_langgraph_state():
     assert [message.role for message in response.messages] == ["user", "assistant"]
     assert response.messages[0].content == "Show me a chart"
     assert response.messages[1].content == "Here is your chart."
-    assert any(
-        artifact.kind == "python_code" and "hello from python" in artifact.content
-        for artifact in response.artifacts
-    )
-    assert any(
-        artifact.kind == "image" and artifact.title == "plot.png" and artifact.content == "abc123"
-        for artifact in response.artifacts
-    )

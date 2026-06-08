@@ -4,7 +4,6 @@ import asyncio
 import base64
 
 from whoopdata.agent.public_response import (
-    AgentArtifact,
     AgentConversationResponse,
     AgentConversationTurn,
 )
@@ -44,7 +43,6 @@ def _response(
     assistant_message: str,
     session_id: str = "session-1",
     thread_id: str = "thread-1",
-    artifacts: list[AgentArtifact] | None = None,
 ) -> AgentConversationResponse:
     return AgentConversationResponse(
         session_id=session_id,
@@ -54,7 +52,6 @@ def _response(
             AgentConversationTurn(role="user", content="hi"),
             AgentConversationTurn(role="assistant", content=assistant_message),
         ],
-        artifacts=artifacts or [],
     )
 
 
@@ -89,39 +86,6 @@ def test_gateway_reuses_conversation_binding_per_chat():
     assert service.calls[0]["user_id"] == "telegram:1"
     assert service.calls[1]["message"] == "again"
     assert service.calls[1]["session_id"] == "session-1"
-
-
-def test_gateway_formats_code_and_image_artifacts_for_telegram():
-    png_bytes = b"fake-png"
-    service = StubConversationService(
-        [
-            _response(
-                assistant_message="Here you go.",
-                artifacts=[
-                    AgentArtifact(kind="python_code", content="print('hello')", title="code"),
-                    AgentArtifact(
-                        kind="image",
-                        content=base64.b64encode(png_bytes).decode("utf-8"),
-                        title="plot.png",
-                        mime_type="image/png",
-                    ),
-                ],
-            )
-        ]
-    )
-    gateway = TelegramConversationGateway(conversation_service=service)
-
-    messages = asyncio.run(
-        gateway.handle_text_message(text="show me", user_id=1, chat_id=9, chat_type="private")
-    )
-
-    assert messages[0].text == "Here you go."
-    assert messages[0].parse_mode == "HTML"
-    assert "Generated Python Code" in messages[1].text
-    assert "<pre>print('hello')</pre>" in messages[1].text
-    assert messages[1].parse_mode == "HTML"
-    assert messages[2].photo_bytes == png_bytes
-    assert messages[2].caption == "plot.png"
 
 
 def test_whoami_message_includes_ids_for_first_run_setup():

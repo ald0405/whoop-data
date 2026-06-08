@@ -357,7 +357,7 @@ class TelegramConversationGateway:
         )
         binding.session_id = response.session_id
         binding.thread_id = response.thread_id
-        return self._build_response_messages(response.assistant_message, response.artifacts)
+        return self._build_response_messages(response.assistant_message)
 
     async def handle_voice_message(
         self,
@@ -682,13 +682,12 @@ class TelegramConversationGateway:
         )
 
     def _build_response_messages(
-        self, assistant_message: str, artifacts: list
+        self, assistant_message: str
     ) -> list[OutboundTelegramMessage]:
         """build response messages.
 
         Args:
             assistant_message: Input parameter used by this routine.
-            artifacts: Input parameter used by this routine.
 
         Returns:
             Computed result for this routine.
@@ -704,27 +703,6 @@ class TelegramConversationGateway:
                     parse_mode=ParseMode.HTML,
                 )
             )
-
-        for artifact in artifacts:
-            if artifact.kind == "python_code" and artifact.content:
-                messages.append(
-                    OutboundTelegramMessage(
-                        text=f"Generated Python Code:\n<pre>{artifact.content}</pre>",
-                        parse_mode=ParseMode.HTML,
-                    )
-                )
-            elif artifact.kind == "image" and artifact.content:
-                try:
-                    photo_bytes = base64.b64decode(artifact.content)
-                except Exception:
-                    logger.warning("Skipping invalid Telegram image artifact payload")
-                    continue
-                messages.append(
-                    OutboundTelegramMessage(
-                        photo_bytes=photo_bytes,
-                        caption=artifact.title or "Generated image",
-                    )
-                )
 
         return messages
 

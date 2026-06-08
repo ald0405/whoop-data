@@ -35,7 +35,6 @@ class _StubConversationService:
                 AgentConversationTurn(role="user", content=message),
                 AgentConversationTurn(role="assistant", content="reply"),
             ],
-            artifacts=[],
         )
 
 

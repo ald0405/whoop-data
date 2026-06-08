@@ -4,7 +4,6 @@ import asyncio
 from unittest.mock import patch
 
 from whoopdata.agent.public_response import (
-    AgentArtifact,
     AgentConversationResponse,
     AgentConversationTurn,
 )
@@ -83,39 +82,3 @@ def test_chat_app_reuses_existing_conversation_ids_on_follow_up_messages():
     assert cleared_input == ""
     assert session_id == "session-123"
     assert thread_id == "thread-123"
-
-
-def test_chat_app_formats_boundary_artifacts_for_gradio():
-    response = AgentConversationResponse(
-        thread_id="thread-123",
-        session_id="session-123",
-        assistant_message="Here you go.",
-        messages=[
-            AgentConversationTurn(role="user", content="Show me something"),
-            AgentConversationTurn(role="assistant", content="Here you go."),
-        ],
-        artifacts=[
-            AgentArtifact(
-                kind="python_code",
-                title="Generated Python Code",
-                content="print('hello')",
-            ),
-            AgentArtifact(
-                kind="image",
-                title="plot.png",
-                mime_type="image/png",
-                content="abc123",
-            ),
-        ],
-    )
-    service = StubConversationService(response)
-
-    with patch("chat_app.get_conversation_service", return_value=service):
-        history, _, _, _ = asyncio.run(
-            chat_app.chat_with_agent("Show me something", [], None, None)
-        )
-
-    rendered_response = history[0][1]
-    assert "**Generated Python Code:**" in rendered_response
-    assert "print('hello')" in rendered_response
-    assert '<img src="data:image/png;base64,abc123"' in rendered_response

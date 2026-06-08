@@ -28,7 +28,6 @@ flowchart TD
     SUP -->|tool call| NU[nutrition<br/>gpt-4o-mini]
     SUP -->|tool call| EN[environment<br/>gpt-4o-mini]
     SUP -->|tool call| BM[biomechanics<br/>gpt-5.4-mini]
-    SUP -->|direct| PY[Python REPL]
     SUP -->|direct| MEM[Memory Tools]
 
     HD -->|data tools| HAPI[Health Data API]
@@ -104,7 +103,7 @@ context (tennis and general workout tools) for grounded recommendations.
 | `persistence.py` | Checkpointer and store initialisation (Postgres or in-memory) |
 | `prompts.py` | Loads the supervisor system prompt from `data/prompts/agents/supervisor.md` |
 | `schemas.py` | `HealthAgentState`, `HealthContextSchema`, `AgentConfig` |
-| `public_response.py` | Response contract: `AgentConversationResponse`, artifact extraction |
+| `public_response.py` | Response contract: `AgentConversationResponse` |
 | `tools.py` | All domain tools (health data, analytics, environment, etc.) |
 | `nodes.py` | Legacy node implementations (predates the `create_agent` migration) |
 
@@ -147,14 +146,12 @@ so routing stays understandable:
 - **Memory tools** -- durable coaching memory:
   - `search_memory` for retrieving relevant user context
   - `manage_memory` for create/update/delete of durable facts
-- **Computation tool** -- Python interpreter for custom calculations and
-  chart generation when structured analysis is needed.
 
 Design intent:
 - Specialists receive domain-scoped subsets of these tools from
   `whoopdata/agent/registry.py`.
 - The supervisor gets specialist wrappers plus a small set of direct tools
-  (Python interpreter + memory tools) for orchestration and synthesis.
+  (memory tools) for orchestration and synthesis.
 ## Memory
 
 The agent uses LangGraph's store abstraction for durable memory. Categories:

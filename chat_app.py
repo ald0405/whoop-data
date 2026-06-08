@@ -7,7 +7,6 @@ Ask questions about your workouts, sleep, recovery, weight trends, and more!
 """
 
 import logging
-import re
 from typing import List, Tuple
 
 import gradio as gr
@@ -55,37 +54,6 @@ async def chat_with_agent(
         session_id = conversation_response.session_id
         thread_id = conversation_response.thread_id
         agent_response = conversation_response.assistant_message
-
-        for artifact in conversation_response.artifacts:
-            if artifact.kind == "image" and artifact.mime_type == "image/png":
-                img_html = f'<img src="data:{artifact.mime_type};base64,{artifact.content}" style="max-width: 600px; border-radius: 8px; margin: 10px 0;"/>'
-                agent_response += f"\n\n{img_html}"
-
-        python_artifact = next(
-            (
-                artifact
-                for artifact in conversation_response.artifacts
-                if artifact.kind == "python_code"
-            ),
-            None,
-        )
-        if python_artifact and python_artifact.content:
-            code_block = (
-                f"\n\n**Generated Python Code:**\n```python\n{python_artifact.content}\n```\n\n"
-            )
-            agent_response = code_block + agent_response
-
-        # Convert markdown image syntax to HTML for Gradio
-        # Pattern: ![alt text](data:image/png;base64,...)
-        markdown_image_pattern = r"!\[([^\]]*)\]\((data:image/[^;]+;base64,[^)]+)\)"
-
-        def replace_markdown_image(match):
-            alt_text = match.group(1)
-            data_url = match.group(2)
-            return f'<img src="{data_url}" alt="{alt_text}" style="max-width: 600px; border-radius: 8px; margin: 10px 0;"/>'
-
-        agent_response = re.sub(markdown_image_pattern, replace_markdown_image, agent_response)
-        logger.info(f"Converted markdown images to HTML")
 
         logger.info(f"Agent response length: {len(agent_response)}")
 

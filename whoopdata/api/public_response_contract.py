@@ -64,16 +64,13 @@ PUBLIC_RESPONSE_CONTRACT: dict[CanonicalSurface, SurfaceResponseContract] = {
         summary="Stable conversational payloads that hide raw LangGraph state and preserve thread continuity.",
         primary_shapes=(
             "conversation turn response",
-            "assistant message with artifacts",
         ),
         invariants=(
             "Public agent responses expose assistant-facing message content instead of raw graph state dictionaries.",
             "Thread continuity is represented by thread_id, with optional session_id when a client needs higher-level session grouping.",
-            "Artifacts such as generated code or images are attached as typed outputs rather than leaked tool-call internals.",
         ),
         examples=(
             "AgentConversationResponse",
-            "AgentArtifact",
         ),
     ),
     "web": SurfaceResponseContract(

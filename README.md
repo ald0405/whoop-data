@@ -111,7 +111,6 @@ flowchart TD
     SUP -->|tool call| NU[nutrition]
     SUP -->|tool call| EN[environment]
     SUP -->|tool call| BM[biomechanics]
-    SUP -->|direct| PY[Python REPL]
     SUP -->|direct| MEM[Memory Tools]
 
     HD -->|data tools| HAPI[Health Data API]
@@ -213,7 +212,7 @@ is internal namespacing, separate from the upstream WHOOP API version.
 
 Documentation is organised in [`docs/`](docs/README.md):
 
-- [`docs/guides/`](docs/guides/) — operations/setup, testing, plotting, and contribution workflow
+- [`docs/guides/`](docs/guides/) — operations/setup, testing, and contribution workflow
 - [`docs/features/`](docs/features/) — feature specs and product behaviour
 - [`docs/technical/`](docs/technical/) — API changes, migration notes, implementation detail
 - [`whoopdata/agent/README.md`](whoopdata/agent/README.md) — agent architecture deep-dive

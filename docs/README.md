@@ -6,7 +6,6 @@
 - **[API Consolidation Summary](technical/API_CONSOLIDATION_SUMMARY.md)** - Complete overhaul of API endpoints with unified structure
 - **[Backward Compatibility Solution](technical/BACKWARD_COMPATIBILITY_SOLUTION.md)** - Two-tier API architecture maintaining website compatibility  
 - **[Database Issues Fixed](technical/DATABASE_ISSUES_FIXED.md)** - Resolution of data ordering and filtering problems
-- **[Matplotlib Fix](technical/MATPLOTLIB_FIX.md)** - Solution for GUI errors on macOS in headless environments
 
 ### Features Documentation (`features/`)
 - **[Coach Personality](features/COACH_PERSONALITY.md)** - Health data coach personality and communication style
@@ -14,7 +13,6 @@
 ### Guides (`guides/`)
 - **[Operations & Setup](guides/OPERATIONS.md)** - Shared memory, Telegram bot, run modes, command reference, and troubleshooting
 - **[Testing Guide](guides/TESTING_GUIDE.md)** - Test strategy, commands, and validation workflow
-- **[Plotting Guide](guides/PLOTTING_GUIDE.md)** - Visualization notes and plotting-related usage
 - **[PR Workflow](guides/PR_WORKFLOW.md)** - Pull request process and review workflow
 
 ## 🚀 Quick Links
