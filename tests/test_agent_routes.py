@@ -108,7 +108,6 @@ def test_send_message_route_returns_conversation_response():
             {"role": "user", "content": "Hello"},
             {"role": "assistant", "content": "Stubbed response"},
         ],
-        "artifacts": [],
     }
     assert stub.sent_with == ("Hello", "session-1", "thread-1", None, "api")
 

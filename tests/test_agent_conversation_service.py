@@ -48,17 +48,17 @@ def test_send_message_uses_existing_session_thread_and_shapes_response():
         {
             "messages": [
                 AIMessage(
-                    content="I'll generate a chart for you.",
+                    content="Let me pull your recovery data.",
                     tool_calls=[
                         {
-                            "name": "python_interpreter",
-                            "args": {"query": "print('chart')"},
+                            "name": "get_recovery_data_tool",
+                            "args": {"latest": True},
                             "id": "tool-call-1",
                         }
                     ],
                 ),
                 ToolMessage(
-                    content='{"images": [{"data": "abc123", "filename": "plot.png"}]}',
+                    content='{"recovery_score": 65}',
                     tool_call_id="tool-call-1",
                 ),
                 AIMessage(content="Here is your chart."),
@@ -80,8 +80,6 @@ def test_send_message_uses_existing_session_thread_and_shapes_response():
     assert response.thread_id == handle.thread_id
     assert response.assistant_message == "Here is your chart."
     assert response.messages[0].content == "Show me a chart"
-    assert any(artifact.kind == "python_code" for artifact in response.artifacts)
-    assert any(artifact.kind == "image" for artifact in response.artifacts)
     assert len(graph.calls) == 1
     call_input, call_config, call_context = graph.calls[0]
     assert call_config == {"configurable": {"thread_id": handle.thread_id}}

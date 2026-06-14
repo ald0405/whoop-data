@@ -3,7 +3,6 @@
 import httpx
 import json
 from langchain_core.tools import tool
-from langchain_experimental.tools import PythonREPLTool
 from . import settings
 from .memory_tools import search_memory, manage_memory
 
@@ -1033,103 +1032,6 @@ async def get_perfect_walk_times_tool(days: int = 3) -> str:
         return f"Error retrieving walk hotspots: {str(e)}"
 
 
-# Configure matplotlib globally before creating the tool
-import matplotlib
-import base64
-import glob
-
-matplotlib.use("Agg", force=True)
-
-
-class PythonREPLWithImages(PythonREPLTool):
-    """Enhanced Python REPL that captures generated plot images."""
-
-    name: str = "python_interpreter"
-    description: str = """Execute Python code to perform data analysis, create visualizations, and statistical computations.
-    
-    Use this tool to:
-    - Analyze health data with pandas and numpy
-    - Create charts and visualizations with matplotlib/seaborn
-    - Perform statistical analysis and calculations  
-    - Process JSON data from health APIs
-    - Calculate correlations, trends, and insights
-    
-    IMPORTANT: Matplotlib is configured for headless operation to prevent crashes.
-    
-    ALWAYS start your plotting code with these imports:
-    ```python
-    import matplotlib
-    matplotlib.use('Agg', force=True)
-    import matplotlib.pyplot as plt
-    plt.ioff()
-    import pandas as pd
-    import numpy as np
-    import seaborn as sns
-    ```
-    
-    For plotting:
-    - Create your plot as normal with plt.figure(), plt.plot(), etc.
-    - Use plt.savefig('filename.png') to save plots
-    - Images will be automatically captured and displayed
-    
-    Example:
-    ```python
-    import matplotlib
-    matplotlib.use('Agg', force=True) 
-    import matplotlib.pyplot as plt
-    plt.ioff()
-    import numpy as np
-    
-    x = np.linspace(0, 10, 100)
-    y = np.sin(x)
-    plt.figure(figsize=(8, 6))
-    plt.plot(x, y)
-    plt.title('Sin Wave')
-    plt.savefig('sin_plot.png', dpi=150, bbox_inches='tight')
-    plt.close()
-    print('Plot saved as sin_plot.png')
-    ```
-    """
-
-    def _run(self, query: str) -> str:
-        """Execute code and capture any generated images."""
-        # Get list of existing image files before execution
-        before_files = set(glob.glob("*.png") + glob.glob("*.jpg") + glob.glob("*.jpeg"))
-
-        # Execute the code using parent class
-        result = super()._run(query)
-
-        # Get list of image files after execution
-        after_files = set(glob.glob("*.png") + glob.glob("*.jpg") + glob.glob("*.jpeg"))
-
-        # Find new images
-        new_images = after_files - before_files
-
-        if new_images:
-            # Encode images as base64 and append to result
-            image_data = []
-            for image_path in sorted(new_images):
-                try:
-                    with open(image_path, "rb") as img_file:
-                        encoded = base64.b64encode(img_file.read()).decode("utf-8")
-                        image_data.append({"filename": image_path, "data": encoded})
-                except Exception as e:
-                    print(f"Error encoding {image_path}: {e}")
-
-            if image_data:
-                # Return result with embedded image data in JSON format
-                import json
-
-                return json.dumps({"output": result, "images": image_data})
-
-        # No images generated, return normal result
-        return result
-
-
-# Create instance of enhanced tool
-python_repl_tool = PythonREPLWithImages()
-
-
 # Name-based lookup for registry-driven tool resolution
 TOOLS_BY_NAME: dict[str, object] = {}
 
@@ -1176,8 +1078,6 @@ AVAILABLE_TOOLS = [
     # Tide Tools
     get_tide_times_tool,
     get_perfect_walk_times_tool,
-    # Code Execution Tools
-    python_repl_tool,
 ]
 
 # Populate name-based lookup

@@ -4,6 +4,21 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.11.0] - 2026-06-08
+
+### Removed
+- Removed the supervisor's `python_interpreter` tool (the `PythonREPLWithImages` Python REPL) and its in-chat plot/image generation path. The agent no longer executes arbitrary Python or returns generated charts as images.
+- Removed the dead artifact plumbing that only the REPL produced: the `image`/`python_code` `AgentArtifact` kinds, the `artifacts` field on `AgentConversationResponse`, artifact extraction in `whoopdata/agent/public_response.py`, and artifact rendering in `chat_app.py` and `whoopdata/telegram_bot.py`.
+- Dropped the `langchain-experimental` dependency (only used for `PythonREPLTool`) and the REPL-only `get_safe_matplotlib_imports` helper.
+- Deleted `docs/guides/PLOTTING_GUIDE.md` and `docs/technical/MATPLOTLIB_FIX.md`, which documented the removed REPL plotting capability.
+
+### Changed
+- Supervisor now receives specialist tools plus memory tools only (no direct Python interpreter). Updated the supervisor prompt (`data/prompts/agents/supervisor.md`), the legacy node prompt, the architecture diagrams in `README.md` and `whoopdata/agent/README.md`, and the public agent response contract to match.
+- `matplotlib`/`seaborn` are retained for the offline `analysis/` modules; the global headless (`Agg`) configuration is unchanged.
+
+### Notes
+- **Contract change:** the `agent` surface response no longer includes an `artifacts` field. It was only ever populated by the REPL's image/code output, so it carried no data once that tool was in use, and no other surface produced artifacts.
+
 ## [3.10.0] - 2026-06-03
 
 ### Added
