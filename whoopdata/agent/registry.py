@@ -194,4 +194,20 @@ AGENT_REGISTRY: dict[str, dict] = {
             "get_workout_data",
         ],
     },
+    "biomarkers": {
+        "name": "biomarkers",
+        "description": (
+            "Show the user's blood biomarker results from their most recent lab report: "
+            "the value, the testing lab's own reference range, and generic education about "
+            "what each biomarker is and does. Use this for questions about blood test "
+            "results, biomarkers, or lab values. This specialist only displays values and "
+            "generic education — it does NOT interpret results, say whether a value is "
+            "high/low, diagnose, or give medical advice."
+        ),
+        "system_prompt": _load_prompt("biomarkers_sub_agent.md"),
+        "tools": [
+            "get_biomarker_results",
+            "get_biomarker_education",
+        ],
+    },
 }

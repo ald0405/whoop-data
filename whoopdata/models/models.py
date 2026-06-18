@@ -323,3 +323,85 @@ class ProactiveMessageLog(Base):
     prompt = Column(String, nullable=False)
     telegram_message_id = Column(Integer)
     sent_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Biomarker analyser (Phase 0 prototype) — see docs/features/BIOMARKER_*.md
+# Governed by the intended-purpose statement: display + generic education only,
+# single result set, NO interpretation. The agent must NEVER surface lab_status.
+# ---------------------------------------------------------------------------
+
+
+class BiomarkerReport(Base):
+    """A single blood-test report (one active result set at a time).
+
+    Single-result-set is a structural control: seeding truncates and reloads
+    these tables, so the DB can never hold two timepoints — longitudinal
+    monitoring is impossible by construction, not just by policy.
+    """
+    __tablename__ = "biomarker_report"
+
+    report_id = Column(Integer, primary_key=True, autoincrement=True)
+    order_number = Column(String)
+    taken_on = Column(DateTime)  # Sample collection date
+    lab_provider = Column(String)
+    report_status = Column(String)
+    biological_sex = Column(String)
+    source_file = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    results = relationship(
+        "BiomarkerResult", back_populates="report", cascade="all, delete-orphan"
+    )
+
+
+class BiomarkerResult(Base):
+    """One analyte row, shaped after OMOP MEASUREMENT (no vocabulary mapping yet).
+
+    ``lab_status`` holds the lab's own verdict ("High"/"Low"/…). It is stored
+    for audit/future rungs but is NEVER selected by the agent-facing CRUD or
+    tools — surfacing it would be interpretation. ``measurement_concept_id`` /
+    ``unit_concept_id`` are nullable LOINC/UCUM hooks for a later OMOP export.
+    """
+    __tablename__ = "biomarker_results"
+
+    result_id = Column(Integer, primary_key=True, autoincrement=True)
+    report_id = Column(Integer, ForeignKey("biomarker_report.report_id"), nullable=False)
+    source_biomarker_name = Column(String, nullable=False)  # verbatim from the report
+    category = Column(String)  # neutral body-system grouping
+    result_raw = Column(String)  # raw cell text, e.g. "<6.72", "Negative", "144.0"
+    value_as_number = Column(Float)  # parsed numeric, nullable
+    value_as_concept = Column(String)  # qualitative result, e.g. "Negative"
+    operator = Column(String)  # "<", "=", ">"
+    unit = Column(String)
+    range_low = Column(Float)  # the lab's own range; nullable (often one-sided)
+    range_high = Column(Float)
+    lab_status = Column(String)  # STORED, NEVER SURFACED
+    measurement_concept_id = Column(Integer)  # nullable LOINC hook (unused in Phase 0)
+    unit_concept_id = Column(Integer)  # nullable UCUM hook (unused in Phase 0)
+
+    report = relationship("BiomarkerReport", back_populates="results")
+
+
+class BiomarkerEducation(Base):
+    """Generic, biomarker-keyed glossary: definition + normal physiological function.
+
+    Non-personalised and condition-free by construction. Content must never
+    describe what abnormal levels indicate or cause (the Step 6 education line).
+    """
+    __tablename__ = "biomarker_education"
+
+    source_biomarker_name = Column(String, primary_key=True)
+    what_it_is = Column(String)
+    physiological_function = Column(String)
+
+
+class SafetyAudit(Base):
+    """Per-output log from the graph-internal safety node."""
+    __tablename__ = "safety_audit"
+
+    audit_id = Column(Integer, primary_key=True, autoincrement=True)
+    surface = Column(String)  # "langgraph" | "telegram" | …
+    verdict = Column(String)  # "pass" | "blocked"
+    reason = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -1033,6 +1033,99 @@ async def get_perfect_walk_times_tool(days: int = 3) -> str:
 
 
 # Name-based lookup for registry-driven tool resolution
+# ---------------------------------------------------------------------------
+# Biomarker analyser tools (Phase 0 prototype)
+# These read the local DB directly (not the internal API) and return ONLY
+# agent-visible fields. The lab's own verdict (lab_status) is never returned.
+# Scope: display value + the lab's own range + generic education. NO high/low
+# verdict, NO interpretation. See docs/features/BIOMARKER_INTENDED_PURPOSE.md.
+# ---------------------------------------------------------------------------
+
+
+@tool(
+    "get_biomarker_results",
+    description=(
+        "Get the user's blood biomarker results from their single most recent lab "
+        "report: the value, unit, and the testing lab's own reference range, grouped "
+        "by body system. Does NOT include any high/low verdict. Optional category filter."
+    ),
+)
+async def get_biomarker_results_tool(category: str = None) -> str:
+    """Return the user's biomarker values and the lab's own reference ranges.
+
+    Args:
+        category: Optional body-system filter (e.g. "Heart & circulation").
+
+    Returns:
+        JSON string of results. Never includes the lab's own status/verdict.
+    """
+    try:
+        from whoopdata.crud import biomarker as crud
+        from whoopdata.database.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            report = crud.get_active_report(db)
+            rows = crud.get_results(db, category=category)
+        finally:
+            db.close()
+
+        if not rows:
+            return json.dumps({"results": [], "note": "No biomarker report has been loaded."})
+
+        payload = {
+            "report": {
+                "taken_on": report.taken_on.date().isoformat() if report and report.taken_on else None,
+                "lab_provider": report.lab_provider if report else None,
+            },
+            "results": rows,
+        }
+        return json.dumps(payload, indent=2, default=str)
+    except Exception as e:
+        return f"Error retrieving biomarker results: {str(e)}"
+
+
+@tool(
+    "get_biomarker_education",
+    description=(
+        "Get generic educational information about a single biomarker: what it is and "
+        "its normal physiological function. Non-personalised; does not interpret the "
+        "user's own result and never says what high or low levels indicate."
+    ),
+)
+async def get_biomarker_education_tool(biomarker: str) -> str:
+    """Return generic education (definition + normal function) for a biomarker.
+
+    Args:
+        biomarker: The biomarker name, e.g. "LDL Cholesterol".
+
+    Returns:
+        JSON string with the generic glossary entry, or a not-found note.
+    """
+    try:
+        from whoopdata.crud import biomarker as crud
+        from whoopdata.database.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            entry = crud.get_education(db, biomarker)
+        finally:
+            db.close()
+
+        if entry is None:
+            return json.dumps({
+                "biomarker": biomarker,
+                "note": "No generic education is available for this biomarker.",
+            })
+        return json.dumps({
+            "biomarker": entry.source_biomarker_name,
+            "what_it_is": entry.what_it_is,
+            "physiological_function": entry.physiological_function,
+        }, indent=2)
+    except Exception as e:
+        return f"Error retrieving biomarker education: {str(e)}"
+
+
 TOOLS_BY_NAME: dict[str, object] = {}
 
 
@@ -1078,6 +1171,9 @@ AVAILABLE_TOOLS = [
     # Tide Tools
     get_tide_times_tool,
     get_perfect_walk_times_tool,
+    # Biomarker Tools (Phase 0 prototype)
+    get_biomarker_results_tool,
+    get_biomarker_education_tool,
 ]
 
 # Populate name-based lookup
