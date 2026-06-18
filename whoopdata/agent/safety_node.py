@@ -24,7 +24,13 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
+
+# The safety boundary applies ONLY to biomarker turns — never to the general
+# WHOOP/Withings coach (which legitimately says "your recovery is low" or
+# "HRV is trending down"). A turn counts as a biomarker turn if one of these
+# tools was invoked in it.
+_BIOMARKER_TOOL_NAMES = {"get_biomarker_results", "get_biomarker_education"}
 
 FALLBACK_TEXT = (
     "I can show you your biomarker values and the testing lab's own reference ranges, "
@@ -123,6 +129,22 @@ def _log_audit(surface: str, verdict: str, reason: str | None) -> None:
         pass
 
 
+def is_biomarker_turn(messages: list[Any]) -> bool:
+    """True if a biomarker tool was invoked in the current message history.
+
+    Checks both ToolMessage names and AIMessage tool_calls so the boundary
+    fires whether or not the framework attaches names to tool results.
+    """
+    for msg in messages:
+        if isinstance(msg, ToolMessage) and getattr(msg, "name", None) in _BIOMARKER_TOOL_NAMES:
+            return True
+        for call in getattr(msg, "tool_calls", None) or []:
+            name = call.get("name") if isinstance(call, dict) else getattr(call, "name", None)
+            if name in _BIOMARKER_TOOL_NAMES:
+                return True
+    return False
+
+
 def _last_ai_text(messages: list[Any]) -> tuple[int, str] | None:
     for idx in range(len(messages) - 1, -1, -1):
         msg = messages[idx]
@@ -138,6 +160,12 @@ async def safety_node(state: dict, runtime: Any = None) -> dict:
     *last* AIMessage (what every surface extracts) is the safe one.
     """
     messages = state.get("messages", []) if isinstance(state, dict) else []
+
+    # Only enforce the biomarker boundary on biomarker turns. The general coach
+    # is left untouched.
+    if not is_biomarker_turn(messages):
+        return {}
+
     found = _last_ai_text(messages)
 
     surface = "unknown"

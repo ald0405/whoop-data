@@ -11,13 +11,18 @@ from __future__ import annotations
 
 import asyncio
 
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from whoopdata.agent.safety_node import (
     FALLBACK_TEXT,
     evaluate_text,
     safety_node,
 )
+
+
+def _biomarker_tool_msg() -> ToolMessage:
+    """A ToolMessage marking the turn as a biomarker turn."""
+    return ToolMessage(content="{}", name="get_biomarker_results", tool_call_id="t1")
 
 
 # --- Scope-creep battery: each MUST be blocked -----------------------------
@@ -82,6 +87,7 @@ def test_safety_node_replaces_blocked_output_with_fallback():
     state = {
         "messages": [
             HumanMessage(content="Is my glucose bad?"),
+            _biomarker_tool_msg(),
             AIMessage(content="Your glucose is high, which indicates pre-diabetes."),
         ]
     }
@@ -94,12 +100,26 @@ def test_safety_node_passes_safe_output_unchanged():
     state = {
         "messages": [
             HumanMessage(content="What's my LDL?"),
+            _biomarker_tool_msg(),
             AIMessage(content="Your LDL Cholesterol is 2.69 mmol/l; the lab's range goes up to 3."),
         ]
     }
     update = asyncio.run(safety_node(state, runtime=None))
     # No new messages appended -> the original safe answer stands.
     assert not update.get("messages")
+
+
+def test_safety_node_does_not_touch_the_general_coach():
+    """On a NON-biomarker turn the boundary must not fire, even on verdict words."""
+    state = {
+        "messages": [
+            HumanMessage(content="How's my recovery?"),
+            ToolMessage(content="{}", name="get_recovery_data", tool_call_id="r1"),
+            AIMessage(content="Your recovery is low today and your HRV is trending down."),
+        ]
+    }
+    update = asyncio.run(safety_node(state, runtime=None))
+    assert not update.get("messages"), "Non-biomarker coach output must pass through untouched"
 
 
 def test_crud_results_never_expose_lab_status():
