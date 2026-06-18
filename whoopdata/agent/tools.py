@@ -1066,12 +1066,36 @@ async def get_biomarker_results_tool(category: str = None) -> str:
         db = SessionLocal()
         try:
             report = crud.get_active_report(db)
-            rows = crud.get_results(db, category=category)
+            all_rows = crud.get_results(db)  # fetch all; filter leniently below
         finally:
             db.close()
 
-        if not rows:
-            return json.dumps({"results": [], "note": "No biomarker report has been loaded."})
+        if not all_rows:
+            return json.dumps({
+                "results": [],
+                "note": "No biomarker report has been loaded for this user.",
+            })
+
+        rows = all_rows
+        note = None
+        if category:
+            term = category.strip().lower()
+            # Lenient match on body-system category OR biomarker name, so the
+            # caller never has to guess the exact category string.
+            filtered = [
+                r for r in all_rows
+                if term in (r.get("category") or "").lower()
+                or term in (r.get("source_biomarker_name") or "").lower()
+            ]
+            if filtered:
+                rows = filtered
+            else:
+                # No match -> return everything rather than implying no data.
+                note = (
+                    f"No results matched '{category}'; returning all results. "
+                    f"Available groups: "
+                    + ", ".join(sorted({r.get("category") for r in all_rows if r.get("category")}))
+                )
 
         payload = {
             "report": {
@@ -1080,6 +1104,8 @@ async def get_biomarker_results_tool(category: str = None) -> str:
             },
             "results": rows,
         }
+        if note:
+            payload["note"] = note
         return json.dumps(payload, indent=2, default=str)
     except Exception as e:
         return f"Error retrieving biomarker results: {str(e)}"

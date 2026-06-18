@@ -68,6 +68,10 @@ _BLOCK_PATTERNS: list[tuple[re.Pattern[str], str]] = [
         r"linked to|associated with|can cause|may cause|could cause|"
         r"leads? to|could lead to|puts? you at|results? in)\b",
         re.IGNORECASE), "interpretation: links result to a meaning/consequence"),
+    (re.compile(
+        r"\b(too (?:much|little|high|low)|excess|excessive|"
+        r"build(?:s|ing)?[\s-]?up|stick(?:s|ing|y)?\s+to|clog\w*)\b",
+        re.IGNORECASE), "consequence-of-abnormal phrasing (too much/builds up/clogs)"),
     # --- Named conditions / diagnoses ---
     (re.compile(
         r"\b(deficiency|an(?:ae|e)mia|diabet(?:es|ic)|pre[\s-]?diabet(?:es|ic)|"
