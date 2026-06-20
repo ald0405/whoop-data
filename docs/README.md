@@ -3,6 +3,7 @@
 ## 📁 Documentation Structure
 
 ### Technical Documentation (`technical/`)
+- **[Database Schema](technical/DATABASE_SCHEMA.md)** - The two databases (SQLite domain data, Postgres agent persistence) and the WHOOP/Withings entity-relationship diagram
 - **[API Consolidation Summary](technical/API_CONSOLIDATION_SUMMARY.md)** - Complete overhaul of API endpoints with unified structure
 - **[Backward Compatibility Solution](technical/BACKWARD_COMPATIBILITY_SOLUTION.md)** - Two-tier API architecture maintaining website compatibility  
 - **[Database Issues Fixed](technical/DATABASE_ISSUES_FIXED.md)** - Resolution of data ordering and filtering problems

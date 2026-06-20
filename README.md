@@ -154,6 +154,8 @@ backed by Postgres (with an in-memory fallback for development), so threads and 
 restarts and are shared across every transport.
 
 > Architecture deep-dive, module map, and prompt design: [`whoopdata/agent/README.md`](whoopdata/agent/README.md).
+> Data model and the two-database split (SQLite domain data, Postgres agent persistence):
+> [`docs/technical/DATABASE_SCHEMA.md`](docs/technical/DATABASE_SCHEMA.md).
 > The platform is ~27k lines across ~109 Python modules with ~30 test suites.
 
 ## Tech stack
