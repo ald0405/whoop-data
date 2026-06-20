@@ -144,9 +144,8 @@ is high or low, and never diagnoses. Its scope is defined by a written **intende
 in [`docs/features/BIOMARKER_INTENDED_PURPOSE.md`](docs/features/BIOMARKER_INTENDED_PURPOSE.md), and
 that document's "does NOT" list is enforced in code by a deterministic **safety node**
 (`whoopdata/agent/safety_node.py`) that runs on every biomarker turn and replaces any answer that
-strays into interpretation with a fixed "speak to a clinician" message. Supporting design docs:
-[`BIOMARKER_ANALYSER_PLAN.md`](docs/features/BIOMARKER_ANALYSER_PLAN.md) and
-[`BIOMARKER_SCHEMA.md`](docs/features/BIOMARKER_SCHEMA.md).
+strays into interpretation with a fixed "speak to a clinician" message. The database shape is
+documented in [`BIOMARKER_SCHEMA.md`](docs/features/BIOMARKER_SCHEMA.md).
 
 The video path is a three-stage pipeline — dense local pose analysis (up to 600 frames,
 33 landmarks per frame) → structured metrics passed to a vision-capable agent → supervisor
