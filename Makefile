@@ -1,4 +1,4 @@
-.PHONY: help install dev sync run server etl etl-full etl-now etl-up etl-down etl-test chat telegram-bot analytics langgraph-dev dev-all dev-full dev-full-stop postgres-up postgres-down postgres-logs test format lint typecheck clean verify schedule-up schedule-down schedule-test morning-now proactive-now weakness-now weakness-preview services-up services-down services-test download-models
+.PHONY: help install dev sync run server etl etl-full etl-now etl-up etl-down etl-test chat telegram-bot analytics langgraph-dev dev-all dev-full dev-full-stop postgres-up postgres-down postgres-logs test format lint typecheck clean verify schedule-up schedule-down schedule-test morning-now proactive-now weakness-now weakness-preview services-up services-down services-test download-models traces
 
 # Default target
 help:
@@ -290,6 +290,10 @@ typecheck:
 verify:
 	@echo "✅ Running system verification..."
 	uv run python scripts/verify_system.py
+
+traces:
+	@echo "🔍 Pulling LangSmith traces (pass args via ARGS=...)..."
+	uv run python scripts/pull_langsmith_traces.py $(ARGS)
 
 # Cleanup targets
 clean:
