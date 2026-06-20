@@ -1,9 +1,9 @@
 # Biomarker Analyser — Intended Purpose (v0.1, Phase 0 prototype)
 
 > **Status:** governance source of truth for the biomarker analyser. Change-controlled.
-> The safety node (`whoopdata/agent/safety_node.py`) and `tests/test_biomarker_boundary.py`
-> are **implementations of this document** — if this document changes, they change.
-> Companion: [`BIOMARKER_SCHEMA.md`](BIOMARKER_SCHEMA.md).
+> The biomarkers sub-agent prompt (`data/prompts/agents/biomarkers_sub_agent.md`) and
+> `tests/test_biomarker_boundary.py` are **implementations of this document** — if this
+> document changes, they change. Companion: [`BIOMARKER_SCHEMA.md`](BIOMARKER_SCHEMA.md).
 
 This is a **personal Phase 0 prototype** — not a shipped product, not a regulated device, no
 external claims. The intended purpose below is deliberately scoped so the software has **no medical
@@ -79,9 +79,11 @@ must stop *before* any consequence-of-abnormal.
 ## Operative spec for code
 
 The **"does NOT" list above is the specification** for:
-- the graph-internal safety node (`whoopdata/agent/safety_node.py`),
-- the scope-creep battery (`tests/test_biomarker_boundary.py`),
+- the biomarkers sub-agent prompt (`data/prompts/agents/biomarkers_sub_agent.md`), which is the
+  sole guardrail: it instructs the model to show values + the lab's own range and generic
+  education only, and to refer any interpretation to a clinician,
 - the data layer: `lab_status` is stored but **never surfaced** by CRUD/tools, and the single
-  result set is enforced by truncate-and-load (`whoopdata/crud/biomarker.py`).
+  result set is enforced by truncate-and-load (`whoopdata/crud/biomarker.py`) — this invariant is
+  tested by `tests/test_biomarker_boundary.py`.
 
 If any line here changes, those implementations must change with it.

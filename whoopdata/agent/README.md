@@ -44,10 +44,11 @@ appropriate coaching tone and any cross-domain context.
 
 The `biomarkers` specialist is a non-medical-device prototype bounded by a
 written intended-purpose statement (`docs/features/BIOMARKER_INTENDED_PURPOSE.md`).
-Because the supervisor owns the final message, a single deterministic **safety
-node** (`safety_node.py`) wrapped around the graph (`agent -> safety_node -> END`)
-can enforce that boundary on every biomarker turn -- replacing any answer that
-interprets a result with a fixed "speak to a clinician" fallback.
+That boundary -- display values and generic education only, never a verdict,
+interpretation, diagnosis, or trend -- is enforced by the biomarkers sub-agent
+prompt (`data/prompts/agents/biomarkers_sub_agent.md`), which instructs the
+model to give the value and the lab's own range and direct the user to a
+clinician for any interpretation.
 
 ## Video Pipeline
 

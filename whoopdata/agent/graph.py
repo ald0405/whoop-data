@@ -9,12 +9,10 @@ from typing import Any
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
 from langgraph.constants import CONFIG_KEY_CHECKPOINTER
-from langgraph.graph import END, START, StateGraph
 from .memory_tools import manage_memory, search_memory
 
 from .prompts import SUPERVISOR_SYSTEM_PROMPT
-from .safety_node import safety_node
-from .schemas import AgentConfig, HealthAgentState, HealthContextSchema
+from .schemas import AgentConfig, HealthContextSchema
 from .model_config_loader import get_supervisor_model_config
 from .model_factory import build_chat_model
 from .specialists import build_specialist_tools
@@ -110,10 +108,10 @@ def _create_graph(*, checkpointer: Any | None = None, store: Any | None = None):
     )
 
     # Create the supervisor agent. create_agent returns a compiled LangGraph
-    # graph that handles the tool-calling loop internally. Persistence
-    # (checkpointer/store) stays on the supervisor exactly as before; the config
-    # (thread_id) propagates down to it when the outer graph is invoked, so
-    # conversation persistence is unchanged.
+    # graph that handles the tool-calling loop internally and is itself the
+    # user-facing graph. Persistence (checkpointer/store) is attached directly
+    # here so conversation history is replayed across turns for a given
+    # thread_id — the supervisor IS the compiled graph, with nothing wrapping it.
     supervisor_model = build_chat_model(get_supervisor_model_config())
     graph_kwargs = {
         "model": supervisor_model,
@@ -127,21 +125,7 @@ def _create_graph(*, checkpointer: Any | None = None, store: Any | None = None):
     if store is not None:
         graph_kwargs["store"] = store
 
-    agent = create_agent(**graph_kwargs)
-
-    # Wrap the supervisor in an outer graph that runs the biomarker safety node
-    # on the final assistant message: agent -> safety_node -> END. This sits
-    # inside the compiled graph so BOTH user-facing surfaces inherit it — the
-    # LangGraph/LangSmith UI (loads the graph directly) and Telegram (calls the
-    # same graph via ConversationService). See whoopdata/agent/safety_node.py.
-    builder = StateGraph(HealthAgentState, context_schema=HealthContextSchema)
-    builder.add_node("agent", agent)
-    builder.add_node("safety_node", safety_node)
-    builder.add_edge(START, "agent")
-    builder.add_edge("agent", "safety_node")
-    builder.add_edge("safety_node", END)
-
-    return builder.compile()
+    return create_agent(**graph_kwargs)
 
 
 def build_graph(config: dict[str, Any] | None = None):

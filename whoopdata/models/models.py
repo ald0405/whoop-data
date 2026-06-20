@@ -394,14 +394,3 @@ class BiomarkerEducation(Base):
     source_biomarker_name = Column(String, primary_key=True)
     what_it_is = Column(String)
     physiological_function = Column(String)
-
-
-class SafetyAudit(Base):
-    """Per-output log from the graph-internal safety node."""
-    __tablename__ = "safety_audit"
-
-    audit_id = Column(Integer, primary_key=True, autoincrement=True)
-    surface = Column(String)  # "langgraph" | "telegram" | …
-    verdict = Column(String)  # "pass" | "blocked"
-    reason = Column(String)
-    created_at = Column(DateTime, default=datetime.utcnow)
