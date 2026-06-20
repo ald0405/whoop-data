@@ -4,6 +4,18 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.13.1] - 2026-06-20
+
+### Fixed
+- Restored cross-turn conversation memory for the health agent. The supervisor had stopped remembering anything earlier in a conversation -- every turn started cold -- which surfaced as the agent "forgetting" biomarkers (or any data) it had just pulled when the user asked a follow-up. Confirmed via LangSmith traces: the supervisor (`health_coach`) received only a single input message on consecutive turns sharing one `thread_id`.
+- Root cause: the Phase 0 biomarker change (3.12.0) wrapped the supervisor in an outer `StateGraph` (to host a safety node) that was compiled without a checkpointer. In LangGraph a nested graph inherits the parent's persistence at runtime, so the checkpointer attached to the inner supervisor was overridden by the outer graph's absent one, and no conversation state was ever saved or replayed for a `thread_id`.
+
+### Removed
+- Deleted the deterministic biomarker safety node (`whoopdata/agent/safety_node.py`) and its outer-graph wrapper, which was the sole reason the checkpointer-less wrapper existed. The supervisor is once again the outermost compiled graph and carries the checkpointer/store directly, so persistence works as it did before 3.12.0. Removed the now-orphaned `SafetyAudit` model / `safety_audit` table (any existing table is left untouched, not dropped).
+
+### Changed
+- The biomarker intended-purpose boundary (no verdict, interpretation, diagnosis, or trend) is now enforced solely by the `biomarkers` sub-agent prompt (`data/prompts/agents/biomarkers_sub_agent.md`) rather than a downstream deterministic check. This trades a regex guarantee for prompt-based guardrails -- an accepted trade-off for this personal prototype. Updated `docs/features/BIOMARKER_INTENDED_PURPOSE.md`, `whoopdata/agent/README.md`, and the boundary tests (`tests/test_biomarker_boundary.py` retains the data-layer invariant that `lab_status` is never surfaced) accordingly.
+
 ## [3.13.0] - 2026-06-20
 
 ### Added
