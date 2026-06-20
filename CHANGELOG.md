@@ -4,6 +4,17 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.13.0] - 2026-06-20
+
+### Added
+- `scripts/pull_langsmith_traces.py`: a developer CLI for pulling LangSmith traces of the health agent and dumping them for analysis. It supports a recent-time sweep (`--hours`/`--limit`) and targeted pulls by `--trace`, `--run`, or `--thread` id (a bare positional id is auto-detected). For each trace it writes the full raw run tree as JSON plus a readable, indented timeline to `data/traces/` (gitignored), and prints the timeline. The timeline surfaces the exact `messages` passed into each specialist sub-run, which is the key signal when debugging cross-turn context.
+- `--filter` and `--list` derive their known specialist and tool names live from `whoopdata/agent/registry.AGENT_REGISTRY`, so the CLI stays in sync automatically whenever a specialist or tool is added or renamed -- no edits to the script required.
+- `make traces` convenience target (e.g. `make traces ARGS="--filter biomarkers"`).
+
+### Notes
+- Developer tooling only -- no change to the runtime agent, API, or any user-facing surface.
+- Uses the LangSmith read API (`list_runs`/`read_run`), which is available on the free (Developer) plan. Traces are read from the project named by `LANGSMITH_PROJECT`. Pulled traces may contain personal health data, so the output directory lives under the gitignored `data/`.
+
 ## [3.12.0] - 2026-06-20
 
 ### Added
