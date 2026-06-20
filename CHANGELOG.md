@@ -4,6 +4,25 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.12.0] - 2026-06-20
+
+### Added
+- Blood biomarker analyser (Phase 0): a new `biomarkers` specialist that displays the user's own blood test values and the testing laboratory's own reference ranges, organised by body system, plus generic education about what each biomarker is and its normal physiological function. It is deliberately scoped as a non-medical-device prototype -- it never interprets a result, never states whether a value is high or low, never diagnoses, and operates on a single result set at a time.
+- Written intended-purpose statement at `docs/features/BIOMARKER_INTENDED_PURPOSE.md` (first-principles derivation, verb ledger, and education boundary), with companion `docs/features/BIOMARKER_SCHEMA.md` (entity-relationship diagram) and `docs/features/BIOMARKER_ANALYSER_PLAN.md`.
+- New SQLite tables, additive to `whoop.db`: `biomarker_report`, `biomarker_results` (shaped after OMOP MEASUREMENT, with nullable LOINC/UCUM mapping hooks), `biomarker_education`, and `safety_audit`. `whoopdata/crud/biomarker.py` never selects the laboratory's own status verdict, and seeding is a truncate-and-load scoped to the biomarker tables so only one result set (a single timepoint) is ever held -- making longitudinal monitoring structurally impossible.
+- Two read-only agent tools, `get_biomarker_results` and `get_biomarker_education`, plus the specialist prompt `data/prompts/agents/biomarkers_sub_agent.md`.
+- Deterministic safety node (`whoopdata/agent/safety_node.py`) wrapped around the supervisor graph (`agent -> safety_node -> END`) so both the LangGraph UI and Telegram inherit it. On biomarker turns it blocks any verdict, interpretation, condition naming, treatment advice, or trend language and substitutes a fixed "speak to a clinician" message; every verdict is logged to `safety_audit`.
+- `scripts/seed_biomarkers.py` to load a parsed report into the biomarker tables.
+- `tests/test_biomarker_boundary.py`: a scope-creep battery (interpretive outputs are blocked), safe-output checks (value, range, and generic education pass), and a guard that the safety node never affects the general coach.
+
+### Changed
+- Supervisor routing prompt (`data/prompts/agents/supervisor.md`) now lists the `biomarkers` specialist, with an instruction to relay value, range, and generic education only -- no verdict or interpretation.
+- Architecture diagrams and specialist tables in `README.md` and `whoopdata/agent/README.md` updated for the eighth specialist and the safety node.
+
+### Notes
+- The biomarker analyser is a non-medical-device prototype. Its scope is governed by `docs/features/BIOMARKER_INTENDED_PURPOSE.md`; the safety node and boundary tests are implementations of that document.
+- The user's own biomarker results are not committed (the `data/` directory is gitignored, as with `whoop.db`); only the generic education glossary is versioned.
+
 ## [3.11.0] - 2026-06-08
 
 ### Removed

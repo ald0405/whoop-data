@@ -69,7 +69,7 @@ and offered a small, restart-the-habit action — each delivered in a consistent
 The interesting work here is less the code and more the judgement calls. A few worth calling
 out:
 
-- **Supervisor + specialists, not one mega-prompt.** A routing supervisor delegates to seven
+- **Supervisor + specialists, not one mega-prompt.** A routing supervisor delegates to eight
   scoped specialists (each with a curated tool set and domain prompt). This keeps each
   reasoning step focused, makes routing debuggable, and lets cost/quality be tuned per
   specialist — at the cost of some orchestration overhead, which is the right trade for answer
@@ -111,14 +111,18 @@ flowchart TD
     SUP -->|tool call| NU[nutrition]
     SUP -->|tool call| EN[environment]
     SUP -->|tool call| BM[biomechanics]
+    SUP -->|tool call| BIO[biomarkers]
     SUP -->|direct| MEM[Memory Tools]
 
     HD -->|data tools| HAPI[Health Data API]
     AN -->|analytics tools| HAPI
     BM -->|memory| MEM
+    BIO -->|read-only| DB[(biomarker tables)]
+    SUP --> SAFE[Safety node]
+    SAFE -->|biomarker turns only| OUT([Final reply])
 ```
 
-**The seven specialists**
+**The eight specialists**
 
 | Specialist | What it owns |
 |---|---|
@@ -129,6 +133,20 @@ flowchart TD
 | `nutrition` | Protein/macro guidance grounded in current body metrics |
 | `environment` | Weather, air quality, transport, and outdoor-timing context |
 | `biomechanics` | Video movement analysis (MediaPipe pose) for serve/lift form |
+| `biomarkers` | Displays blood test values and the lab's own reference ranges, plus generic education (non-device, no interpretation) |
+
+### Biomarker analyser (intended-use boundary)
+
+The `biomarkers` specialist is a deliberately scoped, **non-medical-device** prototype: it displays
+the user's own blood test values and the testing laboratory's own reference ranges, and gives generic
+education about what each biomarker is, but it never interprets a result, never states whether a value
+is high or low, and never diagnoses. Its scope is defined by a written **intended-purpose statement**
+in [`docs/features/BIOMARKER_INTENDED_PURPOSE.md`](docs/features/BIOMARKER_INTENDED_PURPOSE.md), and
+that document's "does NOT" list is enforced in code by a deterministic **safety node**
+(`whoopdata/agent/safety_node.py`) that runs on every biomarker turn and replaces any answer that
+strays into interpretation with a fixed "speak to a clinician" message. Supporting design docs:
+[`BIOMARKER_ANALYSER_PLAN.md`](docs/features/BIOMARKER_ANALYSER_PLAN.md) and
+[`BIOMARKER_SCHEMA.md`](docs/features/BIOMARKER_SCHEMA.md).
 
 The video path is a three-stage pipeline — dense local pose analysis (up to 600 frames,
 33 landmarks per frame) → structured metrics passed to a vision-capable agent → supervisor

@@ -28,16 +28,26 @@ flowchart TD
     SUP -->|tool call| NU[nutrition<br/>gpt-4o-mini]
     SUP -->|tool call| EN[environment<br/>gpt-4o-mini]
     SUP -->|tool call| BM[biomechanics<br/>gpt-5.4-mini]
+    SUP -->|tool call| BIO[biomarkers<br/>gpt-4o-mini]
     SUP -->|direct| MEM[Memory Tools]
 
     HD -->|data tools| HAPI[Health Data API]
     AN -->|analytics tools| HAPI
     BM -->|memory| MEM
+    BIO -->|read-only| DB[(biomarker tables)]
+    SUP --> SAFE[Safety node<br/>biomarker turns only]
 ```
 
 The supervisor always produces the final user-facing response. Specialists
 return their output to the supervisor, which synthesises it with the
 appropriate coaching tone and any cross-domain context.
+
+The `biomarkers` specialist is a non-medical-device prototype bounded by a
+written intended-purpose statement (`docs/features/BIOMARKER_INTENDED_PURPOSE.md`).
+Because the supervisor owns the final message, a single deterministic **safety
+node** (`safety_node.py`) wrapped around the graph (`agent -> safety_node -> END`)
+can enforce that boundary on every biomarker turn -- replacing any answer that
+interprets a result with a fixed "speak to a clinician" fallback.
 
 ## Video Pipeline
 
