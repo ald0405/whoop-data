@@ -3,8 +3,7 @@
 > **Status:** governance source of truth for the biomarker analyser. Change-controlled.
 > The safety node (`whoopdata/agent/safety_node.py`) and `tests/test_biomarker_boundary.py`
 > are **implementations of this document** — if this document changes, they change.
-> Companion: [`BIOMARKER_ANALYSER_PLAN.md`](BIOMARKER_ANALYSER_PLAN.md) ·
-> [`BIOMARKER_SCHEMA.md`](BIOMARKER_SCHEMA.md).
+> Companion: [`BIOMARKER_SCHEMA.md`](BIOMARKER_SCHEMA.md).
 
 This is a **personal Phase 0 prototype** — not a shipped product, not a regulated device, no
 external claims. The intended purpose below is deliberately scoped so the software has **no medical
