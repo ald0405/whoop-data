@@ -66,13 +66,41 @@ tweak.
 
 ## The education boundary (Step 6 line — the live drift edge)
 
-Generic education may describe **what a biomarker is** and its **normal physiological function**. It
-must stop *before* any consequence-of-abnormal.
+Generic education from the DB glossary (`get_biomarker_education`) describes **what a biomarker is**
+and its **normal physiological function**, and stops *before* any consequence-of-abnormal.
 
 - ✅ Allowed: *"LDL is a lipoprotein that carries cholesterol around the body. Cholesterol is used to
   build cells and make hormones."*
-- ⛔ Blocked: *"High LDL is linked to heart disease." · "Low B12 can cause fatigue." · "Your level
-  suggests…"*
+- ⛔ Blocked from the glossary tool: *"High LDL is linked to heart disease." · "Your level suggests…"*
+
+This baseline is **extended — not removed —** by the vetted-knowledge amendment below.
+
+---
+
+## Amendment: vetted knowledge grounding (Emerald RAG)
+
+The agent may additionally serve **vetted, source-attributed general knowledge** from Emerald's
+public knowledge base via `get_biomarker_knowledge` (pgvector RAG over scraped markdown). This content
+*may* include what elevated/low levels **generally** indicate.
+
+**Why this stays outside the device definition (first-principles):** the medical-purpose hinge is
+whether software *processes a specific individual's data to produce a patient-specific output for a
+clinical purpose*. A static, general, source-attributed knowledge article is **general medical
+information** — the same category as a textbook or the lab's own leaflet — not applied to the
+individual. A library is not a device. The risk lives entirely in **juxtaposition**: placing a
+general "elevated LDL means X" *next to* the user's own "LDL 145" in the same answer reconstructs an
+individualised interpretation. So the controllable variable is the **serving contract**, not the
+corpus.
+
+**The load-bearing control is the no-bridging rule:**
+
+- ✅ Allowed: *"Per Emerald's knowledge base, elevated LDL is generally associated with cardiovascular
+  risk."* (general, attributed, stands alone)
+- ⛔ Still blocked: bridging it to the user's number — *"your 145 is elevated, which means…"* — or any
+  verdict / interpretation / diagnosis / trend on **their** value.
+
+This is a deliberate scope decision for the prototype: the corpus is rich; the boundary is enforced at
+serving time by the sub-agent prompt's no-bridging contract.
 
 ---
 
@@ -80,10 +108,14 @@ must stop *before* any consequence-of-abnormal.
 
 The **"does NOT" list above is the specification** for:
 - the biomarkers sub-agent prompt (`data/prompts/agents/biomarkers_sub_agent.md`), which is the
-  sole guardrail: it instructs the model to show values + the lab's own range and generic
-  education only, and to refer any interpretation to a clinician,
+  sole guardrail: it instructs the model to show values + the lab's own range, generic education, and
+  vetted general (Emerald) knowledge with attribution — never bridging the latter to the user's own
+  value, and referring any interpretation of *their* result to a clinician,
 - the data layer: `lab_status` is stored but **never surfaced** by CRUD/tools, and the single
   result set is enforced by truncate-and-load (`whoopdata/crud/biomarker.py`) — this invariant is
-  tested by `tests/test_biomarker_boundary.py`.
+  tested by `tests/test_biomarker_boundary.py`,
+- the knowledge layer: vetted Emerald markdown is embedded into pgvector
+  (`whoopdata/knowledge/ingest_biomarker_kb.py`) and served read-only as general, source-attributed
+  passages by `get_biomarker_knowledge` (`whoopdata/knowledge/biomarker_kb.py`).
 
 If any line here changes, those implementations must change with it.

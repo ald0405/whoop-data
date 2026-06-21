@@ -100,3 +100,6 @@ private/
 *.xlsx
 health_data/
 exports/
+
+# Local DB backups (pg_dump)
+.backups/

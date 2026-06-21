@@ -1,5 +1,6 @@
 """Agent tools for health data retrieval."""
 
+import asyncio
 import httpx
 import json
 from langchain_core.tools import tool
@@ -1152,6 +1153,77 @@ async def get_biomarker_education_tool(biomarker: str) -> str:
         return f"Error retrieving biomarker education: {str(e)}"
 
 
+@tool(
+    "get_biomarker_knowledge",
+    description=(
+        "Look up vetted, source-attributed general knowledge about a biomarker from "
+        "Emerald's knowledge base, including what elevated or low levels generally "
+        "indicate. This is GENERAL reference material, NOT about the user's own value. "
+        "Use it to enrich education; never connect what is returned to the user's "
+        "specific result. Returns relevant passages with their Emerald source URL."
+    ),
+)
+async def get_biomarker_knowledge_tool(query: str, biomarker: str = None) -> str:
+    """Retrieve vetted general knowledge passages about a biomarker.
+
+    Args:
+        query: What to look up, e.g. "what does elevated LDL indicate".
+        biomarker: Optional biomarker name to scope the search, e.g. "LDL Cholesterol".
+
+    Returns:
+        JSON string of source-attributed passages, or a note when the knowledge
+        base is unavailable (so the caller falls back to get_biomarker_education).
+    """
+    try:
+        from whoopdata.knowledge.biomarker_kb import get_kb_store
+
+        store = get_kb_store()
+        if store is None:
+            return json.dumps({
+                "passages": [],
+                "note": (
+                    "Vetted knowledge base is unavailable; use get_biomarker_education "
+                    "for generic education instead."
+                ),
+            })
+
+        k = settings.BIOMARKER_KB_TOP_K
+
+        # PGVector.similarity_search is sync/blocking; offload to a thread so this
+        # async tool doesn't stall the event loop. Filter uses the documented
+        # operator syntax ({"field": {"$eq": value}}).
+        def _search(flt):
+            return store.similarity_search(query, k=k, filter=flt)
+
+        hits = []
+        if biomarker:
+            hits = await asyncio.to_thread(_search, {"biomarker": {"$eq": biomarker}})
+        if not hits:
+            # No biomarker given, or the scoped filter matched nothing — fall back
+            # to an unfiltered semantic search.
+            hits = await asyncio.to_thread(_search, None)
+
+        if not hits:
+            return json.dumps({
+                "passages": [],
+                "note": "No vetted knowledge matched this query.",
+            })
+
+        passages = [
+            {
+                "content": doc.page_content,
+                "biomarker": doc.metadata.get("biomarker"),
+                "section": doc.metadata.get("section"),
+                "source": doc.metadata.get("source", "Emerald"),
+                "source_url": doc.metadata.get("source_url"),
+            }
+            for doc in hits
+        ]
+        return json.dumps({"passages": passages}, indent=2, default=str)
+    except Exception as e:
+        return f"Error retrieving biomarker knowledge: {str(e)}"
+
+
 TOOLS_BY_NAME: dict[str, object] = {}
 
 
@@ -1200,6 +1272,7 @@ AVAILABLE_TOOLS = [
     # Biomarker Tools (Phase 0 prototype)
     get_biomarker_results_tool,
     get_biomarker_education_tool,
+    get_biomarker_knowledge_tool,
 ]
 
 # Populate name-based lookup
