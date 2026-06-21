@@ -1072,10 +1072,12 @@ async def get_biomarker_results_tool(category: str = None) -> str:
             db.close()
 
         if not all_rows:
-            return json.dumps({
-                "results": [],
-                "note": "No biomarker report has been loaded for this user.",
-            })
+            return json.dumps(
+                {
+                    "results": [],
+                    "note": "No biomarker report has been loaded for this user.",
+                }
+            )
 
         rows = all_rows
         note = None
@@ -1084,7 +1086,8 @@ async def get_biomarker_results_tool(category: str = None) -> str:
             # Lenient match on body-system category OR biomarker name, so the
             # caller never has to guess the exact category string.
             filtered = [
-                r for r in all_rows
+                r
+                for r in all_rows
                 if term in (r.get("category") or "").lower()
                 or term in (r.get("source_biomarker_name") or "").lower()
             ]
@@ -1100,7 +1103,9 @@ async def get_biomarker_results_tool(category: str = None) -> str:
 
         payload = {
             "report": {
-                "taken_on": report.taken_on.date().isoformat() if report and report.taken_on else None,
+                "taken_on": (
+                    report.taken_on.date().isoformat() if report and report.taken_on else None
+                ),
                 "lab_provider": report.lab_provider if report else None,
             },
             "results": rows,
@@ -1140,15 +1145,20 @@ async def get_biomarker_education_tool(biomarker: str) -> str:
             db.close()
 
         if entry is None:
-            return json.dumps({
-                "biomarker": biomarker,
-                "note": "No generic education is available for this biomarker.",
-            })
-        return json.dumps({
-            "biomarker": entry.source_biomarker_name,
-            "what_it_is": entry.what_it_is,
-            "physiological_function": entry.physiological_function,
-        }, indent=2)
+            return json.dumps(
+                {
+                    "biomarker": biomarker,
+                    "note": "No generic education is available for this biomarker.",
+                }
+            )
+        return json.dumps(
+            {
+                "biomarker": entry.source_biomarker_name,
+                "what_it_is": entry.what_it_is,
+                "physiological_function": entry.physiological_function,
+            },
+            indent=2,
+        )
     except Exception as e:
         return f"Error retrieving biomarker education: {str(e)}"
 
@@ -1179,13 +1189,15 @@ async def get_biomarker_knowledge_tool(query: str, biomarker: str = None) -> str
 
         store = get_kb_store()
         if store is None:
-            return json.dumps({
-                "passages": [],
-                "note": (
-                    "Vetted knowledge base is unavailable; use get_biomarker_education "
-                    "for generic education instead."
-                ),
-            })
+            return json.dumps(
+                {
+                    "passages": [],
+                    "note": (
+                        "Vetted knowledge base is unavailable; use get_biomarker_education "
+                        "for generic education instead."
+                    ),
+                }
+            )
 
         k = settings.BIOMARKER_KB_TOP_K
 
@@ -1204,10 +1216,12 @@ async def get_biomarker_knowledge_tool(query: str, biomarker: str = None) -> str
             hits = await asyncio.to_thread(_search, None)
 
         if not hits:
-            return json.dumps({
-                "passages": [],
-                "note": "No vetted knowledge matched this query.",
-            })
+            return json.dumps(
+                {
+                    "passages": [],
+                    "note": "No vetted knowledge matched this query.",
+                }
+            )
 
         passages = [
             {
