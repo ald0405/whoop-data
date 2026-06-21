@@ -1,0 +1,18 @@
+services:
+  postgres:
+    # pgvector image = stock Postgres 16 + the `vector` extension, used both for
+    # agent persistence and the biomarker knowledge base (Emerald RAG).
+    image: pgvector/pgvector:pg16
+    container_name: whoop-agent-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: whoop_agent
+    ports:
+      - "5432:5432"
+    volumes:
+      - whoop-agent-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  whoop-agent-postgres-data:

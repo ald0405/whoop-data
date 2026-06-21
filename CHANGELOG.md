@@ -4,6 +4,24 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.14.0] - 2026-06-21
+
+### Added
+- Vetted-knowledge grounding for the `biomarkers` specialist (Emerald RAG). A new read-only `get_biomarker_knowledge` tool retrieves general, source-attributed information about a biomarker from Emerald's knowledge base (https://withemerald.com/knowledge/biomarker), backed by a pgvector vector store. ~119 biomarker pages (1,548 chunks) are embedded with OpenAI `text-embedding-3-small` into the `emerald_biomarker_kb` collection.
+- `whoopdata/knowledge/` package: `biomarker_kb.py` (shared `PGVector` store builder that degrades gracefully to `None`/fallback when Postgres or pgvector is unavailable) and `ingest_biomarker_kb.py` (`python -m` ingestion: recursive markdown walk, header-aware chunking, deterministic ids for idempotent upserts, and a lenient parser for frontmatter whose values contain unquoted colons).
+- `tests/test_biomarker_kb_ingest.py`: frontmatter/chunk-metadata parsing and the retrieval tool's graceful-fallback path.
+
+### Changed
+- The `biomarkers` sub-agent prompt (`data/prompts/agents/biomarkers_sub_agent.md`) now treats `get_biomarker_knowledge` as the primary education source and forbids attributing anything to Emerald that a tool call did not return in the same turn -- preventing fabricated "Per Emerald" attribution sourced from the model's own memory. The no-bridging serving contract is unchanged: general knowledge is served stand-alone and never tied to the user's own value.
+- `docs/features/BIOMARKER_INTENDED_PURPOSE.md`: added a "vetted knowledge grounding" amendment. The KB is a general, non-personalised, source-attributed library (not a device function); the medical-purpose risk is *juxtaposition* with the user's value, controlled by the serving contract rather than by stripping the corpus.
+- `docker-compose.yml`: the Postgres service now uses `pgvector/pgvector:pg16` (a superset of stock `postgres:16`) so a single instance serves both agent persistence and the biomarker KB.
+- Dependencies: added `langchain-postgres` and `pgvector`.
+
+### Notes
+- The `get_biomarker_knowledge` tool is given only to the biomarker specialist, not the supervisor, so the no-bridging guardrail stays in a single prompt; the supervisor is where the user's value and general knowledge would otherwise be juxtaposed.
+- The scraped Emerald corpus is not committed (the `data/` directory is gitignored); it is reproducible by re-running `python -m whoopdata.knowledge.ingest_biomarker_kb`.
+- Operators with an existing stock-`postgres:16` agent-persistence container must recreate it on the pgvector image (`pg_dump` -> recreate -> `pg_restore`) to enable the KB. Until then the retrieval tool degrades gracefully and the agent falls back to the `get_biomarker_education` glossary.
+
 ## [3.13.1] - 2026-06-20
 
 ### Fixed

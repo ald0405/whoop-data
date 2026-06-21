@@ -1,5 +1,6 @@
 """Agent tools for health data retrieval."""
 
+import asyncio
 import httpx
 import json
 from langchain_core.tools import tool
@@ -1071,10 +1072,12 @@ async def get_biomarker_results_tool(category: str = None) -> str:
             db.close()
 
         if not all_rows:
-            return json.dumps({
-                "results": [],
-                "note": "No biomarker report has been loaded for this user.",
-            })
+            return json.dumps(
+                {
+                    "results": [],
+                    "note": "No biomarker report has been loaded for this user.",
+                }
+            )
 
         rows = all_rows
         note = None
@@ -1083,7 +1086,8 @@ async def get_biomarker_results_tool(category: str = None) -> str:
             # Lenient match on body-system category OR biomarker name, so the
             # caller never has to guess the exact category string.
             filtered = [
-                r for r in all_rows
+                r
+                for r in all_rows
                 if term in (r.get("category") or "").lower()
                 or term in (r.get("source_biomarker_name") or "").lower()
             ]
@@ -1099,7 +1103,9 @@ async def get_biomarker_results_tool(category: str = None) -> str:
 
         payload = {
             "report": {
-                "taken_on": report.taken_on.date().isoformat() if report and report.taken_on else None,
+                "taken_on": (
+                    report.taken_on.date().isoformat() if report and report.taken_on else None
+                ),
                 "lab_provider": report.lab_provider if report else None,
             },
             "results": rows,
@@ -1139,17 +1145,97 @@ async def get_biomarker_education_tool(biomarker: str) -> str:
             db.close()
 
         if entry is None:
-            return json.dumps({
-                "biomarker": biomarker,
-                "note": "No generic education is available for this biomarker.",
-            })
-        return json.dumps({
-            "biomarker": entry.source_biomarker_name,
-            "what_it_is": entry.what_it_is,
-            "physiological_function": entry.physiological_function,
-        }, indent=2)
+            return json.dumps(
+                {
+                    "biomarker": biomarker,
+                    "note": "No generic education is available for this biomarker.",
+                }
+            )
+        return json.dumps(
+            {
+                "biomarker": entry.source_biomarker_name,
+                "what_it_is": entry.what_it_is,
+                "physiological_function": entry.physiological_function,
+            },
+            indent=2,
+        )
     except Exception as e:
         return f"Error retrieving biomarker education: {str(e)}"
+
+
+@tool(
+    "get_biomarker_knowledge",
+    description=(
+        "Look up vetted, source-attributed general knowledge about a biomarker from "
+        "Emerald's knowledge base, including what elevated or low levels generally "
+        "indicate. This is GENERAL reference material, NOT about the user's own value. "
+        "Use it to enrich education; never connect what is returned to the user's "
+        "specific result. Returns relevant passages with their Emerald source URL."
+    ),
+)
+async def get_biomarker_knowledge_tool(query: str, biomarker: str = None) -> str:
+    """Retrieve vetted general knowledge passages about a biomarker.
+
+    Args:
+        query: What to look up, e.g. "what does elevated LDL indicate".
+        biomarker: Optional biomarker name to scope the search, e.g. "LDL Cholesterol".
+
+    Returns:
+        JSON string of source-attributed passages, or a note when the knowledge
+        base is unavailable (so the caller falls back to get_biomarker_education).
+    """
+    try:
+        from whoopdata.knowledge.biomarker_kb import get_kb_store
+
+        store = get_kb_store()
+        if store is None:
+            return json.dumps(
+                {
+                    "passages": [],
+                    "note": (
+                        "Vetted knowledge base is unavailable; use get_biomarker_education "
+                        "for generic education instead."
+                    ),
+                }
+            )
+
+        k = settings.BIOMARKER_KB_TOP_K
+
+        # PGVector.similarity_search is sync/blocking; offload to a thread so this
+        # async tool doesn't stall the event loop. Filter uses the documented
+        # operator syntax ({"field": {"$eq": value}}).
+        def _search(flt):
+            return store.similarity_search(query, k=k, filter=flt)
+
+        hits = []
+        if biomarker:
+            hits = await asyncio.to_thread(_search, {"biomarker": {"$eq": biomarker}})
+        if not hits:
+            # No biomarker given, or the scoped filter matched nothing — fall back
+            # to an unfiltered semantic search.
+            hits = await asyncio.to_thread(_search, None)
+
+        if not hits:
+            return json.dumps(
+                {
+                    "passages": [],
+                    "note": "No vetted knowledge matched this query.",
+                }
+            )
+
+        passages = [
+            {
+                "content": doc.page_content,
+                "biomarker": doc.metadata.get("biomarker"),
+                "section": doc.metadata.get("section"),
+                "source": doc.metadata.get("source", "Emerald"),
+                "source_url": doc.metadata.get("source_url"),
+            }
+            for doc in hits
+        ]
+        return json.dumps({"passages": passages}, indent=2, default=str)
+    except Exception as e:
+        return f"Error retrieving biomarker knowledge: {str(e)}"
 
 
 TOOLS_BY_NAME: dict[str, object] = {}
@@ -1200,6 +1286,7 @@ AVAILABLE_TOOLS = [
     # Biomarker Tools (Phase 0 prototype)
     get_biomarker_results_tool,
     get_biomarker_education_tool,
+    get_biomarker_knowledge_tool,
 ]
 
 # Populate name-based lookup
