@@ -4,6 +4,11 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.14.1] - 2026-06-22
+
+### Changed
+- Supervisor coach personality (`data/prompts/agents/supervisor.md`): swapped Bob Mortimer for fictional secret agent Sterling Archer. "Mortimer's absurdity" becomes "Archer's swagger" (cocky one-liners, sardonic quips, the odd "danger zone" bravado); the example-tone label is updated to match. Tone tweak only -- no behavioural or routing change.
+
 ## [3.14.0] - 2026-06-21
 
 ### Added
