@@ -4,6 +4,25 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.15.0] - 2026-06-24
+
+### Added
+- Blood-test PDF ingestion: upload a lab-report PDF and have its results extracted and written to the biomarker tables, replacing the previous by-hand `PDF → JSON` step.
+  - `whoopdata/biomarkers/pdf_ingest.py`: pure extractor (no DB writes) that emits the existing seed JSON contract. Text-first (`pdfplumber`) for digital PDFs, with a vision fallback (`PyMuPDF` page render → OpenAI vision) for scanned ones. Structured output via a Pydantic schema; results are mapped to the neutral body-system categories and out-of-list/disease headers are dropped. Model configurable via `BIOMARKER_OCR_MODEL` (default `gpt-4o`).
+  - `whoopdata/biomarkers/ingest_service.py`: single shared write path (`write_report` / `summarise` / `dedupe_results`) reused by the seed script, the CLI, and Telegram, preserving the truncate-and-load single-timepoint invariant.
+  - `scripts/ingest_blood_test_pdf.py`: CLI that defaults to a dry-run preview; `--commit` writes, `--out` dumps the extracted JSON for eyeballing.
+  - Telegram: send a PDF to the bot → it extracts, replies with a preview, and offers **Confirm & save / Cancel** inline buttons; only an authorised user can save, and the write happens only on confirm.
+- `tests/test_pdf_ingest.py` and `tests/test_telegram_blood_upload.py`: extraction dispatch/normalisation (LLM mocked), the write path against an isolated temp SQLite (`lab_status` never surfaced), and the Telegram confirm/cancel/expired-token flow.
+
+### Changed
+- `scripts/seed_biomarkers.py` refactored to use the shared `ingest_service` write path (no behaviour change).
+- Dependencies: added `pdfplumber` and `PyMuPDF`.
+- `docs/features/BIOMARKER_INTENDED_PURPOSE.md`: documented PDF ingestion as a read-only extraction mechanism with human confirmation that does not change the display-only intended purpose or the single-timepoint constraint.
+
+### Notes
+- Extraction is read-only and the destructive truncate-and-load only runs after explicit confirmation (CLI `--commit` / Telegram button), guarding against an OCR misread overwriting the stored report.
+- Blood-test PDFs are PHI: uploaded files are processed via OpenAI (consistent with the existing agent data flow) and are not committed (`data/` is gitignored, including the Telegram `data/biomarkers/pending/` staging dir).
+
 ## [3.14.1] - 2026-06-22
 
 ### Changed
