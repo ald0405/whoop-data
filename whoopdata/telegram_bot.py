@@ -681,9 +681,7 @@ class TelegramConversationGateway:
             chat_type=chat_type,
         )
 
-    def _build_response_messages(
-        self, assistant_message: str
-    ) -> list[OutboundTelegramMessage]:
+    def _build_response_messages(self, assistant_message: str) -> list[OutboundTelegramMessage]:
         """build response messages.
 
         Args:
@@ -1243,6 +1241,153 @@ async def video_message(update, context) -> None:
     await _reply(update, responses)
 
 
+_PENDING_BLOODS_DIR = "data/biomarkers/pending"
+
+
+def _stash_pending_bloods(payload: dict) -> str:
+    """Persist an extracted report between the upload and the confirm tap."""
+    import json
+    import secrets
+    from pathlib import Path
+
+    out_dir = Path(_PENDING_BLOODS_DIR)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    token = secrets.token_hex(8)
+    (out_dir / f"{token}.json").write_text(json.dumps(payload))
+    return token
+
+
+def _load_pending_bloods(token: str) -> dict | None:
+    import json
+    from pathlib import Path
+
+    if not re.fullmatch(r"[0-9a-f]{16}", token or ""):
+        return None
+    path = Path(_PENDING_BLOODS_DIR) / f"{token}.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text())
+
+
+def _discard_pending_bloods(token: str) -> None:
+    from pathlib import Path
+
+    if not re.fullmatch(r"[0-9a-f]{16}", token or ""):
+        return
+    Path(_PENDING_BLOODS_DIR).joinpath(f"{token}.json").unlink(missing_ok=True)
+
+
+async def document_message(update, context) -> None:
+    """Handle an uploaded blood-test PDF: extract, preview, and offer to save.
+
+    Extraction is read-only; nothing is written until the user taps Confirm
+    (see :func:`biomarker_document_callback`). The save itself is a destructive
+    truncate-and-load, so the confirm step is required.
+    """
+    gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
+    user = update.effective_user
+    chat = update.effective_chat
+    message = update.effective_message
+
+    if not gateway.is_authorized(
+        user_id=getattr(user, "id", None),
+        chat_id=getattr(chat, "id", None),
+        chat_type=getattr(chat, "type", None),
+    ):
+        await message.reply_text("Sorry, you're not authorised to upload data here.")
+        return
+
+    document = getattr(message, "document", None)
+    if document is None:
+        return
+    file_name = getattr(document, "file_name", "") or "upload.pdf"
+    mime = getattr(document, "mime_type", "") or ""
+    if not (mime == "application/pdf" or file_name.lower().endswith(".pdf")):
+        await message.reply_text("Please send a PDF blood-test report.")
+        return
+
+    await message.reply_text("\U0001f4c4 Reading your blood test… this can take a moment.")
+    try:
+        tg_file = await document.get_file()
+        pdf_bytes = bytes(await tg_file.download_as_bytearray())
+    except Exception:
+        logger.exception("Failed to download document from Telegram")
+        await message.reply_text("Sorry, I couldn't download that file.")
+        return
+
+    from whoopdata.biomarkers.ingest_service import summarise
+    from whoopdata.biomarkers.pdf_ingest import extract_report_from_pdf
+
+    try:
+        payload = await asyncio.to_thread(extract_report_from_pdf, pdf_bytes, file_name)
+    except Exception:
+        logger.exception("Blood-test extraction failed")
+        await message.reply_text("Sorry, I couldn't read that report. Is it a lab PDF?")
+        return
+
+    if not payload.get("results"):
+        await message.reply_text("I couldn't find any results in that PDF.")
+        return
+
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    token = _stash_pending_bloods(payload)
+    summary = summarise(payload["report"], payload["results"])
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("✅ Confirm & save", callback_data=f"bmconf:{token}"),
+                InlineKeyboardButton("❌ Cancel", callback_data=f"bmcanc:{token}"),
+            ]
+        ]
+    )
+    await message.reply_text(
+        "Here's what I extracted. Saving will *replace* any existing report.\n\n"
+        f"{summary}\n\nConfirm to save?",
+        reply_markup=keyboard,
+    )
+
+
+async def biomarker_document_callback(update, context) -> None:
+    """Handle the Confirm/Cancel tap for a previewed blood-test upload."""
+    gateway: TelegramConversationGateway = context.application.bot_data["gateway"]
+    query = update.callback_query
+    await query.answer()
+
+    user = update.effective_user
+    chat = update.effective_chat
+    if not gateway.is_authorized(
+        user_id=getattr(user, "id", None),
+        chat_id=getattr(chat, "id", None),
+        chat_type=getattr(chat, "type", None),
+    ):
+        await query.edit_message_text("Sorry, you're not authorised to do that.")
+        return
+
+    action, _, token = (query.data or "").partition(":")
+    payload = _load_pending_bloods(token)
+    if payload is None:
+        await query.edit_message_text("That upload has expired. Please send the PDF again.")
+        return
+
+    if action == "bmcanc":
+        _discard_pending_bloods(token)
+        await query.edit_message_text("Cancelled — nothing was saved.")
+        return
+
+    from whoopdata.biomarkers.ingest_service import write_report
+
+    try:
+        count = await asyncio.to_thread(write_report, payload)
+    except Exception:
+        logger.exception("Failed to write uploaded blood-test report")
+        await query.edit_message_text("Sorry, saving failed. Nothing was changed.")
+        return
+
+    _discard_pending_bloods(token)
+    await query.edit_message_text(f"✅ Saved {count} biomarker results from your report.")
+
+
 async def error_handler(update, context) -> None:
     """Error handler.
 
@@ -1281,7 +1426,13 @@ def build_application(gateway: TelegramConversationGateway | None = None):
     if not TELEGRAM_BOT_TOKEN:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is required to start the Telegram bot")
 
-    from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
+    from telegram.ext import (
+        ApplicationBuilder,
+        CallbackQueryHandler,
+        CommandHandler,
+        MessageHandler,
+        filters,
+    )
 
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
     application.bot_data["gateway"] = gateway or _build_gateway()
@@ -1292,6 +1443,10 @@ def build_application(gateway: TelegramConversationGateway | None = None):
     application.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, voice_message))
     application.add_handler(MessageHandler(filters.PHOTO, photo_message))
     application.add_handler(MessageHandler(filters.VIDEO | filters.VIDEO_NOTE, video_message))
+    application.add_handler(MessageHandler(filters.Document.PDF, document_message))
+    application.add_handler(
+        CallbackQueryHandler(biomarker_document_callback, pattern=r"^bm(conf|canc):")
+    )
     application.add_error_handler(error_handler)
     return application
 

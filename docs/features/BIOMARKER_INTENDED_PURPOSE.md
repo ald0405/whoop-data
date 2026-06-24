@@ -104,6 +104,23 @@ serving time by the sub-agent prompt's no-bridging contract.
 
 ---
 
+## Ingestion: PDF → structured results (does not change the purpose)
+
+A lab report can be loaded from a **PDF** (`whoopdata/biomarkers/pdf_ingest.py`): digital PDFs are
+read as text, scanned ones rendered to page images, then an LLM produces structured rows mapped to
+the **neutral body-system categories** (disease/condition headers are dropped, same as before). This
+is an *ingestion* mechanism only — it does not add interpretation, prediction, or a medical purpose;
+the output is the same value + lab's-own-range + body-system data the analyser has always displayed.
+
+Two controls apply:
+- **Human confirmation before write.** Extraction is read-only; the destructive truncate-and-load
+  only runs after the user confirms a preview (CLI `--commit`; Telegram confirm button). This guards
+  against an OCR misread silently overwriting the stored report.
+- **Single timepoint preserved.** The write path is the same truncate-and-load
+  (`whoopdata/biomarkers/ingest_service.py` → `crud.replace_report`), so only one result set exists.
+
+---
+
 ## Operative spec for code
 
 The **"does NOT" list above is the specification** for:
@@ -116,6 +133,9 @@ The **"does NOT" list above is the specification** for:
   tested by `tests/test_biomarker_boundary.py`,
 - the knowledge layer: vetted Emerald markdown is embedded into pgvector
   (`whoopdata/knowledge/ingest_biomarker_kb.py`) and served read-only as general, source-attributed
-  passages by `get_biomarker_knowledge` (`whoopdata/knowledge/biomarker_kb.py`).
+  passages by `get_biomarker_knowledge` (`whoopdata/knowledge/biomarker_kb.py`),
+- the ingestion layer: PDF→structured extraction (`whoopdata/biomarkers/pdf_ingest.py`) is read-only
+  and writes only via the shared, confirmed truncate-and-load path
+  (`whoopdata/biomarkers/ingest_service.py`).
 
 If any line here changes, those implementations must change with it.

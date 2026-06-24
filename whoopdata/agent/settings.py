@@ -42,6 +42,9 @@ BIOMARKER_KB_POSTGRES_URL = os.getenv("BIOMARKER_KB_POSTGRES_URL", AGENT_POSTGRE
 BIOMARKER_KB_COLLECTION = os.getenv("BIOMARKER_KB_COLLECTION", "emerald_biomarker_kb")
 BIOMARKER_KB_EMBEDDING_MODEL = os.getenv("BIOMARKER_KB_EMBEDDING_MODEL", "text-embedding-3-small")
 BIOMARKER_KB_TOP_K = int(os.getenv("BIOMARKER_KB_TOP_K", "4"))
+# Vision-capable model used to extract structured results from a blood-test PDF
+# (whoopdata/biomarkers/pdf_ingest.py). Must support image input + structured output.
+BIOMARKER_OCR_MODEL = os.getenv("BIOMARKER_OCR_MODEL", "gpt-4o")
 # Proactive coach configuration (settings-only single source of truth)
 # Used by: whoopdata/services/proactive_coach.py
 PROACTIVE_COACH_ENABLED = True
