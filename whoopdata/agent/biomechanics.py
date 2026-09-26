@@ -13,7 +13,6 @@ to the biomechanics specialist tool — both paths share memory.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
 from langchain.agents import create_agent
@@ -22,33 +21,15 @@ from langchain_core.messages import AIMessage, HumanMessage
 from .memory_tools import manage_memory, search_memory
 from .model_config_loader import get_specialist_model_config
 from .model_factory import build_chat_model
+from .prompts import load_prompt
 from .schemas import HealthContextSchema
 
 logger = logging.getLogger(__name__)
 
-_PROMPTS_DIR = Path(__file__).parent.parent.parent / "data" / "prompts" / "agents"
 _BIOMECHANICS_PROMPT_FILE = "biomechanics_sub_agent.md"
 
 # Module-level cache for the compiled agent
 _cached_agent = None
-
-
-def _load_system_prompt() -> str:
-    """Load the biomechanics specialist system prompt from disk.
-
-    Returns:
-        The system prompt text, or an empty string if the file is missing.
-
-    Example:
-        >>> prompt = _load_system_prompt()
-        >>> "Biomechanics" in prompt
-        True
-    """
-    path = _PROMPTS_DIR / _BIOMECHANICS_PROMPT_FILE
-    if path.exists():
-        return path.read_text()
-    logger.warning("Biomechanics prompt file not found at %s", path)
-    return ""
 
 
 def build_biomechanics_agent():
@@ -71,7 +52,7 @@ def build_biomechanics_agent():
         return _cached_agent
 
     model = build_chat_model(get_specialist_model_config("biomechanics"))
-    system_prompt = _load_system_prompt()
+    system_prompt = load_prompt(_BIOMECHANICS_PROMPT_FILE)
 
     _cached_agent = create_agent(
         model=model,

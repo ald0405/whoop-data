@@ -1,5 +1,4 @@
 from __future__ import annotations
-import inspect
 
 from pathlib import Path
 
@@ -7,30 +6,19 @@ import pandas as pd
 import yaml
 
 from whoopdata.analysis.whoop_client import Whoop as AnalysisWhoop
-from whoopdata.analysis.whoop_client_fast import WhoopFast
-from whoopdata.analysis.whoop_client_nodes import WhoopNodes
-from whoopdata.analysis.whoop_simple import WhoopSimple
-from whoopdata.clients.whoop_client import Whoop as LegacyWhoop
 from whoopdata.model_transformation import transform_sleep, transform_workout
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_all_maintained_whoop_clients_use_v2_endpoints():
-    client_classes = [AnalysisWhoop, WhoopFast, WhoopNodes, LegacyWhoop]
-
-    for client_cls in client_classes:
-        for endpoint in client_cls.ENDPOINTS.values():
-            assert "/developer/v2/" in endpoint
-            assert "/developer/v1/" not in endpoint
-
-    whoop_simple_source = inspect.getsource(WhoopSimple)
-    assert "/developer/v2/" in whoop_simple_source
-    assert "/developer/v1/" not in whoop_simple_source
+def test_whoop_client_uses_v2_endpoints():
+    for endpoint in AnalysisWhoop.ENDPOINTS.values():
+        assert "/developer/v2/" in endpoint
+        assert "/developer/v1/" not in endpoint
 
 
-def test_legacy_client_maps_v2_zone_durations_fields():
-    client = LegacyWhoop(client_id="x", client_secret="y")
+def test_whoop_client_maps_v2_zone_durations_fields():
+    client = AnalysisWhoop(client_id="x", client_secret="y")
     df = pd.DataFrame(
         [
             {

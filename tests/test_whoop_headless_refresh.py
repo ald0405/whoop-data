@@ -4,7 +4,9 @@ import json
 import urllib.parse
 
 from whoopdata.analysis.whoop_client import Whoop as AnalysisWhoop
-from whoopdata.clients.whoop_client import Whoop as LegacyWhoop
+import pytest
+
+from whoopdata.clients.withings_client import WithingsClient
 from scripts import scheduled_etl
 
 
@@ -22,7 +24,8 @@ def test_analysis_client_credentials_persists_refresh_metadata(monkeypatch):
     client = AnalysisWhoop(client_id="client-id", client_secret="client-secret")
     saved = {}
 
-    def fake_post(url, data=None, headers=None):
+    def fake_post(url, data=None, headers=None, timeout=None):
+        assert timeout is not None
         assert data["grant_type"] == "client_credentials"
         assert "offline" in data["scope"].split()
         return DummyResponse(
@@ -48,8 +51,8 @@ def test_analysis_client_credentials_persists_refresh_metadata(monkeypatch):
     assert saved["expires_at"] is not None
 
 
-def test_legacy_client_auth_url_requests_offline_scope(monkeypatch):
-    client = LegacyWhoop(client_id="client-id", client_secret="client-secret")
+def test_analysis_client_auth_url_requests_offline_scope(monkeypatch):
+    client = AnalysisWhoop(client_id="client-id", client_secret="client-secret")
     captured = {}
 
     class DummyServer:
@@ -82,6 +85,7 @@ def test_legacy_client_auth_url_requests_offline_scope(monkeypatch):
     monkeypatch.setattr("threading.Thread", DummyThread)
     monkeypatch.setattr("webbrowser.open", fake_open)
     monkeypatch.setattr("time.sleep", fake_sleep)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
 
     try:
         client._authenticate_authorization_code()
@@ -95,6 +99,27 @@ def test_legacy_client_auth_url_requests_offline_scope(monkeypatch):
     scope = params["scope"][0].split()
     assert "offline" in scope
     assert "read:recovery" in scope
+
+
+@pytest.mark.parametrize(
+    "make_client",
+    [
+        lambda: AnalysisWhoop(client_id="client-id", client_secret="client-secret"),
+        lambda: WithingsClient(client_id="client-id", client_secret="client-secret"),
+    ],
+    ids=["whoop", "withings"],
+)
+def test_interactive_auth_fails_fast_without_terminal(monkeypatch, make_client):
+    client = make_client()
+
+    def fail_open(_url):
+        raise AssertionError("must not open a browser when headless")
+
+    monkeypatch.setattr("webbrowser.open", fail_open)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+    with pytest.raises(RuntimeError, match="no terminal is attached"):
+        client._authenticate_authorization_code()
 
 
 def test_scheduled_etl_audit_entry_summarizes_results():

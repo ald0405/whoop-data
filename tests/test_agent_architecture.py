@@ -238,24 +238,38 @@ class TestPrompts:
     """Verify prompts exist and are well-formed."""
 
     def test_supervisor_prompt_exists(self):
-        from whoopdata.agent.prompts import SUPERVISOR_SYSTEM_PROMPT
+        from whoopdata.agent.prompts import build_supervisor_prompt
+
+        SUPERVISOR_SYSTEM_PROMPT = build_supervisor_prompt()
 
         assert len(SUPERVISOR_SYSTEM_PROMPT) > 100
 
     def test_supervisor_prompt_mentions_specialists(self):
-        from whoopdata.agent.prompts import SUPERVISOR_SYSTEM_PROMPT
+        from whoopdata.agent.prompts import build_supervisor_prompt
+
+        SUPERVISOR_SYSTEM_PROMPT = build_supervisor_prompt()
 
         assert "health data" in SUPERVISOR_SYSTEM_PROMPT.lower()
         assert "analytics" in SUPERVISOR_SYSTEM_PROMPT.lower()
         assert "environment" in SUPERVISOR_SYSTEM_PROMPT.lower()
 
     def test_supervisor_prompt_includes_day_of_briefing_instruction(self):
-        from whoopdata.agent.prompts import SUPERVISOR_SYSTEM_PROMPT
+        from whoopdata.agent.prompts import build_supervisor_prompt
+
+        SUPERVISOR_SYSTEM_PROMPT = build_supervisor_prompt()
 
         prompt = SUPERVISOR_SYSTEM_PROMPT.lower()
         assert "set me up for today" in prompt
         assert "recovery score" in prompt
         assert "weather" in prompt
+
+    def test_supervisor_prompt_date_is_rendered_per_call(self):
+        from datetime import datetime
+
+        from whoopdata.agent.prompts import build_supervisor_prompt
+
+        assert "Saturday, 26 September 2026" in build_supervisor_prompt(datetime(2026, 9, 26))
+        assert "Sunday, 27 September 2026" in build_supervisor_prompt(datetime(2026, 9, 27))
 
     def test_exercise_prompt_file_exists(self):
         path = (

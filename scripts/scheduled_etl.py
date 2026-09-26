@@ -21,6 +21,8 @@ import traceback
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
+
+from whoopdata.logging_config import configure_logging
 from whoopdata.agent import settings
 
 # Ensure the project root is on the path so "whoopdata" is importable
@@ -30,10 +32,7 @@ os.chdir(PROJECT_ROOT)
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+configure_logging()
 logger = logging.getLogger("scheduled_etl")
 LOGS_DIR = os.path.join(PROJECT_ROOT, "logs")
 AUDIT_LOG_PATH = os.path.join(LOGS_DIR, "etl-audit.log")
