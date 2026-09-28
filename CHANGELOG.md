@@ -4,6 +4,21 @@ All notable changes to the WHOOP Data Platform will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.15.1] - 2026-09-26
+
+### Fixed
+- **Telegram bot token leaked into logs.** httpx logs every request URL at INFO, and Telegram Bot API URLs embed the token, so `logs/telegram-stderr.log` accumulated the token in plaintext on every poll (~1.5M lines). New `whoopdata/logging_config.configure_logging()` is used by the bot and all `scripts/scheduled_*.py` jobs and pins `httpx`/`httpcore` to WARNING. The import-time `logging.basicConfig(filename=..., filemode="w")` calls in the WHOOP/Withings clients are removed so entry points own logging config.
+- **Agent hard-failed when Postgres was down.** `whoopdata/agent/persistence.py` only fell back to in-memory storage when `AGENT_POSTGRES_URL` was unset; an unreachable server made every Telegram message and every morning/proactive/weakness push fail (seen after a power cut, 2026-09-25/26). It now opens a health-checked `psycopg_pool.AsyncConnectionPool` (survives Postgres restarts without a process restart), degrades to `InMemorySaver`/`InMemoryStore` with a warning if Postgres is unreachable, and retries Postgres after a 60s cooldown. `ConversationService` rebuilds its graph when the persistence backend changes.
+- **Scheduled jobs blocked for ~5 minutes with no network.** When token refresh failed, the WHOOP client fell back to the browser authorization-code flow and polled for a callback for 300s. The WHOOP and Withings interactive flows now raise immediately when no terminal is attached, and every `requests` call has a 30s timeout.
+- **Stale date in the supervisor prompt.** "Today is ..." was rendered once at import, so the long-running bot kept the start-up date after midnight. The prompt is now rendered per model call via a `dynamic_prompt` middleware.
+
+### Removed
+- Dead WHOOP clients with no production importers: `whoopdata/clients/whoop_client.py` (near-duplicate of `analysis/whoop_client.py`), `analysis/whoop_client_fast.py`, `analysis/whoop_client_nodes.py`, `analysis/whoop_simple.py`, `analysis/test.py`, and the unused hand-built graph `whoopdata/agent/nodes.py`. Their tests now target `analysis/whoop_client.py`.
+
+### Changed
+- One shared `prompts.load_prompt()` replaces three copies of the prompt-file loader (`prompts.py`, `registry.py`, `biomechanics.py`).
+- `tests/test_agent_persistence.py`: in-memory fallback on an unreachable server, reconnect after cooldown, and fallback stability across failed retries. Headless-auth fail-fast test for both clients; per-call date rendering test.
+
 ## [3.15.0] - 2026-06-24
 
 ### Added

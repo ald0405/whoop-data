@@ -1,6 +1,7 @@
 import requests
 import json
 import os
+import sys
 import logging
 import pandas as pd
 from datetime import datetime, timedelta
@@ -8,20 +9,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Network timeout for every API call; without it a dead network hangs scheduled jobs.
+REQUEST_TIMEOUT_SECONDS = 30
+
 
 class WithingsClient:
     """
     Withings API client with OAuth 2.0 authentication
     Based on official Withings API documentation
     """
-
-    # Set up logging
-    logging.basicConfig(
-        filename="withings_log.log",
-        filemode="w",
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-    )
 
     # Withings API URLs
     BASE_URL = "https://wbsapi.withings.net"
@@ -142,7 +138,7 @@ class WithingsClient:
         }
 
         try:
-            r = requests.post(self.TOKEN_URL, data=data)
+            r = requests.post(self.TOKEN_URL, data=data, timeout=REQUEST_TIMEOUT_SECONDS)
             if r.status_code == 200:
                 response_data = r.json()
                 if response_data.get("status") == 0:  # Withings uses status 0 for success
@@ -184,6 +180,13 @@ class WithingsClient:
     def _authenticate_authorization_code(self):
         """Authenticate using authorization code flow with local callback server"""
         self.logger.info("Starting Withings Authorization Code Flow Authentication")
+        if not sys.stdin.isatty():
+            # Scheduled/launchd jobs have no terminal or browser; fail fast and let the
+            # next run retry the token refresh instead of blocking on a callback.
+            raise RuntimeError(
+                "Withings needs interactive re-authorization but no terminal is attached; "
+                "run `make etl` from a terminal to re-authorize."
+            )
 
         import urllib.parse
         import webbrowser
@@ -207,10 +210,8 @@ class WithingsClient:
         bind_host = "127.0.0.1" if callback_host in {"localhost", "127.0.0.1"} else callback_host
 
         class CallbackHandler(BaseHTTPRequestHandler):
-            """CallbackHandler type definition.
+            """CallbackHandler type definition."""
 
-            
-            """
             def log_message(self, format, *args):
                 """Log message.
 
@@ -226,7 +227,7 @@ class WithingsClient:
                     result = log_message(format=...)
                     _ = result
 
-                
+
                 """
                 pass
 
@@ -241,7 +242,7 @@ class WithingsClient:
                     result = do_GET()
                     _ = result
 
-                
+
                 """
                 nonlocal auth_code
                 if self.path.startswith("/callback"):
@@ -339,7 +340,7 @@ class WithingsClient:
             "redirect_uri": self.callback_url,
         }
 
-        r = requests.post(self.TOKEN_URL, data=data)
+        r = requests.post(self.TOKEN_URL, data=data, timeout=REQUEST_TIMEOUT_SECONDS)
 
         if r.status_code != 200:
             self.logger.error(f"Token exchange failed: {r.status_code} - {r.text}")
@@ -389,13 +390,17 @@ class WithingsClient:
 
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        response = requests.post(self.MEASURE_URL, data=params, headers=headers)
+        response = requests.post(
+            self.MEASURE_URL, data=params, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS
+        )
 
         if response.status_code == 401:
             # Try to refresh token and retry once
             if self.refresh_token and self._refresh_access_token():
                 params["access_token"] = self.access_token
-                response = requests.post(self.MEASURE_URL, data=params, headers=headers)
+                response = requests.post(
+                    self.MEASURE_URL, data=params, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS
+                )
 
         if response.status_code != 200:
             raise Exception(f"API request failed: {response.status_code} - {response.text}")

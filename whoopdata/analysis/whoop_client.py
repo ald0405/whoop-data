@@ -2,11 +2,15 @@ import requests
 import logging
 import pandas as pd
 import os
+import sys
 import json
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Network timeout for every API call; without it a dead network hangs scheduled jobs.
+REQUEST_TIMEOUT_SECONDS = 30
 
 
 class Whoop:
@@ -14,13 +18,6 @@ class Whoop:
     Authenticate & Process Data w/Whoop
     """
 
-    # Set up logging
-    logging.basicConfig(
-        filename="whoops_log.log",
-        filemode="w",
-        level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-    )
     TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token"  # OAuth 2.0 token endpoint
 
     ENDPOINTS = {
@@ -129,7 +126,9 @@ class Whoop:
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
         try:
-            r = requests.post(self.TOKEN_URL, data=data, headers=headers)
+            r = requests.post(
+                self.TOKEN_URL, data=data, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS
+            )
             if r.status_code == 200:
                 response_data = r.json()
                 self.access_token = response_data["access_token"]
@@ -187,7 +186,9 @@ class Whoop:
 
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        r = requests.post(self.TOKEN_URL, data=data, headers=headers)
+        r = requests.post(
+            self.TOKEN_URL, data=data, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS
+        )
 
         if r.status_code != 200:
             self.logger.error(
@@ -209,6 +210,13 @@ class Whoop:
     def _authenticate_authorization_code(self):
         """Authenticate using authorization code flow (requires user interaction)"""
         self.logger.info("Starting Authorization Code Flow Authentication")
+        if not sys.stdin.isatty():
+            # Scheduled/launchd jobs have no terminal or browser; fail fast and let the
+            # next run retry the token refresh instead of blocking on a callback.
+            raise RuntimeError(
+                "WHOOP needs interactive re-authorization but no terminal is attached; "
+                "run `make etl` from a terminal to re-authorize."
+            )
 
         # For authorization code flow, we need to:
         # 1. Create authorization URL
@@ -237,6 +245,7 @@ class Whoop:
 
         class CallbackHandler(BaseHTTPRequestHandler):
             """CallbackHandler type definition."""
+
             def log_message(self, format, *args):
                 # Suppress default logging to avoid cluttering output
                 """Log message.
@@ -350,7 +359,9 @@ class Whoop:
 
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
-        r = requests.post(self.TOKEN_URL, data=data, headers=headers)
+        r = requests.post(
+            self.TOKEN_URL, data=data, headers=headers, timeout=REQUEST_TIMEOUT_SECONDS
+        )
 
         if r.status_code != 200:
             self.logger.error(f"Token exchange failed: {r.status_code} - {r.text}")
@@ -528,7 +539,9 @@ class Whoop:
         if end:
             params["end"] = end
         while True:
-            raw_response = requests.get(self.data_endpoint, headers=headers, params=params)
+            raw_response = requests.get(
+                self.data_endpoint, headers=headers, params=params, timeout=REQUEST_TIMEOUT_SECONDS
+            )
 
             # Handle rate limiting
             if raw_response.status_code == 429:

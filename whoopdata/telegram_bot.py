@@ -20,6 +20,7 @@ from whoopdata.agent import settings as agent_settings
 from whoopdata.agent.biomechanics import analyze_video as _default_analyze_video
 from whoopdata.agent.conversation_service import ConversationService, get_conversation_service
 from whoopdata.agent.reference_angles import get_phase_reference
+from whoopdata.logging_config import configure_logging
 
 load_dotenv()
 
@@ -1484,5 +1485,5 @@ def main() -> None:
 
 
     """
-    logging.basicConfig(level=logging.INFO)
+    configure_logging()
     asyncio.run(run_bot())

@@ -4,18 +4,7 @@ Each entry defines a specialist that will be wrapped as a tool
 for the supervisor agent to delegate to.
 """
 
-from pathlib import Path
-
-PROMPTS_DIR = Path(__file__).parent.parent.parent / "data" / "prompts" / "agents"
-
-
-def _load_prompt(filename: str) -> str:
-    """Load a prompt from the prompts directory."""
-    path = PROMPTS_DIR / filename
-    if path.exists():
-        return path.read_text()
-    return ""
-
+from .prompts import load_prompt
 
 # ---------------------------------------------------------------------------
 # Specialist registry
@@ -124,7 +113,7 @@ AGENT_REGISTRY: dict[str, dict] = {
             "Use this when the user asks for workout plans, training advice, "
             "or exercise programming."
         ),
-        "system_prompt": _load_prompt("exercise_sub_agent.md"),
+        "system_prompt": load_prompt("exercise_sub_agent.md"),
         "tools": [
             "get_weight_data",
             "get_workout_data",
@@ -141,7 +130,7 @@ AGENT_REGISTRY: dict[str, dict] = {
             "Use this when the user is struggling with adherence, motivation, or forming habits. "
             "Do not use this for raw metric retrieval requests."
         ),
-        "system_prompt": _load_prompt("behaviour_change_sub_agent.md"),
+        "system_prompt": load_prompt("behaviour_change_sub_agent.md"),
         "tools": [
             "get_recovery_data",
             "get_weight_data",
@@ -186,7 +175,7 @@ AGENT_REGISTRY: dict[str, dict] = {
             "Covers tennis serve mechanics (kinetic chain, joint angles, serve phases), "
             "squat and deadlift form assessment, and general movement coaching cues."
         ),
-        "system_prompt": _load_prompt("biomechanics_sub_agent.md"),
+        "system_prompt": load_prompt("biomechanics_sub_agent.md"),
         "tools": [
             "search_memory",
             "manage_memory",
@@ -205,7 +194,7 @@ AGENT_REGISTRY: dict[str, dict] = {
             "general education only — it does NOT interpret the user's own results, say "
             "whether their value is high/low, diagnose, or give medical advice."
         ),
-        "system_prompt": _load_prompt("biomarkers_sub_agent.md"),
+        "system_prompt": load_prompt("biomarkers_sub_agent.md"),
         "tools": [
             "get_biomarker_results",
             "get_biomarker_education",

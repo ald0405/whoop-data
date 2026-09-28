@@ -10,6 +10,8 @@ import traceback
 
 from dotenv import load_dotenv
 
+from whoopdata.logging_config import configure_logging
+
 # Ensure the project root is on the path so "whoopdata" is importable
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
@@ -17,10 +19,7 @@ os.chdir(PROJECT_ROOT)
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+configure_logging()
 logger = logging.getLogger("scheduled_weakness")
 
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_ALLOWED_CHAT_IDS", "").split(",")[0].strip()
